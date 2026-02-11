@@ -1,0 +1,215 @@
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
+
+export default function MemberForm({ open, onOpenChange, member, onSubmit, suggestedId, existingMembers }) {
+  const [formData, setFormData] = useState(member || {
+    member_id: suggestedId || '',
+    full_name: '',
+    phone: '',
+    email: '',
+    address: '',
+    city: '',
+    join_date: format(new Date(), 'yyyy-MM-dd'),
+    status: 'active',
+    monthly_amount: 100,
+    notes: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    
+    // Check for duplicate member_id
+    const duplicate = existingMembers?.find(m => 
+      m.member_id === formData.member_id && m.id !== member?.id
+    );
+    
+    if (duplicate) {
+      setError(`Member ID "${formData.member_id}" is already taken. Please use a different ID.`);
+      return;
+    }
+    
+    setLoading(true);
+    await onSubmit(formData);
+    setLoading(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-semibold">
+            {member ? 'Edit Member' : 'Add New Member'}
+          </DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-sm">
+              {error}
+            </div>
+          )}
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="member_id">Member ID *</Label>
+              <Input
+                id="member_id"
+                value={formData.member_id}
+                onChange={(e) => setFormData({...formData, member_id: e.target.value})}
+                placeholder="MEM-001"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="full_name">Full Name *</Label>
+              <Input
+                id="full_name"
+                value={formData.full_name}
+                onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                placeholder="John Doe"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number *</Label>
+              <Input
+                id="phone"
+                value={formData.phone}
+                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                placeholder="+91 98765 43210"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                placeholder="john@example.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="city">City</Label>
+              <Input
+                id="city"
+                value={formData.city}
+                onChange={(e) => setFormData({...formData, city: e.target.value})}
+                placeholder="Mumbai"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Join Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formData.join_date 
+                      ? format(new Date(formData.join_date), "PPP")
+                      : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={formData.join_date ? new Date(formData.join_date) : undefined}
+                    onSelect={(date) => setFormData({...formData, join_date: date ? format(date, 'yyyy-MM-dd') : ''})}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) => setFormData({...formData, status: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="monthly_amount">Monthly Amount (₹)</Label>
+              <Input
+                id="monthly_amount"
+                type="number"
+                value={formData.monthly_amount}
+                onChange={(e) => setFormData({...formData, monthly_amount: parseFloat(e.target.value)})}
+                placeholder="100"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="address">Address</Label>
+            <Textarea
+              id="address"
+              value={formData.address}
+              onChange={(e) => setFormData({...formData, address: e.target.value})}
+              placeholder="Full address"
+              rows={2}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes</Label>
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => setFormData({...formData, notes: e.target.value})}
+              placeholder="Any additional notes..."
+              rows={2}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading} className="bg-emerald-600 hover:bg-emerald-700">
+              {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {member ? 'Update Member' : 'Add Member'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
