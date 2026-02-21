@@ -1,0 +1,63 @@
+{
+  "name": "Request",
+  "type": "object",
+  "properties": {
+    "request_type": {
+      "type": "string",
+      "enum": [
+        "approval",
+        "question",
+        "complaint",
+        "suggestion",
+        "other"
+      ],
+      "description": "Type of request"
+    },
+    "subject": {
+      "type": "string",
+      "description": "Subject of the request"
+    },
+    "message": {
+      "type": "string",
+      "description": "Detailed message"
+    },
+    "challan_id": {
+      "type": "string",
+      "description": "Related challan if applicable"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "resolved",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default": "medium"
+    },
+    "admin_response": {
+      "type": "string"
+    },
+    "resolved_by": {
+      "type": "string"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "subject",
+    "message",
+    "request_type"
+  ]
+}

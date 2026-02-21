@@ -1,0 +1,89 @@
+{
+  "name": "Challan",
+  "type": "object",
+  "properties": {
+    "challan_number": {
+      "type": "string",
+      "description": "Unique challan number"
+    },
+    "member_id": {
+      "type": "string",
+      "description": "Reference to member"
+    },
+    "member_name": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "monthly",
+        "donation"
+      ],
+      "description": "Type of payment"
+    },
+    "amount": {
+      "type": "number"
+    },
+    "month": {
+      "type": "string",
+      "description": "Month for monthly payment (YYYY-MM format)"
+    },
+    "months_covered": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of months covered (YYYY-MM format) for multi-month payments"
+    },
+    "months_count": {
+      "type": "number",
+      "default": 1,
+      "description": "Number of months being paid for"
+    },
+    "campaign_id": {
+      "type": "string",
+      "description": "Campaign ID for donations"
+    },
+    "campaign_name": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "generated",
+        "proof_uploaded",
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "generated"
+    },
+    "proof_url": {
+      "type": "string",
+      "description": "Payment proof image URL"
+    },
+    "proof_uploaded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "approved_by": {
+      "type": "string"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "rejection_reason": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "challan_number",
+    "member_id",
+    "type",
+    "amount"
+  ]
+}

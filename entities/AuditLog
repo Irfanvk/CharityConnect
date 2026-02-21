@@ -1,0 +1,55 @@
+{
+  "name": "AuditLog",
+  "type": "object",
+  "properties": {
+    "action_type": {
+      "type": "string",
+      "enum": [
+        "member_created",
+        "member_updated",
+        "member_deleted",
+        "member_status_changed",
+        "campaign_created",
+        "campaign_updated",
+        "campaign_deleted",
+        "challan_approved",
+        "challan_rejected",
+        "report_generated",
+        "notification_deleted"
+      ],
+      "description": "Type of action performed"
+    },
+    "performed_by": {
+      "type": "string",
+      "description": "Email of admin who performed the action"
+    },
+    "performed_by_name": {
+      "type": "string",
+      "description": "Name of admin who performed the action"
+    },
+    "target_type": {
+      "type": "string",
+      "description": "Type of entity affected (Member, Campaign, etc.)"
+    },
+    "target_id": {
+      "type": "string",
+      "description": "ID of the affected entity"
+    },
+    "target_name": {
+      "type": "string",
+      "description": "Name or identifier of the affected entity"
+    },
+    "details": {
+      "type": "object",
+      "description": "Additional details about the action (old/new values, etc.)"
+    },
+    "ip_address": {
+      "type": "string",
+      "description": "IP address of the user"
+    }
+  },
+  "required": [
+    "action_type",
+    "performed_by"
+  ]
+}

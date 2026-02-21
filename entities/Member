@@ -1,0 +1,62 @@
+{
+  "name": "Member",
+  "type": "object",
+  "properties": {
+    "member_id": {
+      "type": "string",
+      "description": "Unique member ID assigned by admin (e.g., MEM-001)"
+    },
+    "full_name": {
+      "type": "string",
+      "description": "Full name of the member"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Phone number"
+    },
+    "email": {
+      "type": "string",
+      "description": "Email address"
+    },
+    "address": {
+      "type": "string",
+      "description": "Full address"
+    },
+    "city": {
+      "type": "string"
+    },
+    "join_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "suspended"
+      ],
+      "default": "active"
+    },
+    "monthly_amount": {
+      "type": "number",
+      "default": 100,
+      "description": "Fixed monthly membership amount"
+    },
+    "profile_image": {
+      "type": "string"
+    },
+    "invited_by": {
+      "type": "string",
+      "description": "Admin who invited this member"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "member_id",
+    "full_name",
+    "phone"
+  ]
+}

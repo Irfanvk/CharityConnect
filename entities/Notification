@@ -1,0 +1,55 @@
+{
+  "name": "Notification",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "info",
+        "success",
+        "warning",
+        "payment",
+        "campaign"
+      ],
+      "default": "info"
+    },
+    "target_type": {
+      "type": "string",
+      "enum": [
+        "all",
+        "member",
+        "admins"
+      ],
+      "default": "all"
+    },
+    "target_member_id": {
+      "type": "string",
+      "description": "Specific member ID if target_type is member"
+    },
+    "is_read": {
+      "type": "boolean",
+      "default": false
+    },
+    "read_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of user emails who have read this notification"
+    },
+    "link": {
+      "type": "string",
+      "description": "Optional link to related page"
+    }
+  },
+  "required": [
+    "title",
+    "message"
+  ]
+}

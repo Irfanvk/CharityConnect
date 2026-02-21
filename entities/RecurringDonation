@@ -1,0 +1,73 @@
+{
+  "name": "RecurringDonation",
+  "type": "object",
+  "properties": {
+    "campaign_id": {
+      "type": "string",
+      "description": "Campaign being supported"
+    },
+    "campaign_name": {
+      "type": "string"
+    },
+    "member_id": {
+      "type": "string",
+      "description": "Member making the donation"
+    },
+    "member_name": {
+      "type": "string"
+    },
+    "member_email": {
+      "type": "string"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Amount to donate each period"
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "monthly",
+        "yearly"
+      ],
+      "default": "monthly",
+      "description": "Donation frequency"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "paused",
+        "cancelled"
+      ],
+      "default": "active"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "next_donation_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "last_donation_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "total_donated": {
+      "type": "number",
+      "default": 0,
+      "description": "Total amount donated so far"
+    },
+    "donation_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of donations made"
+    }
+  },
+  "required": [
+    "campaign_id",
+    "member_id",
+    "amount",
+    "frequency"
+  ]
+}

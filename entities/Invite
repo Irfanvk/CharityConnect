@@ -1,0 +1,39 @@
+{
+  "name": "Invite",
+  "type": "object",
+  "properties": {
+    "invite_code": {
+      "type": "string",
+      "description": "Unique invite code"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "used",
+        "expired"
+      ],
+      "default": "pending"
+    },
+    "invited_by": {
+      "type": "string"
+    },
+    "used_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "invite_code"
+  ]
+}

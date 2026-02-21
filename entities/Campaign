@@ -1,0 +1,54 @@
+{
+  "name": "Campaign",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Campaign title"
+    },
+    "description": {
+      "type": "string"
+    },
+    "target_amount": {
+      "type": "number"
+    },
+    "collected_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "completed",
+        "cancelled"
+      ],
+      "default": "active"
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "min_amount": {
+      "type": "number",
+      "description": "Minimum donation amount"
+    },
+    "participants_count": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "title",
+    "target_amount",
+    "start_date",
+    "end_date"
+  ]
+}
