@@ -1,7 +1,7 @@
 const BASE_URL = import.meta.env.VITE_CHARITY_APP_BASE_URL || '';
 
 function apiFetch(path, opts = {}) {
-  const url = (BASE_URL + path).replace(/([^:]\\/)\\/g, '/');
+  const url = `${BASE_URL.replace(/\/$/, '')}${path}`;
   return fetch(url, opts).then(async (res) => {
     if (!res.ok) throw new Error((await res.text()) || res.statusText);
     try { return await res.json(); } catch { return null; }

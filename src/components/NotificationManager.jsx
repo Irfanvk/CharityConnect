@@ -15,7 +15,7 @@ export default function NotificationManager({ user }) {
     if (!user || permission !== "granted") return;
 
     // Subscribe to new notifications
-    const unsubscribe = charityClient.entities?.Notification?.subscribe?.((event: any) => {
+    const unsubscribe = charityClient.entities?.Notification?.subscribe?.((event) => {
       if (event.type !== "create") return;
 
       const notification = event.data;
