@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,16 +75,16 @@ export default function Requests() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
+    charityClient.auth.me().then(setUser).catch(() => {});
   }, []);
 
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ['requests'],
-    queryFn: () => base44.entities.Request.list('-created_date'),
+    queryFn: () => charityClient.entities.Request.list('-created_date'),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Request.create(data),
+    mutationFn: (data) => charityClient.entities.Request.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['requests'] });
       setFormOpen(false);
@@ -93,7 +93,7 @@ export default function Requests() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Request.update(id, data),
+    mutationFn: ({ id, data }) => charityClient.entities.Request.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['requests'] });
       setResponseOpen(false);

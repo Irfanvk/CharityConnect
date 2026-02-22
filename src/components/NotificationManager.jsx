@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { charityClient } from "@/api/charityClient";
 
 export default function NotificationManager({ user }) {
   const [permission, setPermission] = useState(Notification.permission);
@@ -15,7 +15,7 @@ export default function NotificationManager({ user }) {
     if (!user || permission !== "granted") return;
 
     // Subscribe to new notifications
-    const unsubscribe = base44.entities.Notification.subscribe((event) => {
+    const unsubscribe = charityClient.entities.Notification.subscribe?.((event) => {
       if (event.type !== "create") return;
 
       const notification = event.data;

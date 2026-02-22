@@ -1,5 +1,5 @@
 import React from "react";
-import { base44 } from "@/api/base44Client";
+import { charityClient } from "@/api/charityClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ export default function RecurringDonations({ recurringDonations, user }) {
   const queryClient = useQueryClient();
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.RecurringDonation.update(id, data),
+    mutationFn: ({ id, data }) => charityClient.entities.RecurringDonation.update(id, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recurringDonations'] }),
   });
 

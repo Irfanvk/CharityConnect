@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { charityClient } from "@/api/charityClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -24,7 +24,7 @@ export default function ReminderSettings({ user }) {
   const handleSave = async () => {
     setLoading(true);
     try {
-      await base44.auth.updateMe({
+      await charityClient.auth.updateMe?.({
         reminder_settings: {
           enabled: remindersEnabled,
           day: parseInt(reminderDay)

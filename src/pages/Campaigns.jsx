@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,24 +39,24 @@ export default function Campaigns() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
+    charityClient.auth.me().then(setUser).catch(() => {});
   }, []);
 
   const { data: campaigns = [], isLoading } = useQuery({
     queryKey: ['campaigns'],
-    queryFn: () => base44.entities.Campaign.list('-created_date'),
+    queryFn: () => charityClient.entities.Campaign.list('-created_date'),
   });
 
   const { data: challans = [] } = useQuery({
     queryKey: ['challans'],
-    queryFn: () => base44.entities.Challan.list('-created_date'),
+    queryFn: () => charityClient.entities.Challan.list('-created_date'),
   });
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
-      const campaign = await base44.entities.Campaign.create(data);
+      const campaign = await charityClient.entities.Campaign.create(data);
       // Log audit
-      await base44.entities.AuditLog.create({
+      await charityClient.entities.AuditLog.create({
         action_type: "campaign_created",
         performed_by: user?.email,
         performed_by_name: user?.full_name,
@@ -100,9 +100,9 @@ export default function Campaigns() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      const campaign = await base44.entities.Campaign.update(id, data);
+      const campaign = await charityClient.entities.Campaign.update(id, data);
       // Log audit
-      await base44.entities.AuditLog.create({
+      await charityClient.entities.AuditLog.create({
         action_type: "campaign_updated",
         performed_by: user?.email,
         performed_by_name: user?.full_name,
@@ -121,9 +121,9 @@ export default function Campaigns() {
 
   const deleteMutation = useMutation({
     mutationFn: async ({ id, title }) => {
-      await base44.entities.Campaign.delete(id);
+      await charityClient.entities.Campaign.delete(id);
       // Log audit
-      await base44.entities.AuditLog.create({
+      await charityClient.entities.AuditLog.create({
         action_type: "campaign_deleted",
         performed_by: user?.email,
         performed_by_name: user?.full_name,
@@ -136,7 +136,7 @@ export default function Campaigns() {
   });
 
   const createRecurringMutation = useMutation({
-    mutationFn: (data) => base44.entities.RecurringDonation.create(data),
+    mutationFn: (data) => charityClient.entities.RecurringDonation.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recurringDonations'] });
       setRecurringFormOpen(false);

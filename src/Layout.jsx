@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "./utils";
-import { base44 } from "@/api/base44Client";
+import { charityClient } from "@/api/charityClient";
 import { 
   LayoutDashboard, 
   Users, 
@@ -45,7 +45,7 @@ export default function Layout({ children, currentPageName }) {
     if (!user) return;
 
     // Real-time subscription for notifications
-    const unsubscribe = base44.entities.Notification.subscribe((event) => {
+    const unsubscribe = charityClient.entities.Notification.subscribe?.((event) => {
       loadNotifications();
     });
 
@@ -54,7 +54,7 @@ export default function Layout({ children, currentPageName }) {
 
   const loadUser = async () => {
     try {
-      const currentUser = await base44.auth.me();
+      const currentUser = await charityClient.auth.me();
       setUser(currentUser);
       loadNotifications();
     } catch (e) {
@@ -64,8 +64,8 @@ export default function Layout({ children, currentPageName }) {
 
   const loadNotifications = async () => {
     try {
-      const notifications = await base44.entities.Notification.list();
-      const user = await base44.auth.me();
+      const notifications = await charityClient.entities.Notification.list();
+      const user = await charityClient.auth.me();
       const unread = notifications.filter(n => {
         if (n.target_type === 'all') return !n.read_by?.includes(user.email);
         if (n.target_type === 'member') return n.target_member_id === user.email && !n.read_by?.includes(user.email);
@@ -224,8 +224,8 @@ export default function Layout({ children, currentPageName }) {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     onClick={() => {
-                      base44.auth.logout();
-                      base44.auth.redirectToLogin();
+                      charityClient.auth.logout();
+                      charityClient.auth.redirectToLogin();
                     }}
                     className="text-rose-600"
                   >

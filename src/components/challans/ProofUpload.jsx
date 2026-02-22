@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { charityClient } from "@/api/charityClient";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -29,7 +29,7 @@ export default function ProofUpload({ open, onOpenChange, challan, onSubmit }) {
     if (!file) return;
     
     setLoading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await charityClient.integrations?.Core?.UploadFile?.({ file }) || {};
     await onSubmit({
       proof_url: file_url,
       proof_uploaded_at: new Date().toISOString(),

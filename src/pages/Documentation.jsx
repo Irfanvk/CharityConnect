@@ -73,7 +73,7 @@ export default function Documentation() {
                 <div className="p-4 border rounded-lg">
                   <Code className="w-6 h-6 text-emerald-600 mb-2" />
                   <h4 className="font-semibold mb-1">Business Logic</h4>
-                  <p className="text-sm text-slate-600">React components with Base44 SDK</p>
+                  <p className="text-sm text-slate-600">React components with CharityConnect SDK</p>
                 </div>
                 <div className="p-4 border rounded-lg">
                   <Shield className="w-6 h-6 text-purple-600 mb-2" />
@@ -567,7 +567,7 @@ export default function Documentation() {
                 <ul className="space-y-1 text-slate-600">
                   <li>• <strong>Frontend:</strong> React 18 with TypeScript</li>
                   <li>• <strong>Styling:</strong> Tailwind CSS + shadcn/ui components</li>
-                  <li>• <strong>Backend:</strong> Base44 Platform (BaaS)</li>
+                  <li>• <strong>Backend:</strong> CharityConnect Platform (BaaS)</li>
                   <li>• <strong>State Management:</strong> TanStack React Query</li>
                   <li>• <strong>Charts:</strong> Recharts</li>
                   <li>• <strong>Date Handling:</strong> date-fns</li>
@@ -575,21 +575,21 @@ export default function Documentation() {
               </div>
 
               <div>
-                <h3 className="font-semibold mb-2">Base44 SDK Usage</h3>
+                <h3 className="font-semibold mb-2">CharityConnect SDK Usage</h3>
                 <div className="bg-slate-50 p-4 rounded-lg font-mono text-xs space-y-2">
                   <p className="text-slate-500">// Authentication</p>
-                  <p>const user = await base44.auth.me();</p>
-                  <p>await base44.auth.updateMe(data);</p>
-                  <p>base44.auth.logout();</p>
+                  <p>const user = await charityClient.auth.me();</p>
+                  <p>await charityClient.auth.updateMe?.(data);</p>
+                  <p>charityClient.auth.logout();</p>
                   
                   <p className="text-slate-500 mt-3">// Entity Operations</p>
-                  <p>const members = await base44.entities.Member.list();</p>
-                  <p>await base44.entities.Challan.create(data);</p>
-                  <p>await base44.entities.Campaign.update(id, data);</p>
-                  <p>await base44.entities.Member.delete(id);</p>
+                  <p>const members = await charityClient.entities.Member.list();</p>
+                  <p>await charityClient.entities.Challan.create(data);</p>
+                  <p>await charityClient.entities.Campaign.update(id, data);</p>
+                  <p>await charityClient.entities.Member.delete(id);</p>
                   
                   <p className="text-slate-500 mt-3">// Real-time Subscriptions</p>
-                  <p>const unsubscribe = base44.entities.Notification.subscribe((event) ={'>'} {'{'}...</p>
+                  <p>const unsubscribe = charityClient.entities.Notification.subscribe?.((event) ={'>'} {'{'}...</p>
                 </div>
               </div>
 
@@ -618,7 +618,7 @@ export default function Documentation() {
               <div>
                 <h3 className="font-semibold mb-2">Deployment</h3>
                 <ul className="space-y-1 text-slate-600">
-                  <li>• Hosted on Base44 platform</li>
+                  <li>• Hosted on CharityConnect platform</li>
                   <li>• Automatic SSL/TLS encryption</li>
                   <li>• CDN for static assets</li>
                   <li>• Automatic backups</li>

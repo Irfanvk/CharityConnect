@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { charityClient } from "@/api/charityClient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Users, Receipt, Heart, TrendingUp, Calendar, Clock } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
@@ -21,7 +21,7 @@ export default function Dashboard() {
 
   const loadUserData = async () => {
     try {
-      const currentUser = await base44.auth.me();
+      const currentUser = await charityClient.auth.me();
       setUser(currentUser);
       
       // Check if onboarding is needed
@@ -35,7 +35,7 @@ export default function Dashboard() {
 
   const { data: members = [] } = useQuery({
     queryKey: ['members'],
-    queryFn: () => base44.entities.Member.list(),
+    queryFn: () => charityClient.entities.Member.list(),
   });
 
   const memberProfile = members.find(m => 
@@ -44,12 +44,12 @@ export default function Dashboard() {
 
   const { data: challans = [] } = useQuery({
     queryKey: ['challans'],
-    queryFn: () => base44.entities.Challan.list('-created_date', 100),
+    queryFn: () => charityClient.entities.Challan.list('-created_date', 100),
   });
 
   const { data: campaigns = [] } = useQuery({
     queryKey: ['campaigns'],
-    queryFn: () => base44.entities.Campaign.list(),
+    queryFn: () => charityClient.entities.Campaign.list(),
   });
 
   const handleRefresh = async () => {
@@ -64,13 +64,13 @@ export default function Dashboard() {
 
   const { data: auditLogs = [] } = useQuery({
     queryKey: ['auditLogs'],
-    queryFn: () => base44.entities.AuditLog.list('-created_date', 50),
+    queryFn: () => charityClient.entities.AuditLog.list('-created_date', 50),
     enabled: user?.is_superadmin === true,
   });
 
   const { data: recurringDonations = [] } = useQuery({
     queryKey: ['recurringDonations'],
-    queryFn: () => base44.entities.RecurringDonation.list(),
+    queryFn: () => charityClient.entities.RecurringDonation.list(),
     enabled: user?.is_superadmin === true,
   });
 

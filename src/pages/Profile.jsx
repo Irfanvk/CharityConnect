@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { charityClient } from "@/api/charityClient";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,29 +48,29 @@ export default function Profile() {
   }, []);
 
   const loadUser = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await charityClient.auth.me();
     setUser(currentUser);
     setFormData(currentUser);
   };
 
   const { data: members = [] } = useQuery({
     queryKey: ['members'],
-    queryFn: () => base44.entities.Member.list(),
+    queryFn: () => charityClient.entities.Member.list(),
   });
 
   const { data: challans = [] } = useQuery({
     queryKey: ['challans'],
-    queryFn: () => base44.entities.Challan.list('-created_date'),
+    queryFn: () => charityClient.entities.Challan.list('-created_date'),
   });
 
   const { data: invites = [] } = useQuery({
     queryKey: ['invites'],
-    queryFn: () => base44.entities.Invite.list(),
+    queryFn: () => charityClient.entities.Invite.list(),
   });
 
   const { data: recurringDonations = [] } = useQuery({
     queryKey: ['recurringDonations', user?.email],
-    queryFn: () => base44.entities.RecurringDonation.filter({ member_email: user?.email }),
+    queryFn: () => charityClient.entities.RecurringDonation.filter?.({ member_email: user?.email }) || charityClient.entities.RecurringDonation.list(),
     enabled: !!user,
   });
 
@@ -96,7 +96,7 @@ export default function Profile() {
   const handleSave = async () => {
     setLoading(true);
     try {
-      await base44.auth.updateMe({
+      await charityClient.auth.updateMe?.({
         full_name: formData.full_name,
         phone: formData.phone,
         email: formData.email,
@@ -104,7 +104,7 @@ export default function Profile() {
 
       // Update member record if exists
       if (memberProfile) {
-        await base44.entities.Member.update(memberProfile.id, {
+        await charityClient.entities.Member.update(memberProfile.id, {
           phone: formData.phone,
           email: formData.email,
         });

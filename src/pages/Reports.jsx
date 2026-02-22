@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { charityClient } from "@/api/charityClient";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,22 +24,22 @@ export default function Reports() {
   const [selectedYear, setSelectedYear] = useState(format(new Date(), "yyyy"));
 
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
+    charityClient.auth.me().then(setUser).catch(() => {});
   }, []);
 
   const { data: challans = [] } = useQuery({
     queryKey: ['challans'],
-    queryFn: () => base44.entities.Challan.list('-created_date'),
+    queryFn: () => charityClient.entities.Challan.list('-created_date'),
   });
 
   const { data: campaigns = [] } = useQuery({
     queryKey: ['campaigns'],
-    queryFn: () => base44.entities.Campaign.list('-created_date'),
+    queryFn: () => charityClient.entities.Campaign.list('-created_date'),
   });
 
   const { data: members = [] } = useQuery({
     queryKey: ['members'],
-    queryFn: () => base44.entities.Member.list(),
+    queryFn: () => charityClient.entities.Member.list(),
   });
 
   // Filter data based on report type
@@ -106,7 +106,7 @@ export default function Reports() {
     a.click();
 
     // Log audit
-    await base44.entities.AuditLog.create({
+    await charityClient.entities.AuditLog.create({
       action_type: "report_generated",
       performed_by: user?.email,
       performed_by_name: user?.full_name,

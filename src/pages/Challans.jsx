@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,26 +58,26 @@ export default function Challans() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
+    charityClient.auth.me().then(setUser).catch(() => {});
   }, []);
 
   const { data: challans = [], isLoading } = useQuery({
     queryKey: ['challans'],
-    queryFn: () => base44.entities.Challan.list('-created_date'),
+    queryFn: () => charityClient.entities.Challan.list('-created_date'),
   });
 
   const { data: members = [] } = useQuery({
     queryKey: ['members'],
-    queryFn: () => base44.entities.Member.list(),
+    queryFn: () => charityClient.entities.Member.list(),
   });
 
   const { data: campaigns = [] } = useQuery({
     queryKey: ['campaigns'],
-    queryFn: () => base44.entities.Campaign.list(),
+    queryFn: () => charityClient.entities.Campaign.list(),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Challan.create(data),
+    mutationFn: (data) => charityClient.entities.Challan.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['challans'] });
       setFormOpen(false);
@@ -85,7 +85,7 @@ export default function Challans() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Challan.update(id, data),
+    mutationFn: ({ id, data }) => charityClient.entities.Challan.update(id, data),
     onMutate: async ({ id, data }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['challans'] });
@@ -136,7 +136,7 @@ export default function Challans() {
     if (challan.type === 'donation' && challan.campaign_id) {
       const campaign = campaigns.find(c => c.id === challan.campaign_id);
       if (campaign) {
-        await base44.entities.Campaign.update(campaign.id, {
+        await charityClient.entities.Campaign.update(campaign.id, {
           collected_amount: (campaign.collected_amount || 0) + challan.amount,
           participants_count: (campaign.participants_count || 0) + 1
         });
@@ -144,7 +144,7 @@ export default function Challans() {
     }
 
     // Log audit
-    await base44.entities.AuditLog.create({
+    await charityClient.entities.AuditLog.create({
       action_type: "challan_approved",
       performed_by: user?.email,
       performed_by_name: user?.full_name,
@@ -167,7 +167,7 @@ export default function Challans() {
     });
 
     // Log audit
-    await base44.entities.AuditLog.create({
+    await charityClient.entities.AuditLog.create({
       action_type: "challan_rejected",
       performed_by: user?.email,
       performed_by_name: user?.full_name,

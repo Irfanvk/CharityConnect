@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,21 +43,21 @@ export default function Settings() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
+    charityClient.auth.me().then(setUser).catch(() => {});
   }, []);
 
   const { data: invites = [] } = useQuery({
     queryKey: ['invites'],
-    queryFn: () => base44.entities.Invite.list('-created_date'),
+    queryFn: () => charityClient.entities.Invite.list('-created_date'),
   });
 
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => charityClient.entities.User.list(),
   });
 
   const createInviteMutation = useMutation({
-    mutationFn: (data) => base44.entities.Invite.create(data),
+    mutationFn: (data) => charityClient.entities.Invite.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invites'] });
       setInviteOpen(false);

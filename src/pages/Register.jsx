@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { charityClient } from "@/api/charityClient";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,7 @@ export default function Register() {
 
   const { data: invites = [] } = useQuery({
     queryKey: ['invites'],
-    queryFn: () => base44.entities.Invite.list(),
+    queryFn: () => charityClient.entities.Invite.list(),
   });
 
   const verifyInviteCode = () => {
@@ -57,7 +57,7 @@ export default function Register() {
 
     try {
       // Create member record
-      await base44.entities.Member.create({
+      await charityClient.entities.Member.create({
         member_id: `MEM-${Date.now().toString().slice(-4)}`, // Temp ID, admin will assign proper one
         full_name: formData.full_name,
         phone: formData.phone,
@@ -70,7 +70,7 @@ export default function Register() {
       });
 
       // Mark invite as used
-      await base44.entities.Invite.update(verifiedInvite.id, {
+      await charityClient.entities.Invite.update(verifiedInvite.id, {
         status: 'used',
         used_at: new Date().toISOString()
       });
@@ -96,7 +96,7 @@ export default function Register() {
               Your account has been created. An administrator will assign your official Member ID and you'll receive login credentials shortly.
             </p>
             <Button 
-              onClick={() => base44.auth.redirectToLogin()}
+              onClick={() => charityClient.auth.redirectToLogin()}
               className="bg-emerald-600 hover:bg-emerald-700"
             >
               Go to Login

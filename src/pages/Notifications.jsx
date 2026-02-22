@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,16 +48,16 @@ export default function Notifications() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
+    charityClient.auth.me().then(setUser).catch(() => {});
   }, []);
 
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['notifications'],
-    queryFn: () => base44.entities.Notification.list('-created_date'),
+    queryFn: () => charityClient.entities.Notification.list('-created_date'),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Notification.create(data),
+    mutationFn: (data) => charityClient.entities.Notification.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       setFormOpen(false);
@@ -66,16 +66,16 @@ export default function Notifications() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Notification.update(id, data),
+    mutationFn: ({ id, data }) => charityClient.entities.Notification.update(id, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async ({ id, title, isAdmin }) => {
-      await base44.entities.Notification.delete(id);
+      await charityClient.entities.Notification.delete(id);
       // Log audit if admin deleted
       if (isAdmin) {
-        await base44.entities.AuditLog.create({
+        await charityClient.entities.AuditLog.create({
           action_type: "notification_deleted",
           performed_by: user?.email,
           performed_by_name: user?.full_name,

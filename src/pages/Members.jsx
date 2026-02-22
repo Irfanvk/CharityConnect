@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,19 +37,19 @@ export default function Members() {
   const queryClient = useQueryClient();
 
   React.useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
+    charityClient.auth.me().then(setUser).catch(() => {});
   }, []);
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ['members'],
-    queryFn: () => base44.entities.Member.list('-created_date'),
+    queryFn: () => charityClient.entities.Member.list('-created_date'),
   });
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
-      const member = await base44.entities.Member.create(data);
+      const member = await charityClient.entities.Member.create(data);
       // Log audit
-      await base44.entities.AuditLog.create({
+      await charityClient.entities.AuditLog.create({
         action_type: "member_created",
         performed_by: user?.email,
         performed_by_name: user?.full_name,
@@ -68,11 +68,11 @@ export default function Members() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data, logStatusChange = false, oldStatus = null }) => {
-      const member = await base44.entities.Member.update(id, data);
+      const member = await charityClient.entities.Member.update(id, data);
       // Log audit
       const actionType = logStatusChange ? "member_status_changed" : "member_updated";
       const details = logStatusChange ? { old_status: oldStatus, new_status: data.status } : {};
-      await base44.entities.AuditLog.create({
+      await charityClient.entities.AuditLog.create({
         action_type: actionType,
         performed_by: user?.email,
         performed_by_name: user?.full_name,
@@ -92,9 +92,9 @@ export default function Members() {
 
   const deleteMutation = useMutation({
     mutationFn: async ({ id, name }) => {
-      await base44.entities.Member.delete(id);
+      await charityClient.entities.Member.delete(id);
       // Log audit
-      await base44.entities.AuditLog.create({
+      await charityClient.entities.AuditLog.create({
         action_type: "member_deleted",
         performed_by: user?.email,
         performed_by_name: user?.full_name,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { charityClient } from "@/api/charityClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,10 +30,10 @@ export default function RecurringDonationForm({ open, onOpenChange, campaign, on
 
   useEffect(() => {
     const loadUser = async () => {
-      const currentUser = await base44.auth.me();
+      const currentUser = await charityClient.auth.me();
       setUser(currentUser);
       
-      const members = await base44.entities.Member.list();
+      const members = await charityClient.entities.Member.list();
       const userMember = members.find(m => m.email === currentUser.email);
       setMember(userMember);
     };

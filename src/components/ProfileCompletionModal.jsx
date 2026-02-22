@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { charityClient } from "@/api/charityClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +24,7 @@ export default function ProfileCompletionModal({ open, member, onComplete }) {
     e.preventDefault();
     setLoading(true);
     
-    await base44.entities.Member.update(member.id, {
+    await charityClient.entities.Member.update(member.id, {
       ...formData,
       notes: null // Clear the incomplete profile note
     });

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { charityClient } from "@/api/charityClient";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +40,7 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
     setLoading(true);
     try {
       // Update user settings
-      await base44.auth.updateMe({
+      await charityClient.auth.updateMe?.({
         phone: formData.phone,
         reminder_settings: {
           enabled: formData.reminderEnabled,
@@ -51,7 +51,7 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
 
       // Update member profile
       if (memberProfile) {
-        await base44.entities.Member.update(memberProfile.id, {
+        await charityClient.entities.Member.update(memberProfile.id, {
           phone: formData.phone,
           address: formData.address,
           city: formData.city,
