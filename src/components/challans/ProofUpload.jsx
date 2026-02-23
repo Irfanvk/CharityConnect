@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Upload, Loader2, Image, X, CheckCircle } from "lucide-react";
+import { Upload, Loader2, X, CheckCircle } from "lucide-react";
 
 export default function ProofUpload({ open, onOpenChange, challan, onSubmit }) {
   const [file, setFile] = useState(null);

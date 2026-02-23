@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,7 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { format, differenceInDays } from "date-fns";
+import { differenceInDays } from "date-fns";
 import CampaignForm from "@/components/campaigns/CampaignForm";
 import CampaignAnalytics from "@/components/campaigns/CampaignAnalytics";
 import RecurringDonationForm from "@/components/campaigns/RecurringDonationForm";

@@ -7,8 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  User, Mail, Phone, MapPin, Calendar, Receipt, 
+import { Mail, Phone, MapPin, Calendar, Receipt, 
   TrendingUp, CheckCircle, Clock, Loader2, UserCircle, Trash2, AlertTriangle
 } from "lucide-react";
 import { format } from "date-fns";

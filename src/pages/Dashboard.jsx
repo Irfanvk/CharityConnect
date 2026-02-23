@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Users, Receipt, Heart, TrendingUp, Calendar, Clock } from "lucide-react";
-import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { format } from "date-fns";
 import StatsCard from "@/components/dashboard/StatsCard";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import CampaignProgress from "@/components/dashboard/CampaignProgress";

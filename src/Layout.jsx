@@ -9,7 +9,6 @@ import {
   Heart, 
   Bell, 
   Menu, 
-  X, 
   LogOut,
   ChevronDown,
   User,

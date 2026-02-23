@@ -4,14 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import {
-  TrendingUp, Users, Heart, Receipt, AlertCircle, CheckCircle,
-  Activity, Calendar, Clock, BarChart3, Shield, ArrowRight,
+import { Users, Heart, AlertCircle, CheckCircle,
+  Activity, Clock, BarChart3, Shield, ArrowRight,
   UserCheck, DollarSign, Target, FileText
 } from "lucide-react";
 import { format, subDays, isAfter } from "date-fns";
 import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from "recharts";
 
