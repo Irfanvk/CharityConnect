@@ -29,14 +29,20 @@ CharityConnect is a full-featured web application for managing donations, campai
 
 3. **Create `.env.local` file:**
    ```bash
-   # Create a .env.local file in the project root with:
+   # Copy the example file
+   cp .env.local.example .env.local
+   
+   # Edit .env.local with your values:
    VITE_CHARITY_APP_ID=your_app_id
-   VITE_CHARITY_APP_BASE_URL=http://localhost:4000  # Use mock backend or your actual backend
+   VITE_CHARITY_APP_BASE_URL=http://localhost:8000  # FastAPI backend (or http://localhost:4000 for mock)
    ```
 
    **Environment Variables:**
-   - `VITE_CHARITY_APP_ID` — Your app identifier (default: empty)
-   - `VITE_CHARITY_APP_BASE_URL` — Backend API base URL (required; use `http://localhost:4000` for mock)
+   - `VITE_CHARITY_APP_ID` — Your app identifier (optional)
+   - `VITE_CHARITY_APP_BASE_URL` — Backend API base URL (required)
+     - For FastAPI backend: `http://localhost:8000`
+     - For mock server: `http://localhost:4000`
+     - For production: `https://your-backend-url.example.com`
    - `VITE_CHARITY_FUNCTIONS_VERSION` — Optional; defaults to v1
 
 4. **Run the development server:**
@@ -86,16 +92,18 @@ Then open **http://localhost:5173** in your browser and log in with any email (e
 - ✅ CORS-enabled for frontend requests
 - ✅ Mock token: `mock-token-123`
 
-### Option 2: Using Real Backend
+### Option 2: Using Real Backend (FastAPI)
 
-Set `VITE_CHARITY_APP_BASE_URL` to your actual backend URL:
+Set `VITE_CHARITY_APP_BASE_URL` to your FastAPI backend URL:
 
 ```bash
 # .env.local
-VITE_CHARITY_APP_BASE_URL=https://your-backend-url.example.com
+VITE_CHARITY_APP_BASE_URL=http://localhost:8000  # FastAPI default port
 
 npm run dev
 ```
+
+**Note:** The FastAPI backend typically runs on port **8000**. Make sure the backend server is running before starting the frontend.
 
 ---
 
@@ -218,6 +226,33 @@ Then open http://localhost:4173 to test the production build locally.
 1. Run `npm run build` to generate `dist/`
 2. Deploy `dist/` folder to your hosting (Vercel, Netlify, AWS S3, etc.)
 3. **Important:** Set `VITE_CHARITY_APP_BASE_URL` to your production backend URL in your host's environment
+
+---
+
+## Backend Integration
+
+This frontend is designed to work with a **FastAPI backend** (Python). See the following documents for integration details:
+
+- **[BACKEND_IMPLEMENTATION.md](BACKEND_IMPLEMENTATION.md)** - Complete backend specification
+- **[BACKEND_FRONTEND_ALIGNMENT.md](BACKEND_FRONTEND_ALIGNMENT.md)** - Alignment analysis and required changes
+- **[FRONTEND_IMPLEMENTATION_PLAN.md](FRONTEND_IMPLEMENTATION_PLAN.md)** - Frontend changes and decisions needed
+
+### Key Integration Points
+
+**API Compatibility:**
+- Frontend uses generic entity pattern: `GET /entities/:entity`
+- Backend may use resource-specific routes: `GET /members/`, `GET /challans/`
+- Alignment work in progress - see alignment document for details
+
+**Authentication Flow:**
+- Frontend: Email-based authentication
+- Backend: FastAPI with JWT tokens
+- Token storage: localStorage (development) or secure cookies (production)
+
+**File Uploads:**
+- Frontend: Expects separate file upload endpoint returning URL
+- Backend: May use combined challan + upload endpoint
+- See alignment document for current status
 
 ---
 
