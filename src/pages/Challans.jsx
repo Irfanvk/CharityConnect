@@ -36,12 +36,21 @@ import ChallanForm from "@/components/challans/ChallanForm";
 import ProofUpload from "@/components/challans/ProofUpload";
 import PullToRefresh from "@/components/mobile/PullToRefresh";
 
+// Backend status: generated, pending, approved, rejected
+// Frontend displays proof_uploaded as visual state when proof_uploaded_at exists
 const statusConfig = {
   generated: { label: "Generated", color: "bg-slate-100 text-slate-700", icon: FileText },
-  proof_uploaded: { label: "Proof Uploaded", color: "bg-blue-100 text-blue-700", icon: ImageIcon },
   pending: { label: "Pending Review", color: "bg-amber-100 text-amber-700", icon: Clock },
   approved: { label: "Approved", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle },
   rejected: { label: "Rejected", color: "bg-rose-100 text-rose-700", icon: XCircle },
+};
+
+// Helper to determine display status (maps proof upload state to pending)
+const getDisplayStatus = (challan) => {
+  if (challan.status === 'pending' && challan.proof_uploaded_at) {
+    return { label: "Proof Uploaded", color: "bg-blue-100 text-blue-700", icon: ImageIcon };
+  }
+  return statusConfig[challan.status] || statusConfig.generated;
 };
 
 export default function Challans() {
@@ -275,7 +284,7 @@ export default function Challans() {
                 </TableRow>
               ) : (
                 filteredChallans.map((challan) => {
-                  const status = statusConfig[challan.status];
+                  const status = getDisplayStatus(challan);
                   return (
                     <TableRow key={challan.id} className="hover:bg-slate-50/50">
                       <TableCell>

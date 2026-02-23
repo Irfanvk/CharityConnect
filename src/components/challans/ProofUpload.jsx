@@ -18,6 +18,12 @@ export default function ProofUpload({ open, onOpenChange, challan, onSubmit }) {
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
+      // Validate file size (3MB max as per backend requirement)
+      if (selectedFile.size > 3 * 1024 * 1024) {
+        alert('File size must be less than 3MB. Please choose a smaller file.');
+        e.target.value = '';
+        return;
+      }
       setFile(selectedFile);
       const reader = new FileReader();
       reader.onloadend = () => setPreview(reader.result);
@@ -66,7 +72,7 @@ export default function ProofUpload({ open, onOpenChange, challan, onSubmit }) {
               <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/30 transition-colors">
                 <Upload className="w-10 h-10 text-slate-400 mb-3" />
                 <span className="text-sm text-slate-600">Click to upload proof</span>
-                <span className="text-xs text-slate-400 mt-1">PNG, JPG up to 5MB</span>
+                <span className="text-xs text-slate-400 mt-1">PNG, JPG up to 3MB</span>
                 <input
                   type="file"
                   accept="image/*"
