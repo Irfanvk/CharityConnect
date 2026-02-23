@@ -24,10 +24,25 @@ export default function ProofUpload({ open, onOpenChange, challan, onSubmit }) {
         e.target.value = '';
         return;
       }
+      
+      // Validate file type (backend accepts jpg, png, pdf)
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+      if (!allowedTypes.includes(selectedFile.type)) {
+        alert('Only JPG, PNG, and PDF files are allowed.');
+        e.target.value = '';
+        return;
+      }
+      
       setFile(selectedFile);
-      const reader = new FileReader();
-      reader.onloadend = () => setPreview(reader.result);
-      reader.readAsDataURL(selectedFile);
+      
+      // Only create preview for images
+      if (selectedFile.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => setPreview(reader.result);
+        reader.readAsDataURL(selectedFile);
+      } else {
+        setPreview('pdf'); // Indicate PDF file
+      }
     }
   };
 
@@ -35,15 +50,26 @@ export default function ProofUpload({ open, onOpenChange, challan, onSubmit }) {
     if (!file) return;
     
     setLoading(true);
-    const { file_url } = await charityClient.integrations?.Core?.UploadFile?.({ file }) || {};
-    await onSubmit({
-      proof_url: file_url,
-      proof_uploaded_at: new Date().toISOString(),
-      status: 'proof_uploaded'
-    });
-    setLoading(false);
-    setFile(null);
-    setPreview(null);
+    try {
+      // Use new backend file upload endpoint
+      const { file_url } = await charityClient.files.upload(file);
+      
+      // Update challan with proof URL
+      await onSubmit({
+        proof_url: file_url,
+        proof_uploaded_at: new Date().toISOString(),
+        status: 'pending' // Backend uses 'pending' status after proof upload
+      });
+      
+      setFile(null);
+      setPreview(null);
+      onOpenChange(false);
+    } catch (error) {
+      console.error('File upload error:', error);
+      alert(error.message || 'Failed to upload file. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -72,21 +98,31 @@ export default function ProofUpload({ open, onOpenChange, challan, onSubmit }) {
               <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/30 transition-colors">
                 <Upload className="w-10 h-10 text-slate-400 mb-3" />
                 <span className="text-sm text-slate-600">Click to upload proof</span>
-                <span className="text-xs text-slate-400 mt-1">PNG, JPG up to 3MB</span>
+                <span className="text-xs text-slate-400 mt-1">JPG, PNG, PDF up to 3MB</span>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/jpg,image/png,application/pdf"
                   onChange={handleFileChange}
                   className="hidden"
                 />
               </label>
             ) : (
               <div className="relative">
-                <img 
-                  src={preview} 
-                  alt="Preview" 
-                  className="w-full h-48 object-cover rounded-xl"
-                />
+                {preview === 'pdf' ? (
+                  <div className="w-full h-48 flex items-center justify-center bg-slate-100 rounded-xl">
+                    <div className="text-center">
+                      <Upload className="w-12 h-12 text-slate-400 mx-auto mb-2" />
+                      <p className="text-sm text-slate-600 font-medium">{file.name}</p>
+                      <p className="text-xs text-slate-400">PDF Document</p>
+                    </div>
+                  </div>
+                ) : (
+                  <img 
+                    src={preview} 
+                    alt="Preview" 
+                    className="w-full h-48 object-cover rounded-xl"
+                  />
+                )}
                 <Button
                   variant="destructive"
                   size="icon"
