@@ -38,19 +38,25 @@ export default function Dashboard() {
     queryFn: () => charityClient.entities.Member.list(),
   });
 
-  const memberProfile = members.find(m => 
+  const membersArray = Array.isArray(members) ? members : [];
+
+  const memberProfile = membersArray.find(m => 
     m.email === user?.email || m.phone === user?.phone
   );
 
-  const { data: challans = [] } = useQuery({
+  const { data: challans } = useQuery({
     queryKey: ['challans'],
     queryFn: () => charityClient.entities.Challan.list('-created_date', 100),
   });
 
-  const { data: campaigns = [] } = useQuery({
+  const challansArray = Array.isArray(challans) ? challans : [];
+
+  const { data: campaigns } = useQuery({
     queryKey: ['campaigns'],
     queryFn: () => charityClient.entities.Campaign.list(),
   });
+
+  const campaignsArray = Array.isArray(campaigns) ? campaigns : [];
 
   const handleRefresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ['members'] });
@@ -62,37 +68,41 @@ export default function Dashboard() {
     }
   };
 
-  const { data: auditLogs = [] } = useQuery({
+  const { data: auditLogs } = useQuery({
     queryKey: ['auditLogs'],
     queryFn: () => charityClient.entities.AuditLog.list('-created_date', 50),
     enabled: user?.is_superadmin === true,
   });
 
-  const { data: recurringDonations = [] } = useQuery({
+  const auditLogsArray = Array.isArray(auditLogs) ? auditLogs : [];
+
+  const { data: recurringDonations } = useQuery({
     queryKey: ['recurringDonations'],
     queryFn: () => charityClient.entities.RecurringDonation.list(),
     enabled: user?.is_superadmin === true,
   });
 
+  const recurringDonationsArray = Array.isArray(recurringDonations) ? recurringDonations : [];
+
   const isSuperAdmin = user?.is_superadmin === true;
   const isAdmin = user?.role === 'admin';
 
   // Calculate stats
-  const activeMembers = members.filter(m => m.status === 'active').length;
-  const totalCollected = challans
+  const activeMembers = membersArray.filter(m => m.status === 'active').length;
+  const totalCollected = challansArray
     .filter(c => c.status === 'approved')
     .reduce((sum, c) => sum + (c.amount || 0), 0);
-  const pendingApprovals = challans.filter(c => c.status === 'pending' || c.status === 'proof_uploaded').length;
-  const activeCampaigns = campaigns.filter(c => c.status === 'active').length;
+  const pendingApprovals = challansArray.filter(c => c.status === 'pending' || c.status === 'proof_uploaded').length;
+  const activeCampaigns = campaignsArray.filter(c => c.status === 'active').length;
 
   // Monthly collection
   const currentMonth = new Date();
-  const monthlyCollection = challans
+  const monthlyCollection = challansArray
     .filter(c => c.status === 'approved' && c.month === format(currentMonth, 'yyyy-MM'))
     .reduce((sum, c) => sum + (c.amount || 0), 0);
 
   // User-specific data for members
-  const userChallans = challans.filter(c => c.created_by === user?.email);
+  const userChallans = challansArray.filter(c => c.created_by === user?.email);
   const userPending = userChallans.filter(c => c.status !== 'approved' && c.status !== 'rejected').length;
   const userApproved = userChallans.filter(c => c.status === 'approved').length;
 
@@ -128,12 +138,12 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <SuperAdminDashboard 
-          members={members}
-          challans={challans}
-          campaigns={campaigns}
-          auditLogs={auditLogs}
-          recurringDonations={recurringDonations}
+          <SuperAdminDashboard 
+          members={membersArray}
+          challans={challansArray}
+          campaigns={campaignsArray}
+          auditLogs={auditLogsArray}
+          recurringDonations={recurringDonationsArray}
         />
         </div>
       </PullToRefresh>
@@ -178,7 +188,7 @@ export default function Dashboard() {
             <StatsCard
               title="Active Members"
               value={activeMembers}
-              subtitle={`${members.length} total members`}
+              subtitle={`${membersArray.length} total members`}
               icon={Users}
               color="emerald"
             />

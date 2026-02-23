@@ -87,8 +87,14 @@ async function apiFetch(path, options = {}, query = {}) {
 
 function createEntityProxy(entityName) {
   return {
-    list: (query = {}) =>
-      apiFetch(`/entities/${entityName}`, { method: 'GET' }, query),
+    list: async (query = {}) => {
+      const data = await apiFetch(`/entities/${entityName}`, { method: 'GET' }, query);
+      if (Array.isArray(data)) return data;
+      // If API returns an object with items or data, try to extract array
+      if (data && Array.isArray(data.items)) return data.items;
+      if (data && Array.isArray(data.data)) return data.data;
+      return [];
+    },
 
     get: (id) =>
       apiFetch(`/entities/${entityName}/${id}`, { method: 'GET' }),
