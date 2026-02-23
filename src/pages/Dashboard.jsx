@@ -250,8 +250,8 @@ export default function Dashboard() {
 
       {/* Activity & Campaigns */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RecentActivity challans={isAdmin ? challans : userChallans} />
-        <CampaignProgress campaigns={campaigns} />
+        <RecentActivity challans={isAdmin ? challansArray : userChallans} />
+        <CampaignProgress campaigns={campaignsArray} />
       </div>
       </div>
     </PullToRefresh>

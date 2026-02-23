@@ -14,6 +14,7 @@ import {
 import { Loader2 } from "lucide-react";
 
 export default function ProfileCompletionModal({ open, member, onComplete }) {
+  const [internalOpen, setInternalOpen] = useState(open);
   const [formData, setFormData] = useState({
     address: member?.address || '',
     city: member?.city || '',
@@ -30,12 +31,15 @@ export default function ProfileCompletionModal({ open, member, onComplete }) {
     });
     
     setLoading(false);
-    onComplete();
+    setInternalOpen(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+    <Dialog open={internalOpen} onOpenChange={(newOpen) => {
+      setInternalOpen(newOpen);
+      if (!newOpen) onComplete();
+    }}>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">Complete Your Profile</DialogTitle>
           <DialogDescription>

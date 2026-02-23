@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { charityClient } from "@/api/charityClient";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,12 @@ import { useQueryClient } from "@tanstack/react-query";
 export default function OnboardingWizard({ open, onComplete, user, memberProfile }) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(open);
   const queryClient = useQueryClient();
+  
+  useEffect(() => {
+    setInternalOpen(open);
+  }, [open]);
   
   const [formData, setFormData] = useState({
     phone: memberProfile?.phone || '',
@@ -59,7 +64,8 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
       }
 
       queryClient.invalidateQueries({ queryKey: ['members'] });
-      onComplete();
+      setStep(1);
+      setInternalOpen(false);
     } catch (error) {
       console.error(error);
     } finally {
@@ -68,18 +74,33 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
   };
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="max-w-2xl" hideClose>
-        {/* Progress Bar */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-slate-600">
-              Step {step} of {totalSteps}
-            </span>
-            <span className="text-sm text-slate-500">{Math.round(progress)}%</span>
+    <Dialog open={internalOpen} onOpenChange={(newOpen) => {
+      if (!newOpen) {
+        setStep(1);
+        onComplete();
+      }
+      setInternalOpen(newOpen);
+    }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-0">
+          <DialogTitle className="text-2xl font-bold">
+            {step === 1 && "Complete Your Profile"}
+            {step === 2 && "Set Your Preferences"}
+            {step === 3 && "Understanding Challans"}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="overflow-y-auto flex-1 px-6 py-6">
+          {/* Progress Bar */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-slate-600">
+                Step {step} of {totalSteps}
+              </span>
+              <span className="text-sm text-slate-500">{Math.round(progress)}%</span>
+            </div>
+            <Progress value={progress} className="h-2" />
           </div>
-          <Progress value={progress} className="h-2" />
-        </div>
 
         {/* Step 1: Complete Profile */}
         {step === 1 && (
@@ -127,16 +148,6 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
                   placeholder="Enter your city"
                 />
               </div>
-            </div>
-
-            <div className="flex justify-end">
-              <Button 
-                onClick={handleNext}
-                disabled={!formData.phone}
-                className="bg-emerald-600 hover:bg-emerald-700"
-              >
-                Next Step <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
             </div>
           </div>
         )}
@@ -187,18 +198,6 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
                   </p>
                 </div>
               )}
-            </div>
-
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={handleBack}>
-                <ArrowLeft className="w-4 h-4 mr-2" /> Back
-              </Button>
-              <Button 
-                onClick={handleNext}
-                className="bg-emerald-600 hover:bg-emerald-700"
-              >
-                Next Step <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
             </div>
           </div>
         )}
@@ -275,21 +274,46 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
                 </div>
               </div>
             </div>
-
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={handleBack}>
-                <ArrowLeft className="w-4 h-4 mr-2" /> Back
-              </Button>
-              <Button 
-                onClick={handleComplete}
-                disabled={loading}
-                className="bg-emerald-600 hover:bg-emerald-700"
-              >
-                {loading ? "Completing..." : "Complete Setup"} <CheckCircle className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
           </div>
         )}
+        </div>
+
+        {/* Footer with buttons - always visible at bottom */}
+        <div className="px-6 py-6 border-t flex justify-between gap-3">
+          {step > 1 && (
+            <Button variant="outline" onClick={handleBack}>
+              <ArrowLeft className="w-4 h-4 mr-2" /> Back
+            </Button>
+          )}
+          {step === 1 && <div className="flex-1"></div>}
+          
+          {step === 1 && (
+            <Button 
+              onClick={handleNext}
+              disabled={!formData.phone}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              Next Step <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          )}
+          {step === 2 && (
+            <Button 
+              onClick={handleNext}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              Next Step <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          )}
+          {step === 3 && (
+            <Button 
+              onClick={handleComplete}
+              disabled={loading}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              {loading ? "Completing..." : "Complete Setup"} <CheckCircle className="w-4 h-4 ml-2" />
+            </Button>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
