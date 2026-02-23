@@ -76,13 +76,14 @@ export default function Dashboard() {
 
   const auditLogsArray = Array.isArray(auditLogs) ? auditLogs : [];
 
+  // Phase 1: RecurringDonations disabled - will implement in Phase 2
   const { data: recurringDonations } = useQuery({
     queryKey: ['recurringDonations'],
-    queryFn: () => charityClient.entities.RecurringDonation.list(),
-    enabled: user?.is_superadmin === true,
+    queryFn: async () => [],
+    enabled: false, // Disabled for Phase 1
   });
 
-  const recurringDonationsArray = Array.isArray(recurringDonations) ? recurringDonations : [];
+  const recurringDonationsArray = [];
 
   const isSuperAdmin = user?.is_superadmin === true;
   const isAdmin = user?.role === 'admin';

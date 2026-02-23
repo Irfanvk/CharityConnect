@@ -67,10 +67,11 @@ export default function Profile() {
     queryFn: () => charityClient.entities.Invite.list(),
   });
 
+  // Phase 1: RecurringDonations disabled - will implement in Phase 2
   const { data: recurringDonations = [] } = useQuery({
     queryKey: ['recurringDonations', user?.email],
-    queryFn: () => charityClient.entities.RecurringDonation.filter?.({ member_email: user?.email }) || charityClient.entities.RecurringDonation.list(),
-    enabled: !!user,
+    queryFn: async () => [],
+    enabled: false, // Disabled for Phase 1
   });
 
   // Find member profile for current user

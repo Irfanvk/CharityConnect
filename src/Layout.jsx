@@ -84,7 +84,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Campaigns", href: "Campaigns", icon: Heart },
     { name: "Reports", href: "Reports", icon: FileText, adminOnly: true },
     { name: "Audit Logs", href: "AuditLogs", icon: Settings, adminOnly: true },
-    { name: "Requests", href: "Requests", icon: MessageSquare },
+    // { name: "Requests", href: "Requests", icon: MessageSquare }, // Phase 1: Disabled - Will implement in Phase 2
     { name: "Notifications", href: "Notifications", icon: Bell, badge: unreadCount },
     { name: "Documentation", href: "Documentation", icon: FileText },
   ];

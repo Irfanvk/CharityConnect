@@ -7,12 +7,17 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Heart, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function Register() {
+  const navigate = useNavigate();
   const [step, setStep] = useState(1); // 1: verify code, 2: registration form
   const [inviteCode, setInviteCode] = useState('');
   const [verifiedInvite, setVerifiedInvite] = useState(null);
   const [formData, setFormData] = useState({
+    username: '',
+    password: '',
+    confirmPassword: '',
     full_name: '',
     email: '',
     phone: '',
@@ -25,7 +30,7 @@ export default function Register() {
 
   const { data: invites = [] } = useQuery({
     queryKey: ['invites'],
-    queryFn: () => charityClient.entities.Invite.list(),
+    queryFn: () => charityClient.invites.list(),
   });
 
   const verifyInviteCode = () => {
@@ -55,29 +60,43 @@ export default function Register() {
     setLoading(true);
     setError('');
 
+    // Validate passwords match
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match. Please try again.');
+      setLoading(false);
+      return;
+    }
+
+    // Validate password strength
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Create member record
-      await charityClient.entities.Member.create({
-        member_id: `MEM-${Date.now().toString().slice(-4)}`, // Temp ID, admin will assign proper one
+      // Register with backend - creates both User and Member
+      await charityClient.auth.register({
+        invite_code: inviteCode,
+        username: formData.username,
+        password: formData.password,
+        email: formData.email,
         full_name: formData.full_name,
         phone: formData.phone,
-        email: formData.email,
-        join_date: new Date().toISOString().split('T')[0],
-        status: 'active',
-        monthly_amount: 100,
-        invited_by: verifiedInvite.invited_by,
-        notes: 'Profile incomplete - needs to add address and city'
+        address: formData.address || '',
+        monthly_amount: 100
       });
 
-      // Mark invite as used
-      await charityClient.entities.Invite.update(verifiedInvite.id, {
-        status: 'used',
-        used_at: new Date().toISOString()
-      });
+      // Backend automatically:
+      // - Creates User account
+      // - Creates Member profile with auto-generated code (MEM-001, etc.)
+      // - Marks invite as used
+      // - Returns auth token
 
       setSuccess(true);
     } catch (err) {
-      setError('Registration failed. Please try again or contact support.');
+      console.error('Registration error:', err);
+      setError(err.message || 'Registration failed. Please try again or contact support.');
     } finally {
       setLoading(false);
     }
@@ -93,13 +112,13 @@ export default function Register() {
             </div>
             <h2 className="text-2xl font-bold text-slate-900 mb-2">Registration Successful!</h2>
             <p className="text-slate-600 mb-6">
-              Your account has been created. An administrator will assign your official Member ID and you'll receive login credentials shortly.
+              Your account has been created successfully! You can now access your dashboard.
             </p>
             <Button 
-              onClick={() => charityClient.auth.redirectToLogin()}
+              onClick={() => navigate('/dashboard')}
               className="bg-emerald-600 hover:bg-emerald-700"
             >
-              Go to Login
+              Go to Dashboard
             </Button>
           </CardContent>
         </Card>
@@ -156,11 +175,52 @@ export default function Register() {
           ) : (
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="space-y-2">
+                <Label htmlFor="username">Username *</Label>
+                <Input
+                  id="username"
+                  value={formData.username}
+                  onChange={(e) => setFormData({...formData, username: e.target.value})}
+                  placeholder="Choose a username"
+                  autoComplete="username"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Password *</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
+                  placeholder="Re-enter your password"
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="full_name">Full Name *</Label>
                 <Input
                   id="full_name"
                   value={formData.full_name}
                   onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                  autoComplete="name"
                   required
                 />
               </div>
@@ -172,6 +232,7 @@ export default function Register() {
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  autoComplete="email"
                   required
                 />
               </div>
@@ -182,12 +243,13 @@ export default function Register() {
                   id="phone"
                   value={formData.phone}
                   onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                  autoComplete="tel"
                   required
                 />
               </div>
 
               <p className="text-xs text-slate-500">
-                You'll be asked to complete your profile (address, city, etc.) after registration.
+                You can complete additional profile details (address, city, etc.) after registration.
               </p>
 
               <div className="flex gap-3 pt-4">
