@@ -22,6 +22,10 @@ export default function Dashboard() {
   const loadUserData = async () => {
     try {
       const currentUser = await charityClient.auth.me();
+      if (!currentUser) {
+        setUser(null);
+        return;
+      }
       setUser(currentUser);
       
       // Check if onboarding is needed

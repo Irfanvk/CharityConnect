@@ -20,6 +20,18 @@ function getAuthToken() {
   return localStorage.getItem(AUTH_TOKEN_KEY);
 }
 
+function extractAuthToken(data) {
+  return (
+    data?.access_token ||
+    data?.accessToken ||
+    data?.token ||
+    data?.data?.access_token ||
+    data?.data?.accessToken ||
+    data?.data?.token ||
+    null
+  );
+}
+
 async function apiFetch(path, options = {}, query = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
@@ -47,8 +59,11 @@ async function apiFetch(path, options = {}, query = {}) {
 
     if (response.status === 401) {
       localStorage.removeItem(AUTH_TOKEN_KEY);
-      window.location.href = '/login';
-      return;
+      throw {
+        status: 401,
+        message: 'Unauthorized',
+        data: null,
+      };
     }
 
     const text = await response.text();
@@ -109,10 +124,9 @@ const charityClient = {
         body: JSON.stringify(credentials),
       });
 
-      if (data?.access_token) {
-        localStorage.setItem(AUTH_TOKEN_KEY, data.access_token);
-      } else if (data?.token) {
-        localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+      const token = extractAuthToken(data);
+      if (token) {
+        localStorage.setItem(AUTH_TOKEN_KEY, token);
       }
 
       return data;
@@ -124,8 +138,9 @@ const charityClient = {
         body: JSON.stringify(registrationData),
       });
 
-      if (data?.access_token) {
-        localStorage.setItem(AUTH_TOKEN_KEY, data.access_token);
+      const token = extractAuthToken(data);
+      if (token) {
+        localStorage.setItem(AUTH_TOKEN_KEY, token);
       }
 
       return data;
@@ -136,6 +151,10 @@ const charityClient = {
         await apiFetch('/auth/logout', { method: 'POST' });
       } catch {}
       localStorage.removeItem(AUTH_TOKEN_KEY);
+      window.location.href = '/login';
+    },
+
+    redirectToLogin: () => {
       window.location.href = '/login';
     },
   },
@@ -348,11 +367,8 @@ const charityClient = {
   // TODO: Remove after all components are updated
   entities: new Proxy({}, {
     get: (_target, name) => {
-      console.warn(
-        `charityClient.entities.${name} is deprecated. ` +
-        `Use charityClient.${name.toLowerCase()} instead.`
-      );
-      
+      const entityName = String(name);
+
       // Map old entity names to new resource methods
       const entityMap = {
         Member: 'members',
@@ -365,12 +381,17 @@ const charityClient = {
         RecurringDonation: null, // Disabled for Phase 1
         Request: null, // Disabled for Phase 1
       };
-      
-      const resourceName = entityMap[name];
+
+      const resourceName = entityMap[entityName];
+
+      console.warn(
+        `charityClient.entities.${entityName} is deprecated. ` +
+        `Use charityClient.${resourceName || entityName.toLowerCase()} instead.`
+      );
       
       if (resourceName === null) {
         throw new Error(
-          `Entity ${name} is not available in Phase 1. ` +
+          `Entity ${entityName} is not available in Phase 1. ` +
           `It will be implemented in Phase 2.`
         );
       }
@@ -379,7 +400,7 @@ const charityClient = {
         return charityClient[resourceName];
       }
       
-      throw new Error(`Unknown entity: ${name}`);
+      throw new Error(`Unknown entity: ${entityName}`);
     },
   }),
 };

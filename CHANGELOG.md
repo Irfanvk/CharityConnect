@@ -22,7 +22,119 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|---------|
+| 1.1 | 2026-02-26 | Patch | Auth/login redirect stabilization, logout visibility, API client hardening |
 | 1.0 | 2026-02-24 | Release | Phase 1 MVP complete |
+
+---
+
+## 📅 February 26, 2026 - Auth Stabilization Patch
+
+### 🎯 Objectives Met
+- ✅ Fixed login redirect loop back to login page
+- ✅ Stabilized post-login auth state handling
+- ✅ Made logout action visible and reliable in app shell
+- ✅ Removed fragile dev-only token behavior
+- ✅ Added startup backend reachability signal for better diagnostics
+
+---
+
+## Frontend Changes (Patch 1.1)
+
+### 1. Login/Auth Session Stabilization
+
+**Impact:** Critical - Fixes blocked sign-in flow  
+**Type:** Bug Fix  
+**Files Modified:** `src/lib/AuthContext.jsx`, `src/pages/Login.jsx`, `src/App.jsx`
+
+**Change Details:**
+- Auth context now reads token from persistent storage consistently.
+- Successful login immediately updates shared auth state.
+- Stale `auth_required` error state is cleared on valid authentication.
+- Redirect-to-login is gated to real unauthenticated state only.
+- Post-login navigation uses `/` (main page entry, mapped to Dashboard).
+
+**Result:**
+- Successful login remains in authenticated app instead of bouncing back to login.
+
+---
+
+### 2. API Client Hardening
+
+**Impact:** High - Prevents accidental session drops  
+**Type:** Reliability Fix  
+**Files Modified:** `src/api/charityClient.js`
+
+**Change Details:**
+- Removed global forced browser redirect on every `401`.
+- Normalized `401` as structured error for auth flow to handle.
+- Added tolerant token extraction for multiple backend response shapes:
+  - `access_token`
+  - `accessToken`
+  - `token`
+  - nested `data.*` variants
+- Added missing `redirectToLogin` helper consumed by auth/layout code.
+
+**Result:**
+- Non-auth endpoint failures no longer force immediate login-page navigation.
+
+---
+
+### 3. Layout/Logout UX Fix
+
+**Impact:** High - Restores visible session controls  
+**Type:** UX + State Binding Fix  
+**Files Modified:** `src/Layout.jsx`
+
+**Change Details:**
+- Layout now uses auth-context session state for user controls.
+- Logout button is shown in header for authenticated users.
+- Sidebar user dropdown uses the same authenticated user source.
+- Notification loading switched from deprecated proxy path to resource path.
+
+**Result:**
+- Logout action is visible and functional after login.
+
+---
+
+### 4. Dev & Startup Behavior
+
+**Impact:** Medium - Reduces false-positive auth state  
+**Type:** Cleanup/Diagnostics  
+**Files Modified:** `src/main.jsx`, `src/lib/AuthContext.jsx`, `vite.config.js`
+
+**Change Details:**
+- Removed dev-time mock token auto-injection.
+- Added backend reachability check at startup with user-friendly error state.
+- Added Vite `/api` proxy support via configured backend URL.
+- Added local environment defaults via `.env.local` for backend URL wiring.
+
+---
+
+## Validation Summary (2026-02-26)
+
+- `npm run lint` → ✅ pass
+- `npm run build` → ✅ pass
+
+---
+
+## Backend Coordination Notes (Generated from Patch 1.1)
+
+Frontend requests backend to confirm/standardize:
+
+1. **Login token response contract**
+  - Preferred: `access_token`
+  - Supported fallback currently: `accessToken`, `token`, nested `data.*`
+
+2. **Auth identity endpoint behavior**
+  - `GET /auth/me` should reliably return user object on valid token.
+  - `401` should be used only for invalid/expired/missing token.
+
+3. **Public app settings endpoint**
+  - If app-id is required, confirm expected behavior when app-id is absent.
+  - Current frontend now skips this call when app-id is unset.
+
+4. **Health check endpoint**
+  - Frontend probes `/health`; ensure this endpoint is present and lightweight.
 
 ---
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { charityClient } from '@/api/charityClient';
+import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +17,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { setAuthenticatedUser } = useAuth();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -38,9 +40,16 @@ export default function Login() {
       if (response.user) {
         localStorage.setItem('user', JSON.stringify(response.user));
       }
+
+      const currentUser = response?.user || await charityClient.auth.me();
+      if (!currentUser) {
+        throw new Error('Login succeeded but user session could not be established.');
+      }
+
+      setAuthenticatedUser(currentUser);
       
       // Redirect to dashboard
-      navigate('/dashboard');
+      navigate('/');
     } catch (err) {
       console.error('Login error:', err);
       setError(err.message || 'Login failed. Please check your credentials and try again.');

@@ -3,7 +3,7 @@
 **Project:** CharityConnect  
 **Purpose:** Decisions, meeting minutes, and action items  
 **Owner:** Integration Lead  
-**Last Updated:** 2026-02-24
+**Last Updated:** 2026-02-26
 
 ---
 
@@ -11,6 +11,10 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-02-26 | Frontend auth redirect handled by context state (not global 401 hard redirect) | Frontend | ✅ | Prevents login loop and session bounce |
+| 2026-02-26 | Login success flow updates context session immediately | Frontend | ✅ | Removes race between login and auth guard |
+| 2026-02-26 | Logout action must be visible in app shell for authenticated users | Frontend | ✅ | Added header-level logout button |
+| 2026-02-26 | Public app settings call is optional when app_id missing | Frontend | ✅ | Skip endpoint to avoid 404 noise |
 | 2026-02-24 | Use resource-specific API routes (no generic /entities) | Backend | ✅ | Avoid abstraction mismatch |
 | 2026-02-24 | Login accepts email and username | Backend | ✅ | Aligns with frontend Login.jsx |
 | 2026-02-24 | Add /files/upload endpoint | Backend | ✅ | Matches frontend proof upload flow |
@@ -168,7 +172,39 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ---
 
 ## Open Questions
-- None for Phase 1.
+- Backend: confirm canonical login token key (`access_token` preferred) and keep backward compatibility for existing key variants during transition.
+- Backend: confirm `/auth/me` returns a full user object for valid token in all environments.
+- Backend: confirm `/health` endpoint availability and expected lightweight response.
+
+---
+
+## 2026-02-26 - Frontend to Backend Communication (Auth Stabilization)
+
+**Summary:** Frontend patch 1.1 resolved login-loop/logout-visibility issues and now requests contract confirmations below.
+
+### Items to Communicate to Backend
+
+1. **Token response contract alignment**
+   - Frontend now accepts `access_token`, `accessToken`, `token`, and nested `data.*` variants.
+   - Request backend to standardize on `access_token` as canonical response key.
+
+2. **/auth/me reliability requirement**
+   - If token is valid: return full user payload.
+   - If invalid/expired: return `401` only.
+   - Avoid returning `200` with null body for authenticated checks.
+
+3. **Public settings by app id behavior**
+   - Frontend now skips `GET /api/apps/public/prod/public-settings/by-id/{appId}` when app id is not configured.
+   - Request backend to document expected response for missing/invalid app id.
+
+4. **Health endpoint contract**
+   - Frontend startup checks `GET /health`.
+   - Request backend to keep this endpoint stable and unauthenticated for reachability checks.
+
+### Frontend Validation Completed
+
+- `npm run lint` → ✅ Pass
+- `npm run build` → ✅ Pass
 
 ---
 

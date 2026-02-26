@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "./utils";
 import { charityClient } from "@/api/charityClient";
+import { useAuth } from "@/lib/AuthContext";
 import { 
   LayoutDashboard, 
   Users, 
@@ -13,7 +14,6 @@ import {
   ChevronDown,
   User,
   Settings,
-  MessageSquare,
   FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,51 +31,63 @@ import BackButton from "@/components/mobile/BackButton";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Layout({ children, currentPageName }) {
+  const { user: authUser, isAuthenticated, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const currentUser = authUser || user;
 
   useEffect(() => {
     loadUser();
-    loadNotifications();
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!currentUser) return;
+
+    loadNotifications();
 
     // Real-time subscription for notifications
-    const unsubscribe = charityClient.entities.Notification.subscribe?.((event) => {
+    const unsubscribe = charityClient.notifications.subscribe?.(() => {
       loadNotifications();
     });
 
     return unsubscribe;
-  }, [user]);
+  }, [currentUser]);
 
   const loadUser = async () => {
     try {
       const currentUser = await charityClient.auth.me();
+      if (!currentUser) {
+        setUser(null);
+        setUnreadCount(0);
+        return;
+      }
       setUser(currentUser);
       loadNotifications();
     } catch (e) {
-      console.log("Not logged in");
+      setUser(null);
+      setUnreadCount(0);
     }
   };
 
   const loadNotifications = async () => {
     try {
-      const notifications = await charityClient.entities.Notification.list();
-      const user = await charityClient.auth.me();
+      if (!currentUser) {
+        setUnreadCount(0);
+        return;
+      }
+      const notifications = await charityClient.notifications.list();
       const unread = notifications.filter(n => {
-        if (n.target_type === 'all') return !n.read_by?.includes(user.email);
-        if (n.target_type === 'member') return n.target_member_id === user.email && !n.read_by?.includes(user.email);
-        if (n.target_type === 'admins' && user.role === 'admin') return !n.read_by?.includes(user.email);
+        if (n.target_type === 'all') return !n.read_by?.includes(currentUser.email);
+        if (n.target_type === 'member') return n.target_member_id === currentUser.email && !n.read_by?.includes(currentUser.email);
+        if (n.target_type === 'admins' && currentUser.role === 'admin') return !n.read_by?.includes(currentUser.email);
         return false;
       });
       setUnreadCount(unread.length);
     } catch (e) {}
   };
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = currentUser?.role === 'admin';
 
   const navigation = [
     { name: "Dashboard", href: "Dashboard", icon: LayoutDashboard },
@@ -190,17 +202,17 @@ export default function Layout({ children, currentPageName }) {
           </nav>
 
           {/* User section */}
-          {user && (
+          {currentUser && (
             <div className="p-4 border-t border-slate-100 dark:border-slate-800">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors select-none">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-semibold">
-                      {user.full_name?.charAt(0) || user.email?.charAt(0)?.toUpperCase()}
+                      {currentUser.full_name?.charAt(0) || currentUser.email?.charAt(0)?.toUpperCase()}
                     </div>
                     <div className="flex-1 text-left">
-                      <p className="font-medium text-slate-800 dark:text-white text-sm truncate">{user.full_name || 'User'}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{user.role}</p>
+                      <p className="font-medium text-slate-800 dark:text-white text-sm truncate">{currentUser.full_name || 'User'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{currentUser.role}</p>
                     </div>
                     <ChevronDown className="w-4 h-4 text-slate-400" />
                   </button>
@@ -223,8 +235,7 @@ export default function Layout({ children, currentPageName }) {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     onClick={() => {
-                      charityClient.auth.logout();
-                      charityClient.auth.redirectToLogin();
+                      logout();
                     }}
                     className="text-rose-600"
                   >
@@ -264,6 +275,17 @@ export default function Layout({ children, currentPageName }) {
             </div>
 
             <div className="flex items-center gap-3">
+              {isAuthenticated && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => logout()}
+                  className="inline-flex"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </Button>
+              )}
               <Link to={createPageUrl("Notifications")}>
                 <Button variant="ghost" size="icon" className="relative select-none">
                   <Bell className="w-5 h-5 text-slate-600 dark:text-slate-400" />
