@@ -22,8 +22,94 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|---------|
+| 1.2 | 2026-03-01 | Patch | Challan role-based visibility, proof re-upload flow, status filter alignment |
 | 1.1 | 2026-02-26 | Patch | Auth/login redirect stabilization, logout visibility, API client hardening |
 | 1.0 | 2026-02-24 | Release | Phase 1 MVP complete |
+
+---
+
+## 📅 March 01, 2026 - Challan Workflow Integration Patch
+
+### 🎯 Objectives Met
+- ✅ Integrated challan page behavior with current `charityClient` architecture
+- ✅ Added role-aware challan visibility for non-admin users
+- ✅ Added rejected-proof re-upload flow for authorized users
+- ✅ Aligned UI status filter behavior for uploaded proofs
+- ✅ Preserved admin approve/reject workflow with audit logging
+
+---
+
+## Frontend Changes (Patch 1.2)
+
+### 1. Challans API + Mutation Alignment
+
+**Impact:** High - Removes deprecated usage and keeps API usage consistent  
+**Type:** Reliability + Maintainability  
+**Files Modified:** `src/pages/Challans.jsx`
+
+**Change Details:**
+- Replaced deprecated `charityClient.entities.*` calls with direct resource methods:
+  - `charityClient.challans.*`
+  - `charityClient.members.*`
+  - `charityClient.campaigns.*`
+  - `charityClient.auditLogs.*`
+- Consolidated challan update flow in a single helper to keep query invalidation and modal reset behavior consistent.
+
+---
+
+### 2. Role-based Visibility and Upload Permissions
+
+**Impact:** High - Corrects user access scope for challan data  
+**Type:** Access Control + UX  
+**Files Modified:** `src/pages/Challans.jsx`, `src/components/challans/ChallanForm.jsx`
+
+**Change Details:**
+- Non-admin users now see challans tied to their member record (email-linked), with fallback to creator email.
+- Upload menu now supports:
+  - `generated` → Upload Proof
+  - `rejected` → Re-upload Proof
+- Re-upload remains role-scoped (admin or challan owner/member).
+- Non-admin challan form auto-binds their member and shows read-only member card.
+- If no member record exists for non-admin user, form clearly blocks submission and shows guidance.
+
+---
+
+### 3. Status Filter Semantics
+
+**Impact:** Medium - Avoids mismatch between backend status model and UI labels  
+**Type:** UX/Data Interpretation  
+**Files Modified:** `src/pages/Challans.jsx`
+
+**Change Details:**
+- Added filter mapping so `proof_uploaded` tab resolves to backend shape:
+  - `status = pending` and `proof_uploaded_at` exists.
+- UI badge keeps "Proof Uploaded" display while preserving backend `pending` workflow.
+
+---
+
+## Validation Summary (2026-03-01)
+
+- `npm run lint` → ✅ pass
+
+---
+
+## Backend Coordination Notes (Generated from Patch 1.2)
+
+Frontend requests backend confirmation on challan processing contract:
+
+1. **Proof upload state model**
+  - Frontend assumes proof upload results in:
+    - `status: pending`
+    - `proof_uploaded_at` timestamp present
+  - Request backend to keep this contract stable and documented.
+
+2. **Reject/Re-upload flow**
+  - Frontend now supports re-upload after rejection.
+  - Request backend confirmation that updating rejected challan with new `proof_url` should transition back to review (`pending`).
+
+3. **Status vocabulary**
+  - Frontend supports UI label `Proof Uploaded` as a derived state.
+  - Request backend to confirm canonical persisted statuses remain: `generated`, `pending`, `approved`, `rejected`.
 
 ---
 
