@@ -1,6 +1,6 @@
 {
-  "name": "CharityConnect APP",
-  "short_name": "CharityConnect",
+  "name": "CharityHub APP",
+  "short_name": "CharityHub",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

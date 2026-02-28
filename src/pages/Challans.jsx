@@ -53,6 +53,14 @@ const getDisplayStatus = (challan) => {
   return statusConfig[challan.status] || statusConfig.generated;
 };
 
+const matchesStatusFilter = (challan, filter) => {
+  if (filter === 'all') return true;
+  if (filter === 'proof_uploaded') {
+    return challan.status === 'pending' && !!challan.proof_uploaded_at;
+  }
+  return challan.status === filter;
+};
+
 export default function Challans() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -72,55 +80,35 @@ export default function Challans() {
 
   const { data: challans = [], isLoading } = useQuery({
     queryKey: ['challans'],
-    queryFn: () => charityClient.entities.Challan.list('-created_date'),
+    queryFn: () => charityClient.challans.list({ order: '-created_date' }),
   });
 
   const { data: members = [] } = useQuery({
     queryKey: ['members'],
-    queryFn: () => charityClient.entities.Member.list(),
+    queryFn: () => charityClient.members.list(),
   });
 
   const { data: campaigns = [] } = useQuery({
     queryKey: ['campaigns'],
-    queryFn: () => charityClient.entities.Campaign.list(),
+    queryFn: () => charityClient.campaigns.list(),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => charityClient.entities.Challan.create(data),
+    mutationFn: (data) => charityClient.challans.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['challans'] });
       setFormOpen(false);
     },
   });
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => charityClient.entities.Challan.update(id, data),
-    onMutate: async ({ id, data }) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['challans'] });
-      
-      // Snapshot previous value
-      const previousChallans = queryClient.getQueryData(['challans']);
-      
-      // Optimistically update
-      queryClient.setQueryData(['challans'], (old) =>
-        old?.map((c) => (c.id === id ? { ...c, ...data } : c))
-      );
-      
-      return { previousChallans };
-    },
-    onError: (err, variables, context) => {
-      // Rollback on error
-      queryClient.setQueryData(['challans'], context.previousChallans);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['challans'] });
-      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
-      setUploadOpen(false);
-      setSelectedChallan(null);
-      setRejectOpen(false);
-    },
-  });
+  const updateChallan = async (id, data) => {
+    await charityClient.challans.update(id, data);
+    await queryClient.invalidateQueries({ queryKey: ['challans'] });
+    await queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+    setUploadOpen(false);
+    setSelectedChallan(null);
+    setRejectOpen(false);
+  };
 
   const isAdmin = user?.role === 'admin';
 
@@ -132,20 +120,17 @@ export default function Challans() {
   };
 
   const handleApprove = async (challan) => {
-    await updateMutation.mutateAsync({
-      id: challan.id,
-      data: {
-        status: 'approved',
-        approved_by: user?.email,
-        approved_at: new Date().toISOString()
-      }
+    await updateChallan(challan.id, {
+      status: 'approved',
+      approved_by: user?.email,
+      approved_at: new Date().toISOString()
     });
 
     // Update campaign collected amount if donation
     if (challan.type === 'donation' && challan.campaign_id) {
       const campaign = campaigns.find(c => c.id === challan.campaign_id);
       if (campaign) {
-        await charityClient.entities.Campaign.update(campaign.id, {
+        await charityClient.campaigns.update(campaign.id, {
           collected_amount: (campaign.collected_amount || 0) + challan.amount,
           participants_count: (campaign.participants_count || 0) + 1
         });
@@ -153,7 +138,7 @@ export default function Challans() {
     }
 
     // Log audit
-    await charityClient.entities.AuditLog.create({
+    await charityClient.auditLogs.create({
       action_type: "challan_approved",
       performed_by: user?.email,
       performed_by_name: user?.full_name,
@@ -165,18 +150,17 @@ export default function Challans() {
   };
 
   const handleReject = async () => {
-    await updateMutation.mutateAsync({
-      id: selectedChallan.id,
-      data: {
-        status: 'rejected',
-        rejection_reason: rejectReason,
-        approved_by: user?.email,
-        approved_at: new Date().toISOString()
-      }
+    if (!selectedChallan) return;
+
+    await updateChallan(selectedChallan.id, {
+      status: 'rejected',
+      rejection_reason: rejectReason,
+      approved_by: user?.email,
+      approved_at: new Date().toISOString()
     });
 
     // Log audit
-    await charityClient.entities.AuditLog.create({
+    await charityClient.auditLogs.create({
       action_type: "challan_rejected",
       performed_by: user?.email,
       performed_by_name: user?.full_name,
@@ -193,17 +177,22 @@ export default function Challans() {
     setRejectReason("");
   };
 
-  // Filter challans based on user role
+  // Find the member record that belongs to the current user
+  const myMember = members.find(m => m.email === user?.email);
+
+  // Filter challans based on user role - non-admins only see their own member's challans
   let displayChallans = challans;
   if (!isAdmin) {
-    displayChallans = challans.filter(c => c.created_by === user?.email);
+    displayChallans = challans.filter(c => 
+      myMember ? c.member_id === myMember.id : c.created_by === user?.email
+    );
   }
 
   const filteredChallans = displayChallans.filter(c => {
     const matchesSearch = 
       c.challan_number?.toLowerCase().includes(search.toLowerCase()) ||
       c.member_name?.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
+    const matchesStatus = matchesStatusFilter(c, statusFilter);
     return matchesSearch && matchesStatus;
   });
 
@@ -350,10 +339,11 @@ export default function Challans() {
                                 View Proof
                               </DropdownMenuItem>
                             )}
-                            {challan.status === 'generated' && (
+                            {(challan.status === 'generated' || challan.status === 'rejected') && 
+                             (isAdmin || (myMember && challan.member_id === myMember.id)) && (
                               <DropdownMenuItem onClick={() => { setSelectedChallan(challan); setUploadOpen(true); }}>
                                 <Upload className="w-4 h-4 mr-2" />
-                                Upload Proof
+                                {challan.status === 'rejected' ? 'Re-upload Proof' : 'Upload Proof'}
                               </DropdownMenuItem>
                             )}
                             {isAdmin && (challan.status === 'proof_uploaded' || challan.status === 'pending') && (
@@ -400,7 +390,7 @@ export default function Challans() {
         open={uploadOpen}
         onOpenChange={setUploadOpen}
         challan={selectedChallan}
-        onSubmit={(data) => updateMutation.mutateAsync({ id: selectedChallan?.id, data })}
+        onSubmit={(data) => selectedChallan ? updateChallan(selectedChallan.id, data) : Promise.resolve()}
       />
 
       {/* Proof View Dialog */}

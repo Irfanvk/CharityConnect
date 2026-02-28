@@ -31,9 +31,15 @@ export default function ChallanForm({
   suggestedNumber,
   currentUser 
 }) {
+  const isAdmin = currentUser?.role === 'admin';
+
+  // Find the current user's own member record
+  const myMember = members.find(m => m.email === currentUser?.email);
+  const defaultMemberId = !isAdmin && myMember ? myMember.id : '';
+
   const [formData, setFormData] = useState({
     challan_number: suggestedNumber || '',
-    member_id: '',
+    member_id: defaultMemberId,
     type: 'monthly',
     amount: 100,
     month: format(new Date(), 'yyyy-MM'),
@@ -42,8 +48,6 @@ export default function ChallanForm({
   });
   const [selectedMonths, setSelectedMonths] = useState([]);
   const [loading, setLoading] = useState(false);
-
-  const isAdmin = currentUser?.role === 'admin';
 
   // Get unpaid months for selected member
   const getUnpaidMonths = (memberId) => {
@@ -75,7 +79,7 @@ export default function ChallanForm({
     const monthlyAmount = member?.monthly_amount || 100;
     const totalAmount = formData.type === 'monthly' 
       ? monthlyAmount * monthsToPay.length
-      : parseFloat(formData.amount);
+      : Number(formData.amount);
     
     await onSubmit({
       ...formData,
@@ -114,34 +118,39 @@ export default function ChallanForm({
             <Input value={suggestedNumber} disabled className="bg-slate-50" />
           </div>
 
-          <div className="space-y-2">
-            <Label>Member *</Label>
-            <Select
-              value={formData.member_id}
-              onValueChange={(value) => setFormData({...formData, member_id: value})}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select member" />
-              </SelectTrigger>
-              <SelectContent>
-                {members
-                  .filter(m => m.status === 'active')
-                  .filter(m => {
-                    // If not admin, only show current user's member record
-                    if (currentUser?.role !== 'admin') {
-                      return m.email === currentUser?.email || m.phone === currentUser?.phone;
-                    }
-                    return true;
-                  })
-                  .map(member => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.full_name} ({member.member_id})
-                    </SelectItem>
-                  ))
-                }
-              </SelectContent>
-            </Select>
-          </div>
+          {isAdmin ? (
+            <div className="space-y-2">
+              <Label>Member *</Label>
+              <Select
+                value={formData.member_id}
+                onValueChange={(value) => setFormData({...formData, member_id: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {members
+                    .filter(m => m.status === 'active')
+                    .map(member => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.full_name} ({member.member_id})
+                      </SelectItem>
+                    ))
+                  }
+                </SelectContent>
+              </Select>
+            </div>
+          ) : myMember ? (
+            <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border">
+              <p className="text-xs text-slate-500 mb-1">Member</p>
+              <p className="font-medium text-slate-900 dark:text-white">{myMember.full_name}</p>
+              <p className="text-xs text-slate-500">{myMember.member_id}</p>
+            </div>
+          ) : (
+            <div className="p-3 bg-rose-50 rounded-lg border border-rose-200">
+              <p className="text-sm text-rose-600">No member record found for your account. Please contact admin.</p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Payment Type</Label>
@@ -277,7 +286,7 @@ export default function ChallanForm({
             </Button>
             <Button 
               type="submit" 
-              disabled={loading || !formData.member_id || (formData.type === 'donation' && !formData.campaign_id) || (formData.type === 'monthly' && selectedMonths.length === 0)}
+              disabled={loading || !formData.member_id || (!isAdmin && !myMember) || (formData.type === 'donation' && !formData.campaign_id) || (formData.type === 'monthly' && selectedMonths.length === 0)}
               className="bg-emerald-600 hover:bg-emerald-700 select-none"
             >
               {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
