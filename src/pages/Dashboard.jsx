@@ -9,6 +9,7 @@ import CampaignProgress from "@/components/dashboard/CampaignProgress";
 import OnboardingWizard from "@/components/onboarding/OnboardingWizard";
 import SuperAdminDashboard from "@/components/dashboard/SuperAdminDashboard";
 import PullToRefresh from "@/components/mobile/PullToRefresh";
+import { APP_IMAGES } from "@/config/appPaths";
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -128,7 +129,10 @@ export default function Dashboard() {
           
           {/* Welcome Section */}
           <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 rounded-2xl p-8 text-white relative overflow-hidden">
-          <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200')] opacity-10 bg-cover bg-center" />
+          <div
+            className="absolute inset-0 opacity-10 bg-cover bg-center"
+            style={{ backgroundImage: `url('${APP_IMAGES.DASHBOARD.SUPERADMIN_WELCOME_BG}')` }}
+          />
           <div className="relative">
             <h1 className="text-3xl font-bold mb-2">
               Welcome back, {user?.full_name || 'Superadmin'}! 🚀
@@ -169,7 +173,10 @@ export default function Dashboard() {
       />
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 rounded-2xl p-8 text-white relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=1200')] opacity-10 bg-cover bg-center" />
+        <div
+          className="absolute inset-0 opacity-10 bg-cover bg-center"
+          style={{ backgroundImage: `url('${APP_IMAGES.DASHBOARD.MEMBER_WELCOME_BG}')` }}
+        />
         <div className="relative">
           <h1 className="text-3xl font-bold mb-2">
             Welcome back, {user?.full_name || 'User'}! 👋

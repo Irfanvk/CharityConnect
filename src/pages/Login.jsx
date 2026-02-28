@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { charityClient } from '@/api/charityClient';
 import { useAuth } from '@/lib/AuthContext';
+import { APP_PATHS } from '@/config/appPaths';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,7 +22,7 @@ export default function Login() {
   const { setAuthenticatedUser } = useAuth();
 
   const returnToParam = new URLSearchParams(location.search).get('returnTo');
-  const redirectTarget = returnToParam && returnToParam.toLowerCase() !== '/login' ? returnToParam : '/';
+  const redirectTarget = returnToParam && returnToParam.toLowerCase() !== APP_PATHS.LOGIN ? returnToParam : APP_PATHS.HOME;
 
   const handleChange = (e) => {
     const { name, value } = e.target;

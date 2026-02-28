@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
+import { PAGE_PATHS } from "@/config/appPaths";
 import { Users, Heart, AlertCircle, CheckCircle,
   Activity, Clock, BarChart3, Shield, ArrowRight,
   UserCheck, DollarSign, Target, FileText
@@ -129,7 +129,7 @@ export default function SuperAdminDashboard({
             </div>
             <p className="text-3xl font-bold mb-1">{pendingApprovals}</p>
             <p className="text-amber-100 text-sm">Pending Approvals</p>
-            <Link to={createPageUrl("Challans")}>
+            <Link to={PAGE_PATHS.CHALLANS}>
               <p className="text-xs text-amber-200 mt-1 hover:underline flex items-center gap-1">
                 Review now <ArrowRight className="w-3 h-3" />
               </p>
@@ -271,7 +271,7 @@ export default function SuperAdminDashboard({
               <FileText className="w-5 h-5 text-purple-600" />
               Recent Audit Logs
             </CardTitle>
-            <Link to={createPageUrl("AuditLogs")}>
+            <Link to={PAGE_PATHS.AUDIT_LOGS}>
               <Button size="sm" variant="ghost">
                 View All <ArrowRight className="w-3 h-3 ml-1" />
               </Button>
@@ -309,7 +309,7 @@ export default function SuperAdminDashboard({
               <Heart className="w-5 h-5 text-rose-600" />
               Campaign Highlights
             </CardTitle>
-            <Link to={createPageUrl("Campaigns")}>
+            <Link to={PAGE_PATHS.CAMPAIGNS}>
               <Button size="sm" variant="ghost">
                 View All <ArrowRight className="w-3 h-3 ml-1" />
               </Button>

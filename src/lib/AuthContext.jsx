@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { charityClient } from '@/api/charityClient';
 import { appParams } from '@/lib/app-params';
 import { AUTH_TOKEN_KEY } from '@/config/constants';
+import { APP_PATHS } from '@/config/appPaths';
 
 /**
  * @param {{ baseURL?: string, headers?: Record<string, string>, token?: string | null }} [options]
@@ -208,7 +209,7 @@ export const AuthProvider = ({ children }) => {
 
   const navigateToLogin = (returnTo = null) => {
     // Use the client's redirectToLogin method
-    const loginPath = '/login';
+    const loginPath = APP_PATHS.LOGIN;
     if (returnTo) {
       window.location.href = `${loginPath}?returnTo=${encodeURIComponent(returnTo)}`;
       return;

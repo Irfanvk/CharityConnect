@@ -1,16 +1,16 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { createPageUrl } from "@/utils";
+import { PAGE_PATHS, ROUTE_KEYS } from "@/config/appPaths";
 import { LayoutDashboard, Receipt, Heart, User } from "lucide-react";
 
 export default function BottomNav() {
   const location = useLocation();
   
   const navItems = [
-    { name: "Dashboard", href: "Dashboard", icon: LayoutDashboard },
-    { name: "Challans", href: "Challans", icon: Receipt },
-    { name: "Campaigns", href: "Campaigns", icon: Heart },
-    { name: "Profile", href: "Profile", icon: User },
+    { name: "Dashboard", href: ROUTE_KEYS.DASHBOARD, path: PAGE_PATHS.DASHBOARD, icon: LayoutDashboard },
+    { name: "Challans", href: ROUTE_KEYS.CHALLANS, path: PAGE_PATHS.CHALLANS, icon: Receipt },
+    { name: "Campaigns", href: ROUTE_KEYS.CAMPAIGNS, path: PAGE_PATHS.CAMPAIGNS, icon: Heart },
+    { name: "Profile", href: ROUTE_KEYS.PROFILE, path: PAGE_PATHS.PROFILE, icon: User },
   ];
 
   const isActive = (href) => {
@@ -28,7 +28,7 @@ export default function BottomNav() {
           return (
             <Link
               key={item.name}
-              to={createPageUrl(item.href)}
+              to={item.path}
               className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors select-none ${
                 active 
                   ? 'text-emerald-600 dark:text-emerald-400' 

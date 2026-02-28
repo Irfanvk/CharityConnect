@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { createPageUrl } from "./utils";
 import { charityClient } from "@/api/charityClient";
 import { useAuth } from "@/lib/AuthContext";
+import { PAGE_PATHS, ROUTE_KEYS } from "@/config/appPaths";
 import { 
   LayoutDashboard, 
   Users, 
@@ -90,20 +90,20 @@ export default function Layout({ children, currentPageName }) {
   const isAdmin = currentUser?.role === 'admin';
 
   const navigation = [
-    { name: "Dashboard", href: "Dashboard", icon: LayoutDashboard },
-    { name: "Members", href: "Members", icon: Users, adminOnly: true },
-    { name: "Challans", href: "Challans", icon: Receipt },
-    { name: "Campaigns", href: "Campaigns", icon: Heart },
-    { name: "Reports", href: "Reports", icon: FileText, adminOnly: true },
-    { name: "Audit Logs", href: "AuditLogs", icon: Settings, adminOnly: true },
+    { name: "Dashboard", href: ROUTE_KEYS.DASHBOARD, path: PAGE_PATHS.DASHBOARD, icon: LayoutDashboard },
+    { name: "Members", href: ROUTE_KEYS.MEMBERS, path: PAGE_PATHS.MEMBERS, icon: Users, adminOnly: true },
+    { name: "Challans", href: ROUTE_KEYS.CHALLANS, path: PAGE_PATHS.CHALLANS, icon: Receipt },
+    { name: "Campaigns", href: ROUTE_KEYS.CAMPAIGNS, path: PAGE_PATHS.CAMPAIGNS, icon: Heart },
+    { name: "Reports", href: ROUTE_KEYS.REPORTS, path: PAGE_PATHS.REPORTS, icon: FileText, adminOnly: true },
+    { name: "Audit Logs", href: ROUTE_KEYS.AUDIT_LOGS, path: PAGE_PATHS.AUDIT_LOGS, icon: Settings, adminOnly: true },
     // { name: "Requests", href: "Requests", icon: MessageSquare }, // Phase 1: Disabled - Will implement in Phase 2
-    { name: "Notifications", href: "Notifications", icon: Bell, badge: unreadCount },
-    { name: "Documentation", href: "Documentation", icon: FileText },
+    { name: "Notifications", href: ROUTE_KEYS.NOTIFICATIONS, path: PAGE_PATHS.NOTIFICATIONS, icon: Bell, badge: unreadCount },
+    { name: "Documentation", href: ROUTE_KEYS.DOCUMENTATION, path: PAGE_PATHS.DOCUMENTATION, icon: FileText },
   ];
 
   const filteredNav = navigation.filter(item => !item.adminOnly || isAdmin);
 
-  const mainPages = ["Dashboard", "Members", "Challans", "Campaigns", "Profile"];
+  const mainPages = [ROUTE_KEYS.DASHBOARD, ROUTE_KEYS.MEMBERS, ROUTE_KEYS.CHALLANS, ROUTE_KEYS.CAMPAIGNS, ROUTE_KEYS.PROFILE];
   const isMainPage = mainPages.includes(currentPageName);
 
   return (
@@ -180,7 +180,7 @@ export default function Layout({ children, currentPageName }) {
               return (
                 <Link
                   key={item.name}
-                  to={createPageUrl(item.href)}
+                  to={item.path}
                   onClick={() => setSidebarOpen(false)}
                   className={`
                     flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 select-none
@@ -219,14 +219,14 @@ export default function Layout({ children, currentPageName }) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuItem asChild>
-                    <Link to={createPageUrl("Profile")} className="flex items-center gap-2">
+                    <Link to={PAGE_PATHS.PROFILE} className="flex items-center gap-2">
                       <User className="w-4 h-4" />
                       My Profile
                     </Link>
                   </DropdownMenuItem>
                   {isAdmin && (
                     <DropdownMenuItem asChild>
-                      <Link to={createPageUrl("Settings")} className="flex items-center gap-2">
+                      <Link to={PAGE_PATHS.SETTINGS} className="flex items-center gap-2">
                         <Settings className="w-4 h-4" />
                         Settings
                       </Link>
@@ -286,7 +286,7 @@ export default function Layout({ children, currentPageName }) {
                   Logout
                 </Button>
               )}
-              <Link to={createPageUrl("Notifications")}>
+              <Link to={PAGE_PATHS.NOTIFICATIONS}>
                 <Button variant="ghost" size="icon" className="relative select-none">
                   <Bell className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                   {unreadCount > 0 && (

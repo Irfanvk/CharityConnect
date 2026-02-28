@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { APP_PATHS } from '@/config/appPaths';
 
 const { Pages, PUBLIC_PAGES, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -18,7 +19,7 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   <Layout currentPageName={currentPageName}>{children}</Layout>
   : <>{children}</>;
 
-const isLoginPath = (pathname = '') => pathname.toLowerCase() === '/login';
+const isLoginPath = (pathname = '') => pathname.toLowerCase() === APP_PATHS.LOGIN;
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, isAuthenticated, authError, navigateToLogin, checkAppState } = useAuth();
@@ -27,7 +28,7 @@ const AuthenticatedApp = () => {
   const returnToParam = new URLSearchParams(location.search).get('returnTo');
 
   if (isAuthenticated && isOnLoginPage) {
-    const target = returnToParam && !isLoginPath(returnToParam) ? returnToParam : '/';
+    const target = returnToParam && !isLoginPath(returnToParam) ? returnToParam : APP_PATHS.HOME;
     return <Navigate to={target} replace />;
   }
 
