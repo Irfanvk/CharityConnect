@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import StatsCard from "@/components/dashboard/StatsCard";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import CampaignProgress from "@/components/dashboard/CampaignProgress";
+import MemberDashboard from "@/components/dashboard/MemberDashboard";
 import OnboardingWizard from "@/components/onboarding/OnboardingWizard";
 import SuperAdminDashboard from "@/components/dashboard/SuperAdminDashboard";
 import PullToRefresh from "@/components/mobile/PullToRefresh";
@@ -92,6 +93,7 @@ export default function Dashboard() {
 
   const isSuperAdmin = user?.is_superadmin === true;
   const isAdmin = user?.role === 'admin';
+  const isMember = !isAdmin && !isSuperAdmin;
 
   // Calculate stats
   const activeMembers = membersArray.filter(m => m.status === 'active').length;
@@ -154,6 +156,49 @@ export default function Dashboard() {
           auditLogs={auditLogsArray}
           recurringDonations={recurringDonationsArray}
         />
+        </div>
+      </PullToRefresh>
+    );
+  }
+
+  // Show dedicated member dashboard for non-admin users
+  if (isMember) {
+    return (
+      <PullToRefresh onRefresh={handleRefresh}>
+        <div className="space-y-6">
+          <OnboardingWizard
+            open={showOnboarding}
+            onComplete={() => {
+              setShowOnboarding(false);
+              loadUserData();
+            }}
+            user={user}
+            memberProfile={memberProfile}
+          />
+
+          <div className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 rounded-2xl p-6 text-white relative overflow-hidden">
+            <div
+              className="absolute inset-0 opacity-10 bg-cover bg-center"
+              style={{ backgroundImage: `url('${APP_IMAGES.DASHBOARD.MEMBER_WELCOME_BG}')` }}
+            />
+            <div className="relative">
+              <h1 className="text-2xl font-bold mb-1">
+                Welcome back, {user?.full_name || 'Member'}! 👋
+              </h1>
+              <p className="text-emerald-100">Track your contributions and stay connected</p>
+              <div className="flex items-center gap-2 mt-3 text-emerald-100 text-sm">
+                <Calendar className="w-4 h-4" />
+                <span>{format(new Date(), "EEEE, MMMM d, yyyy")}</span>
+              </div>
+            </div>
+          </div>
+
+          <MemberDashboard
+            user={user}
+            memberProfile={memberProfile}
+            challans={challansArray}
+            campaigns={campaignsArray}
+          />
         </div>
       </PullToRefresh>
     );

@@ -1,0 +1,328 @@
+import React from "react";
+import { Link } from "react-router-dom";
+import { format, addMonths, startOfMonth } from "date-fns";
+import {
+  TrendingUp,
+  Clock,
+  Receipt,
+  Heart,
+  Phone,
+  Mail,
+  MapPin,
+  Calendar,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  ChevronRight,
+  BadgeCheck,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import StatsCard from "./StatsCard";
+import { PAGE_PATHS } from "@/config/appPaths";
+
+const statusConfig = {
+  generated: { label: "Generated", color: "bg-slate-100 text-slate-700", icon: Receipt },
+  proof_uploaded: { label: "Proof Uploaded", color: "bg-blue-100 text-blue-700", icon: AlertCircle },
+  pending: { label: "Pending", color: "bg-amber-100 text-amber-700", icon: Clock },
+  approved: { label: "Approved", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle2 },
+  rejected: { label: "Rejected", color: "bg-rose-100 text-rose-700", icon: XCircle },
+};
+
+const getStatusForCard = (challan) => {
+  if (challan.status === "pending" && challan.proof_uploaded_at) {
+    return statusConfig.proof_uploaded;
+  }
+  return statusConfig[challan.status] || statusConfig.generated;
+};
+
+export default function MemberDashboard({ user, memberProfile, challans, campaigns }) {
+  const memberIdentifiers = new Set(
+    [memberProfile?.id, memberProfile?.member_id].filter(Boolean)
+  );
+
+  const myChallans = challans.filter((challan) =>
+    memberProfile
+      ? memberIdentifiers.has(challan.member_id)
+      : challan.created_by === user?.email
+  );
+
+  const approved = myChallans.filter((challan) => challan.status === "approved");
+  const pending = myChallans.filter(
+    (challan) =>
+      challan.status === "generated" ||
+      challan.status === "pending" ||
+      challan.status === "proof_uploaded"
+  );
+  const rejected = myChallans.filter((challan) => challan.status === "rejected");
+
+  const totalContributed = approved.reduce(
+    (sum, challan) => sum + (challan.amount || 0),
+    0
+  );
+  const monthlyAmount = memberProfile?.monthly_amount || 0;
+
+  const upcomingMonths = [];
+  const paidMonths = new Set(
+    myChallans
+      .filter((challan) => challan.status === "approved" && challan.type === "monthly")
+      .flatMap((challan) =>
+        challan.months_covered?.length ? challan.months_covered : [challan.month]
+      )
+      .filter(Boolean)
+  );
+
+  for (let i = 0; i < 3; i += 1) {
+    const month = format(addMonths(startOfMonth(new Date()), i), "yyyy-MM");
+    if (!paidMonths.has(month)) upcomingMonths.push(month);
+  }
+
+  const donatedCampaignIds = new Set(
+    myChallans
+      .filter((challan) => challan.type === "donation" && challan.campaign_id)
+      .map((challan) => challan.campaign_id)
+  );
+
+  const myCampaigns = campaigns.filter(
+    (campaign) => donatedCampaignIds.has(campaign.id) || campaign.status === "active"
+  );
+
+  const recentChallans = [...myChallans]
+    .sort((a, b) => new Date(b.created_date) - new Date(a.created_date))
+    .slice(0, 5);
+
+  return (
+    <div className="space-y-6">
+      {memberProfile && (
+        <Card className="border-0 shadow-sm bg-white dark:bg-slate-900">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xl font-bold flex-shrink-0">
+                {memberProfile.full_name?.charAt(0)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg font-bold text-slate-800 dark:text-white">
+                    {memberProfile.full_name}
+                  </h2>
+                  <Badge
+                    className={`text-xs ${
+                      memberProfile.status === "active"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {memberProfile.status}
+                  </Badge>
+                </div>
+                <p className="text-sm text-slate-500 dark:text-slate-400 font-mono">
+                  {memberProfile.member_id}
+                </p>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-slate-600 dark:text-slate-400">
+                  {memberProfile.phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-3.5 h-3.5" />
+                      {memberProfile.phone}
+                    </div>
+                  )}
+                  {memberProfile.email && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5" />
+                      {memberProfile.email}
+                    </div>
+                  )}
+                  {memberProfile.city && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-3.5 h-3.5" />
+                      {memberProfile.city}
+                    </div>
+                  )}
+                  {memberProfile.join_date && (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-3.5 h-3.5" />
+                      Joined {format(new Date(memberProfile.join_date), "MMM yyyy")}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {monthlyAmount > 0 && (
+                <div className="text-right flex-shrink-0">
+                  <p className="text-xs text-slate-500">Monthly Due</p>
+                  <p className="text-lg font-bold text-emerald-600">₹{monthlyAmount}</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatsCard
+          title="Total Contributed"
+          value={`₹${totalContributed.toLocaleString()}`}
+          subtitle="Approved payments"
+          icon={TrendingUp}
+          color="emerald"
+        />
+        <StatsCard
+          title="Approved"
+          value={approved.length}
+          subtitle="Challans approved"
+          icon={CheckCircle2}
+          color="blue"
+        />
+        <StatsCard
+          title="Pending"
+          value={pending.length}
+          subtitle="Awaiting approval"
+          icon={Clock}
+          color="amber"
+        />
+        <StatsCard
+          title="Rejected"
+          value={rejected.length}
+          subtitle="Need attention"
+          icon={XCircle}
+          color="rose"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Recent Challans</CardTitle>
+              <Link to={PAGE_PATHS.CHALLANS}>
+                <Button variant="ghost" size="sm" className="text-emerald-600 text-xs">
+                  View All
+                  <ChevronRight className="w-3 h-3 ml-1" />
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {recentChallans.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-4">No challans yet</p>
+            ) : (
+              recentChallans.map((challan) => {
+                const status = getStatusForCard(challan);
+                const Icon = status.icon;
+                return (
+                  <div
+                    key={challan.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon className="w-4 h-4 text-slate-500" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-800 dark:text-white">
+                          {challan.type === "monthly"
+                            ? `Monthly - ${challan.month || "-"}`
+                            : `Donation - ${challan.campaign_name || "Campaign"}`}
+                        </p>
+                        <p className="text-xs text-slate-500">{challan.challan_number}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                        ₹{challan.amount?.toLocaleString()}
+                      </p>
+                      <Badge className={`text-xs ${status.color} border-0`}>
+                        {status.label}
+                      </Badge>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          {monthlyAmount > 0 && (
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Upcoming Months</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {upcomingMonths.length === 0 ? (
+                  <div className="flex items-center gap-2 text-emerald-600 text-sm py-2">
+                    <BadgeCheck className="w-4 h-4" /> All upcoming months are paid!
+                  </div>
+                ) : (
+                  upcomingMonths.map((month) => (
+                    <div
+                      key={month}
+                      className="flex items-center justify-between p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-amber-500" />
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          {format(new Date(`${month}-01`), "MMMM yyyy")}
+                        </span>
+                      </div>
+                      <span className="text-sm font-semibold text-amber-700">₹{monthlyAmount}</span>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Active Campaigns</CardTitle>
+                <Link to={PAGE_PATHS.CAMPAIGNS}>
+                  <Button variant="ghost" size="sm" className="text-emerald-600 text-xs">
+                    View All
+                    <ChevronRight className="w-3 h-3 ml-1" />
+                  </Button>
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {myCampaigns.filter((campaign) => campaign.status === "active").slice(0, 3).length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-2">No active campaigns</p>
+              ) : (
+                myCampaigns
+                  .filter((campaign) => campaign.status === "active")
+                  .slice(0, 3)
+                  .map((campaign) => {
+                    const progress = campaign.target_amount > 0
+                      ? Math.min(100, (campaign.collected_amount / campaign.target_amount) * 100)
+                      : 0;
+                    const participated = donatedCampaignIds.has(campaign.id);
+                    return (
+                      <div key={campaign.id} className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Heart className="w-3.5 h-3.5 text-rose-400" />
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate max-w-[160px]">
+                              {campaign.title}
+                            </span>
+                            {participated && (
+                              <Badge className="text-xs bg-emerald-100 text-emerald-700 border-0">
+                                Donated
+                              </Badge>
+                            )}
+                          </div>
+                          <span className="text-xs text-slate-500">{Math.round(progress)}%</span>
+                        </div>
+                        <Progress value={progress} className="h-1.5" />
+                        <p className="text-xs text-slate-500">
+                          ₹{campaign.collected_amount?.toLocaleString()} / ₹{campaign.target_amount?.toLocaleString()}
+                        </p>
+                      </div>
+                    );
+                  })
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
