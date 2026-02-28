@@ -11,6 +11,8 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-03-01 | Non-admin users get a dedicated member dashboard view | Frontend | ✅ | Member profile, challan insights, upcoming dues, campaign participation |
+| 2026-03-01 | Dashboard render path split by role (`superadmin` / `admin` / `member`) | Frontend | ✅ | Prevents mixed admin/member UI exposure |
 | 2026-03-01 | Challans UI derives "Proof Uploaded" from `pending + proof_uploaded_at` | Frontend | ✅ | Keeps UI readable while preserving backend status model |
 | 2026-03-01 | Non-admin challan visibility constrained to linked member record (fallback: creator email) | Frontend | ✅ | Access-scope hardening in Challans page |
 | 2026-03-01 | Rejected challans support proof re-upload for authorized users | Frontend | ✅ | Requires backend to keep transition-to-pending behavior |
@@ -211,6 +213,83 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ---
 
+## 2026-02-26 - Backend Contract Follow-up (Post-Review)
+
+**Status:** Backend updated for auth contract alignment.
+
+### Backend Changes Applied
+
+1. **`POST /auth/register` response aligned**
+   - Now returns token payload shape:
+     - `access_token`
+     - `token_type`
+     - `user`
+   - Status code set to `201`.
+
+2. **Register request backward compatibility improved**
+   - `full_name` is now accepted as an optional field in register payload (ignored by backend for now).
+
+3. **Conflict responses standardized for registration**
+   - Duplicate username → `409`.
+   - Duplicate email → `409`.
+
+4. **`GET /auth/me` invalid-auth behavior tightened**
+   - Missing/invalid/stale token now returns `401` (no null/200 fallback).
+
+### What Frontend Should Do
+
+1. Prefer `access_token` as canonical key (existing fallback handling can remain temporarily).
+2. For registration flow, consume returned token directly after successful `201`.
+3. Handle `409` in registration UI for duplicate username/email.
+
+### Notes
+
+- `/health` remains stable and unauthenticated.
+- `/files/upload` contract remains aligned (`file_url`, `filename`; JPG/PNG/PDF up to 3MB).
+
+---
+
+## 2026-03-01 - Backend to Frontend Communication (Unauthorized Triage)
+
+**Summary:** Frontend reported `Unauthorized`. Backend reviewed and aligned auth/authorization behavior to match frontend expectations and role-based route access.
+
+### Backend Findings
+
+1. **Service reachability affects auth checks**
+   - If backend is down/unreachable on `http://localhost:8000`, frontend may surface auth-like failures.
+   - `GET /health` remains the first startup verification endpoint.
+
+2. **Role check mismatch fixed in backend routes**
+   - Some route logic was checking `current_user.is_admin` (non-existent in JWT payload).
+   - Updated to role-based checks using JWT `role` (`admin`/`superadmin`).
+
+3. **Current token payload contract (canonical)**
+   - `access_token` contains JWT with `sub` and `role` claims.
+   - Frontend should continue using `Authorization: Bearer <token>` for protected endpoints.
+
+### Frontend Contract Alignment (Actionable)
+
+1. **Use role-appropriate endpoints**
+   - Member self profile: `GET /members/me`.
+   - Member attempting `GET /members/` should expect authorization denial (admin-only route).
+
+2. **Auth error handling expectation**
+   - Invalid/missing/expired token: backend returns `401` with `{ "detail": "Invalid token" }`.
+   - Permission mismatch (valid token, wrong role): backend returns `403`.
+
+3. **Startup check sequence**
+   - Step 1: Confirm `GET /health` is reachable.
+   - Step 2: Perform `POST /auth/login` and store `access_token`.
+   - Step 3: Confirm session via `GET /auth/me`.
+
+### Status for Frontend Team
+
+- Backend auth contract remains: canonical token key is `access_token`.
+- Register flow remains: `POST /auth/register` returns `201` with token payload.
+- Unauthorized triage fix is applied on backend side for member/challan role checks.
+
+---
+
 ## 2026-03-01 - Frontend to Backend Communication (Challans Integration)
 
 **Summary:** Frontend challan workflow was aligned with role-based visibility and direct resource APIs. No hard blocker, but contract confirmations are needed.
@@ -262,6 +341,30 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ### Required Backend Enforcement
 
 Please confirm backend authorization mirrors these rules on all relevant endpoints (`/challans`, challan update/proof upload, approve/reject), so role checks are enforced server-side and not only by frontend UI.
+
+---
+
+## 2026-03-01 - Frontend to Backend Communication (Member Dashboard Rollout)
+
+**Summary:** Frontend introduced a dedicated member dashboard experience and requests confirmation that backend data contracts remain stable for member-scoped rendering.
+
+### Items to Communicate to Backend
+
+1. **Member profile endpoint reliability**
+   - Member dashboard relies on member self profile + linked identity fields.
+   - Please confirm `/members/me` remains stable for member role and returns consistent member linkage fields.
+
+2. **Member-linked challan consistency**
+   - Dashboard calculations use member-linked challans as primary source.
+   - Please keep `member_id` consistently set on challans tied to members.
+
+3. **Role-based dashboard safety**
+   - Frontend now hard-splits dashboard views by role.
+   - Please confirm backend role checks remain strict on admin-only endpoints (members list, audit/admin operations).
+
+### Frontend Validation Completed
+
+- `npm run lint` → ✅ Pass
 
 ---
 

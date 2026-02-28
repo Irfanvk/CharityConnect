@@ -22,9 +22,72 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|---------|
+| 1.3 | 2026-03-01 | Patch | Dedicated member dashboard rollout with profile, challan insights, upcoming dues, and campaign participation |
 | 1.2 | 2026-03-01 | Patch | Challan role-based visibility, proof re-upload flow, status filter alignment |
 | 1.1 | 2026-02-26 | Patch | Auth/login redirect stabilization, logout visibility, API client hardening |
 | 1.0 | 2026-02-24 | Release | Phase 1 MVP complete |
+
+---
+
+## 📅 March 01, 2026 - Member Dashboard Rollout Patch
+
+### 🎯 Objectives Met
+- ✅ Added dedicated dashboard experience for member users
+- ✅ Displayed member profile and monthly due summary
+- ✅ Added member-focused challan metrics and recent challans panel
+- ✅ Added upcoming unpaid months preview for monthly payments
+- ✅ Added campaign participation visibility for donated/active campaigns
+
+---
+
+## Frontend Changes (Patch 1.3)
+
+### 1. New Dedicated Member Dashboard Component
+
+**Impact:** High - Improves member experience and role-specific visibility  
+**Type:** UX + Role-based Dashboard  
+**Files Modified:** `src/components/dashboard/MemberDashboard.jsx` (new)
+
+**Change Details:**
+- Added member profile card with identity/contact details and monthly due.
+- Added stats cards for approved/pending/rejected challans and total contribution.
+- Added recent challans list with mapped status badges and payment context.
+- Added upcoming months section for unpaid monthly periods.
+- Added active campaigns panel with participation indicator and progress.
+
+---
+
+### 2. Dashboard Routing/Render Logic Update
+
+**Impact:** High - Correct role-based dashboard rendering  
+**Type:** UI Flow Update  
+**Files Modified:** `src/pages/Dashboard.jsx`
+
+**Change Details:**
+- Introduced `isMember` branch (`!isAdmin && !isSuperAdmin`).
+- Wired dedicated member dashboard render path for non-admin users.
+- Preserved existing superadmin and admin dashboard flows.
+- Kept onboarding and pull-to-refresh behavior consistent across roles.
+
+---
+
+## Validation Summary (2026-03-01)
+
+- `npm run lint` → ✅ pass
+
+---
+
+## Backend Coordination Notes (Generated from Patch 1.3)
+
+Frontend requests backend confirmation for member data consistency:
+
+1. **Member identity mapping in challans**
+  - Frontend resolves member challans using member linkage plus creator fallback.
+  - Request backend to keep `member_id` consistently populated on challans where applicable.
+
+2. **Member self-data contract**
+  - Member dashboard depends on stable self profile data and related challans.
+  - Request backend to keep `/members/me` and member-linked challan visibility aligned with role authorization.
 
 ---
 
