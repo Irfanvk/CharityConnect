@@ -206,8 +206,13 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const navigateToLogin = () => {
+  const navigateToLogin = (returnTo = null) => {
     // Use the client's redirectToLogin method
+    const loginPath = '/login';
+    if (returnTo) {
+      window.location.href = `${loginPath}?returnTo=${encodeURIComponent(returnTo)}`;
+      return;
+    }
     charityClient.auth.redirectToLogin();
   };
 

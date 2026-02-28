@@ -3,7 +3,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import NavigationTracker from '@/lib/NavigationTracker'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -18,9 +18,18 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   <Layout currentPageName={currentPageName}>{children}</Layout>
   : <>{children}</>;
 
+const isLoginPath = (pathname = '') => pathname.toLowerCase() === '/login';
+
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, isAuthenticated, authError, navigateToLogin, checkAppState } = useAuth();
   const location = useLocation();
+  const isOnLoginPage = isLoginPath(location.pathname);
+  const returnToParam = new URLSearchParams(location.search).get('returnTo');
+
+  if (isAuthenticated && isOnLoginPage) {
+    const target = returnToParam && !isLoginPath(returnToParam) ? returnToParam : '/';
+    return <Navigate to={target} replace />;
+  }
 
   // Show loading spinner while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {
@@ -53,8 +62,9 @@ const AuthenticatedApp = () => {
       );
     } else if (authError.type === 'auth_required') {
       // Redirect to login automatically only when truly unauthenticated
-      if (!isAuthenticated && location.pathname.toLowerCase() !== '/login') {
-        navigateToLogin();
+      if (!isAuthenticated && !isOnLoginPage) {
+        const returnTo = `${location.pathname}${location.search}${location.hash}`;
+        navigateToLogin(returnTo);
       }
       return null;
     }
@@ -64,13 +74,21 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       {/* Public routes - no authentication required */}
-      {PUBLIC_PAGES && Object.entries(PUBLIC_PAGES).map(([path, Page]) => (
-        <Route
-          key={path}
-          path={`/${path}`}
-          element={<Page />}
-        />
-      ))}
+      {PUBLIC_PAGES && Object.entries(PUBLIC_PAGES).flatMap(([path, Page]) => {
+        const canonical = `/${path}`;
+        const lower = `/${path.toLowerCase()}`;
+        const routes = [
+          <Route key={canonical} path={canonical} element={<Page />} />,
+        ];
+
+        if (lower !== canonical) {
+          routes.push(
+            <Route key={lower} path={lower} element={<Page />} />
+          );
+        }
+
+        return routes;
+      })}
       
       {/* Protected routes - authentication required */}
       <Route path="/" element={

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { charityClient } from '@/api/charityClient';
 import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,11 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { setAuthenticatedUser } = useAuth();
+
+  const returnToParam = new URLSearchParams(location.search).get('returnTo');
+  const redirectTarget = returnToParam && returnToParam.toLowerCase() !== '/login' ? returnToParam : '/';
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -49,7 +53,7 @@ export default function Login() {
       setAuthenticatedUser(currentUser);
       
       // Redirect to dashboard
-      navigate('/');
+      navigate(redirectTarget, { replace: true });
     } catch (err) {
       console.error('Login error:', err);
       setError(err.message || 'Login failed. Please check your credentials and try again.');
