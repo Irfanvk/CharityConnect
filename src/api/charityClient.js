@@ -1,4 +1,6 @@
 import { AUTH_TOKEN_KEY } from '@/config/constants';
+import { APP_PATHS } from '@/config/appPaths';
+import { API_PATHS } from '@/config/apiPaths';
 
 const BASE_URL = import.meta.env.VITE_CHARITY_APP_BASE_URL || '';
 const DEFAULT_TIMEOUT = 15000; // 15 seconds
@@ -112,14 +114,14 @@ const charityClient = {
   auth: {
     me: async () => {
       try {
-        return await apiFetch('/auth/me');
+        return await apiFetch(API_PATHS.auth.me);
       } catch {
         return null;
       }
     },
 
     login: async (credentials) => {
-      const data = await apiFetch('/auth/login', {
+      const data = await apiFetch(API_PATHS.auth.login, {
         method: 'POST',
         body: JSON.stringify(credentials),
       });
@@ -133,7 +135,7 @@ const charityClient = {
     },
 
     register: async (registrationData) => {
-      const data = await apiFetch('/auth/register', {
+      const data = await apiFetch(API_PATHS.auth.register, {
         method: 'POST',
         body: JSON.stringify(registrationData),
       });
@@ -148,64 +150,64 @@ const charityClient = {
 
     logout: async () => {
       try {
-        await apiFetch('/auth/logout', { method: 'POST' });
+        await apiFetch(API_PATHS.auth.logout, { method: 'POST' });
       } catch {}
       localStorage.removeItem(AUTH_TOKEN_KEY);
-      window.location.href = '/login';
+      window.location.href = APP_PATHS.LOGIN;
     },
 
     redirectToLogin: () => {
-      window.location.href = '/login';
+      window.location.href = APP_PATHS.LOGIN;
     },
   },
 
   members: {
     list: async (query = {}) => {
-      const data = await apiFetch('/members/', { method: 'GET' }, query);
+      const data = await apiFetch(API_PATHS.members.list, { method: 'GET' }, query);
       return extractArray(data);
     },
     
-    me: () => apiFetch('/members/me', { method: 'GET' }),
+    me: () => apiFetch(API_PATHS.members.me, { method: 'GET' }),
     
-    get: (id) => apiFetch(`/members/${id}`, { method: 'GET' }),
+    get: (id) => apiFetch(API_PATHS.members.byId(id), { method: 'GET' }),
     
-    getByCode: (code) => apiFetch(`/members/code/${code}`, { method: 'GET' }),
+    getByCode: (code) => apiFetch(API_PATHS.members.byCode(code), { method: 'GET' }),
     
     create: (data) =>
-      apiFetch('/members/', {
+      apiFetch(API_PATHS.members.list, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
     
     update: (id, data) =>
-      apiFetch(`/members/${id}`, {
+      apiFetch(API_PATHS.members.byId(id), {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
     
     delete: (id) =>
-      apiFetch(`/members/${id}`, { method: 'DELETE' }),
+      apiFetch(API_PATHS.members.byId(id), { method: 'DELETE' }),
   },
 
   challans: {
     list: async (query = {}) => {
-      const data = await apiFetch('/challans/', { method: 'GET' }, query);
+      const data = await apiFetch(API_PATHS.challans.list, { method: 'GET' }, query);
       return extractArray(data);
     },
     
-    get: (id) => apiFetch(`/challans/${id}`, { method: 'GET' }),
+    get: (id) => apiFetch(API_PATHS.challans.byId(id), { method: 'GET' }),
     
     getByMember: (memberId) =>
-      apiFetch(`/challans/member/${memberId}`, { method: 'GET' }),
+      apiFetch(API_PATHS.challans.byMember(memberId), { method: 'GET' }),
     
     create: (data) =>
-      apiFetch('/challans/', {
+      apiFetch(API_PATHS.challans.list, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
     
     update: (id, data) =>
-      apiFetch(`/challans/${id}`, {
+      apiFetch(API_PATHS.challans.byId(id), {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
@@ -214,7 +216,7 @@ const charityClient = {
       const formData = new FormData();
       formData.append('file', file);
       
-      return await apiFetch(`/challans/${id}/upload-proof`, {
+      return await apiFetch(API_PATHS.challans.uploadProof(id), {
         method: 'POST',
         headers: {}, // Let browser set Content-Type for FormData
         body: formData,
@@ -222,10 +224,10 @@ const charityClient = {
     },
     
     approve: (id) =>
-      apiFetch(`/challans/${id}/approve`, { method: 'POST' }),
+      apiFetch(API_PATHS.challans.approve(id), { method: 'POST' }),
     
     reject: (id, reason) =>
-      apiFetch(`/challans/${id}/reject`, {
+      apiFetch(API_PATHS.challans.reject(id), {
         method: 'POST',
         body: JSON.stringify({ reason }),
       }),
@@ -233,47 +235,47 @@ const charityClient = {
 
   campaigns: {
     list: async (query = {}) => {
-      const data = await apiFetch('/campaigns/', { method: 'GET' }, query);
+      const data = await apiFetch(API_PATHS.campaigns.list, { method: 'GET' }, query);
       return extractArray(data);
     },
     
-    get: (id) => apiFetch(`/campaigns/${id}`, { method: 'GET' }),
+    get: (id) => apiFetch(API_PATHS.campaigns.byId(id), { method: 'GET' }),
     
     create: (data) =>
-      apiFetch('/campaigns/', {
+      apiFetch(API_PATHS.campaigns.list, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
     
     update: (id, data) =>
-      apiFetch(`/campaigns/${id}`, {
+      apiFetch(API_PATHS.campaigns.byId(id), {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
     
     delete: (id) =>
-      apiFetch(`/campaigns/${id}`, { method: 'DELETE' }),
+      apiFetch(API_PATHS.campaigns.byId(id), { method: 'DELETE' }),
   },
 
   notifications: {
     list: async (query = {}) => {
-      const data = await apiFetch('/notifications/', { method: 'GET' }, query);
+      const data = await apiFetch(API_PATHS.notifications.list, { method: 'GET' }, query);
       return extractArray(data);
     },
     
-    get: (id) => apiFetch(`/notifications/${id}`, { method: 'GET' }),
+    get: (id) => apiFetch(API_PATHS.notifications.byId(id), { method: 'GET' }),
     
     send: (data) =>
-      apiFetch('/notifications/send', {
+      apiFetch(API_PATHS.notifications.send, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
     
     markAsRead: (id) =>
-      apiFetch(`/notifications/${id}/read`, { method: 'PUT' }),
+      apiFetch(API_PATHS.notifications.read(id), { method: 'PUT' }),
     
     markAllAsRead: () =>
-      apiFetch('/notifications/mark-all-read', { method: 'POST' }),
+      apiFetch(API_PATHS.notifications.markAllRead, { method: 'POST' }),
     
     // Keep subscribe method for compatibility if it exists
     subscribe: (callback) => {
@@ -285,37 +287,37 @@ const charityClient = {
 
   invites: {
     list: async (query = {}) => {
-      const data = await apiFetch('/invites/', { method: 'GET' }, query);
+      const data = await apiFetch(API_PATHS.invites.list, { method: 'GET' }, query);
       return extractArray(data);
     },
     
     getPending: async () => {
-      const data = await apiFetch('/invites/pending', { method: 'GET' });
+      const data = await apiFetch(API_PATHS.invites.pending, { method: 'GET' });
       return extractArray(data);
     },
     
-    get: (id) => apiFetch(`/invites/${id}`, { method: 'GET' }),
+    get: (id) => apiFetch(API_PATHS.invites.byId(id), { method: 'GET' }),
     
     create: (data) =>
-      apiFetch('/invites/', {
+      apiFetch(API_PATHS.invites.list, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
     
     validate: (code) =>
-      apiFetch('/invites/validate', {
+      apiFetch(API_PATHS.invites.validate, {
         method: 'POST',
         body: JSON.stringify({ code }),
       }),
     
     update: (id, data) =>
-      apiFetch(`/invites/${id}`, {
+      apiFetch(API_PATHS.invites.byId(id), {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
     
     delete: (id) =>
-      apiFetch(`/invites/${id}`, { method: 'DELETE' }),
+      apiFetch(API_PATHS.invites.byId(id), { method: 'DELETE' }),
   },
 
   files: {
@@ -323,7 +325,7 @@ const charityClient = {
       const formData = new FormData();
       formData.append('file', file);
       
-      return await apiFetch('/files/upload', {
+      return await apiFetch(API_PATHS.files.upload, {
         method: 'POST',
         headers: {}, // Let browser set Content-Type for FormData
         body: formData,
@@ -334,14 +336,14 @@ const charityClient = {
   // Audit logs for admin
   auditLogs: {
     list: async (query = {}) => {
-      const data = await apiFetch('/audit-logs/', { method: 'GET' }, query);
+      const data = await apiFetch(API_PATHS.auditLogs.list, { method: 'GET' }, query);
       return extractArray(data);
     },
     
-    get: (id) => apiFetch(`/audit-logs/${id}`, { method: 'GET' }),
+    get: (id) => apiFetch(API_PATHS.auditLogs.byId(id), { method: 'GET' }),
     
     create: (data) =>
-      apiFetch('/audit-logs/', {
+      apiFetch(API_PATHS.auditLogs.list, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -350,14 +352,14 @@ const charityClient = {
   // Users for settings (admin management)
   users: {
     list: async (query = {}) => {
-      const data = await apiFetch('/users/', { method: 'GET' }, query);
+      const data = await apiFetch(API_PATHS.users.list, { method: 'GET' }, query);
       return extractArray(data);
     },
     
-    get: (id) => apiFetch(`/users/${id}`, { method: 'GET' }),
+    get: (id) => apiFetch(API_PATHS.users.byId(id), { method: 'GET' }),
     
     update: (id, data) =>
-      apiFetch(`/users/${id}`, {
+      apiFetch(API_PATHS.users.byId(id), {
         method: 'PUT',
         body: JSON.stringify(data),
       }),

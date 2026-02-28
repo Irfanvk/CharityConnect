@@ -3,6 +3,7 @@ import { charityClient } from '@/api/charityClient';
 import { appParams } from '@/lib/app-params';
 import { AUTH_TOKEN_KEY } from '@/config/constants';
 import { APP_PATHS } from '@/config/appPaths';
+import { API_PATHS } from '@/config/apiPaths';
 
 /**
  * @param {{ baseURL?: string, headers?: Record<string, string>, token?: string | null }} [options]
@@ -18,8 +19,6 @@ const createFetchClient = ({ baseURL = '', headers = {}, token } = {}) => ({
 });
 
 const AuthContext = createContext(null);
-const APP_PUBLIC_BASE_PATH = '/api/apps/public';
-const HEALTH_CHECK_PATH = '/health';
 const HEALTH_CHECK_TIMEOUT = 5000;
 
 const getStoredAuthToken = () => {
@@ -51,7 +50,7 @@ export const AuthProvider = ({ children }) => {
     const timeoutId = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT);
 
     try {
-      const response = await fetch(`${baseUrl}${HEALTH_CHECK_PATH}`, {
+      const response = await fetch(`${baseUrl}${API_PATHS.health}`, {
         method: 'GET',
         signal: controller.signal,
       });
@@ -86,7 +85,7 @@ export const AuthProvider = ({ children }) => {
       // Otherwise skip this optional check and proceed with auth state.
       if (hasAppId) {
         const appClient = createFetchClient({
-          baseURL: `${(appParams.appBaseUrl || '').replace(/\/$/, '')}${APP_PUBLIC_BASE_PATH}`,
+          baseURL: `${(appParams.appBaseUrl || '').replace(/\/$/, '')}${API_PATHS.appPublic.base}`,
           headers: {
             'X-App-Id': appParams.appId
           },
@@ -94,7 +93,7 @@ export const AuthProvider = ({ children }) => {
         });
 
         try {
-          const publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
+          const publicSettings = await appClient.get(API_PATHS.appPublic.publicSettingsById(appParams.appId));
           setAppPublicSettings(publicSettings);
         } catch (appError) {
           console.error('App state check failed:', appError);

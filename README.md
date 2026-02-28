@@ -150,6 +150,31 @@ dist/                             # Production build output (after npm run build
 
 ---
 
+## Central Config Guide (Single Source of Truth)
+
+To avoid hardcoded strings across components, update these files when paths/URLs change:
+
+- **App routes + page shortcuts + image URLs:** `src/config/appPaths.js`
+  - `APP_PATHS` → app-level routes (e.g., login, home)
+  - `ROUTE_KEYS` + `PAGE_PATHS` → page keys and generated route shortcuts
+  - `APP_IMAGES` → shared image URLs used by UI pages
+
+- **Backend API endpoint paths:** `src/config/apiPaths.js`
+  - `API_PATHS.auth.*` → auth endpoints
+  - `API_PATHS.members.*`, `API_PATHS.challans.*`, etc. → resource endpoints
+  - Includes dynamic path builders like `byId(id)`
+
+### Current Usage
+
+- `src/api/charityClient.js` uses `API_PATHS` for all API calls.
+- `src/lib/AuthContext.jsx` uses `API_PATHS` + `APP_PATHS` for startup/auth redirects.
+- `src/Layout.jsx`, `src/components/mobile/BottomNav.jsx`, and `src/components/dashboard/SuperAdminDashboard.jsx` use `PAGE_PATHS` for navigation.
+- `src/pages/Dashboard.jsx` uses `APP_IMAGES` for background images.
+
+**Rule:** If you need to change route/image/endpoint strings, change config first, then reuse everywhere.
+
+---
+
 ## Authentication & Login Flow
 
 ### How It Works
