@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">CharityHub Logo</title>
+  <desc id="desc">Rounded square gradient icon with heart mark</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#0ea5a4"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#bg)"/>
+  <path d="M64 93c-1.7 0-3.3-.6-4.5-1.8L37.9 70.5c-7.9-7.6-8.2-20.1-.6-28.1 7.2-7.5 19.1-8.1 27-1.4 7.9-6.7 19.8-6.1 27 1.4 7.6 8 7.3 20.5-.6 28.1L68.5 91.2c-1.2 1.2-2.8 1.8-4.5 1.8z" fill="#ffffff"/>
+</svg>

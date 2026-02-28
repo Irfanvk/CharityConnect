@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { charityClient } from "@/api/charityClient";
 import { useAuth } from "@/lib/AuthContext";
-import { PAGE_PATHS, ROUTE_KEYS } from "@/config/appPaths";
+import { APP_BRAND, APP_IMAGES, PAGE_PATHS, ROUTE_KEYS } from "@/config/appPaths";
 import { 
   LayoutDashboard, 
   Users, 
@@ -35,6 +35,7 @@ export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [logoLoadError, setLogoLoadError] = useState(false);
   const currentUser = authUser || user;
 
   useEffect(() => {
@@ -163,12 +164,21 @@ export default function Layout({ children, currentPageName }) {
                 {/* Logo */}
                 <div className="p-6 border-b border-slate-100 dark:border-slate-800">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-                      <Heart className="w-5 h-5 text-white" />
-                    </div>
+                    {logoLoadError ? (
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                        <Heart className="w-5 h-5 text-white" />
+                      </div>
+                    ) : (
+                      <img
+                        src={APP_IMAGES.LOGOS.PRIMARY}
+                        alt={`${APP_BRAND.NAME} logo`}
+                        className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-emerald-500/30"
+                        onError={() => setLogoLoadError(true)}
+                      />
+                    )}
                     <div>
-                      <h1 className="font-bold text-slate-800 dark:text-white text-lg tracking-tight">CharityHub</h1>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Management System</p>
+                      <h1 className="font-bold text-slate-800 dark:text-white text-lg tracking-tight">{APP_BRAND.NAME}</h1>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{APP_BRAND.TAGLINE}</p>
                     </div>
                   </div>
                 </div>

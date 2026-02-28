@@ -11,6 +11,7 @@ import {
   ArrowRight, ArrowLeft 
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { APP_BRAND } from "@/config/appPaths";
 
 export default function OnboardingWizard({ open, onComplete, user, memberProfile }) {
   const [step, setStep] = useState(1);
@@ -110,7 +111,7 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
                 <User className="w-8 h-8 text-white" />
               </div>
               <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                Welcome to CharityHub! 👋
+                {`Welcome to ${APP_BRAND.NAME}! 👋`}
               </h2>
               <p className="text-slate-500">
                 Let's get your profile set up so you can start making contributions
@@ -213,7 +214,7 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
                 Understanding Challans
               </h2>
               <p className="text-slate-500">
-                Here's how to make payments in CharityHub
+                {`Here's how to make payments in ${APP_BRAND.NAME}`}
               </p>
             </div>
 

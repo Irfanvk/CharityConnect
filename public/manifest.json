@@ -1,0 +1,15 @@
+{
+  "name": "CharityConnect APP",
+  "short_name": "CharityConnect",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "/brand/app-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

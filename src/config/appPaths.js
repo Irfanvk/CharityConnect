@@ -1,5 +1,11 @@
 import { createPageUrl } from '@/utils';
 
+export const APP_BRAND = {
+  NAME: 'CharityHub',
+  TAGLINE: 'Management System',
+  TITLE: 'CharityHub APP',
+};
+
 export const ROUTE_KEYS = {
   DASHBOARD: 'Dashboard',
   MEMBERS: 'Members',
@@ -32,6 +38,10 @@ export const PAGE_PATHS = {
 };
 
 export const APP_IMAGES = {
+  LOGOS: {
+    PRIMARY: '/brand/app-logo.svg',
+    FAVICON: '/brand/app-logo.svg',
+  },
   DASHBOARD: {
     SUPERADMIN_WELCOME_BG: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200',
     MEMBER_WELCOME_BG: 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=1200',

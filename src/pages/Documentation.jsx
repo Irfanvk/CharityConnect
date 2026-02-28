@@ -6,6 +6,7 @@ import {
   Book, Users, Shield, Settings, Heart, Receipt, 
   FileText, Bell, BarChart3, Code, Database, Key 
 } from "lucide-react";
+import { APP_BRAND } from "@/config/appPaths";
 
 export default function Documentation() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -16,7 +17,7 @@ export default function Documentation() {
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-8 text-white">
         <div className="flex items-center gap-3 mb-3">
           <Book className="w-8 h-8" />
-          <h1 className="text-3xl font-bold">CharityHub Documentation</h1>
+          <h1 className="text-3xl font-bold">{`${APP_BRAND.NAME} Documentation`}</h1>
         </div>
         <p className="text-indigo-100 text-lg">
           Complete guide to the Charity Membership & Donation Management System
@@ -45,9 +46,9 @@ export default function Documentation() {
               </CardTitle>
             </CardHeader>
             <CardContent className="prose prose-slate max-w-none">
-              <h3>About CharityHub</h3>
+              <h3>{`About ${APP_BRAND.NAME}`}</h3>
               <p>
-                CharityHub is a comprehensive charity membership and donation management system designed to streamline 
+                {APP_BRAND.NAME} is a comprehensive charity membership and donation management system designed to streamline 
                 operations for charitable organizations. It provides tools for member management, payment tracking, 
                 campaign management, and detailed analytics.
               </p>
@@ -646,7 +647,7 @@ export default function Documentation() {
             </div>
             <div>
               <h4 className="font-semibold mb-2">Version</h4>
-              <p className="text-slate-600">CharityHub v2.0 with advanced analytics and recurring donations.</p>
+                <p className="text-slate-600">{`${APP_BRAND.NAME} v2.0 with advanced analytics and recurring donations.`}</p>
             </div>
           </div>
         </CardContent>

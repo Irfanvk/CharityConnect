@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Heart, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { APP_BRAND } from "@/config/appPaths";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -134,7 +135,7 @@ export default function Register() {
             <Heart className="w-8 h-8 text-white" />
           </div>
           <CardTitle className="text-2xl font-bold text-slate-900">
-            {step === 1 ? 'Join CharityHub' : 'Complete Registration'}
+            {step === 1 ? `Join ${APP_BRAND.NAME}` : 'Complete Registration'}
           </CardTitle>
           <p className="text-slate-500 text-sm mt-2">
             {step === 1 ? 'Enter your invite code to begin' : 'Fill in your details to create your account'}

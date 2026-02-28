@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { charityClient } from "@/api/charityClient";
+import { APP_BRAND, APP_IMAGES } from "@/config/appPaths";
 
 export default function NotificationManager({ user }) {
   const [permission, setPermission] = useState(Notification.permission);
@@ -28,10 +29,10 @@ export default function NotificationManager({ user }) {
 
       if (isRelevant && !notification.read_by?.includes(user.email)) {
         // Show browser notification
-        new Notification("CharityHub - " + notification.title, {
+        new Notification(`${APP_BRAND.NAME} - ${notification.title}`, {
           body: notification.message,
-          icon: "/favicon.ico",
-          badge: "/favicon.ico",
+          icon: APP_IMAGES.LOGOS.FAVICON,
+          badge: APP_IMAGES.LOGOS.FAVICON,
           tag: notification.id,
           requireInteraction: false,
           silent: false
