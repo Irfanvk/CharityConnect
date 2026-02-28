@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { charityClient } from "@/api/charityClient";
 import { useAuth } from "@/lib/AuthContext";
 import { APP_BRAND, APP_IMAGES, PAGE_PATHS, ROUTE_KEYS } from "@/config/appPaths";
+import { pagesConfig } from "@/pages.config";
 import { 
   LayoutDashboard, 
   Users, 
@@ -14,6 +15,7 @@ import {
   ChevronDown,
   User,
   Settings,
+  MessageSquare,
   FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -89,6 +91,7 @@ export default function Layout({ children, currentPageName }) {
   };
 
   const isAdmin = currentUser?.role === 'admin';
+  const hasRequestsPage = Boolean(pagesConfig?.Pages?.[ROUTE_KEYS.REQUESTS]);
 
   const navigation = [
     { name: "Dashboard", href: ROUTE_KEYS.DASHBOARD, path: PAGE_PATHS.DASHBOARD, icon: LayoutDashboard },
@@ -97,7 +100,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Campaigns", href: ROUTE_KEYS.CAMPAIGNS, path: PAGE_PATHS.CAMPAIGNS, icon: Heart },
     { name: "Reports", href: ROUTE_KEYS.REPORTS, path: PAGE_PATHS.REPORTS, icon: FileText, adminOnly: true },
     { name: "Audit Logs", href: ROUTE_KEYS.AUDIT_LOGS, path: PAGE_PATHS.AUDIT_LOGS, icon: Settings, adminOnly: true },
-    // { name: "Requests", href: "Requests", icon: MessageSquare }, // Phase 1: Disabled - Will implement in Phase 2
+    ...(hasRequestsPage ? [{ name: "Requests", href: ROUTE_KEYS.REQUESTS, path: PAGE_PATHS.REQUESTS, icon: MessageSquare }] : []),
     { name: "Notifications", href: ROUTE_KEYS.NOTIFICATIONS, path: PAGE_PATHS.NOTIFICATIONS, icon: Bell, badge: unreadCount },
     { name: "Documentation", href: ROUTE_KEYS.DOCUMENTATION, path: PAGE_PATHS.DOCUMENTATION, icon: FileText },
   ];
@@ -213,7 +216,7 @@ export default function Layout({ children, currentPageName }) {
 
           {/* User section */}
           {currentUser && (
-            <div className="p-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="p-4 pb-20 lg:pb-4 border-t border-slate-100 dark:border-slate-800">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors select-none">

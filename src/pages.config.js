@@ -57,7 +57,7 @@ import Notifications from './pages/Notifications';
 import Profile from './pages/Profile';
 import Register from './pages/Register';
 import Reports from './pages/Reports';
-// import Requests from './pages/Requests'; // Phase 1: Disabled - Will implement in Phase 2
+import Requests from './pages/Requests';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import __Layout from './Layout.jsx';
@@ -74,7 +74,7 @@ export const PAGES = {
     "Profile": Profile,
     "Register": Register,
     "Reports": Reports,
-    // "Requests": Requests, // Phase 1: Disabled - Will implement in Phase 2
+    "Requests": Requests,
     "Settings": Settings,
 }
 
