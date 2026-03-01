@@ -22,10 +22,84 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|---------|
+| 1.4 | 2026-03-01 | Patch | Resource API migration across active pages, notifications runtime fix, router future flags |
 | 1.3 | 2026-03-01 | Patch | Dedicated member dashboard rollout with profile, challan insights, upcoming dues, and campaign participation |
 | 1.2 | 2026-03-01 | Patch | Challan role-based visibility, proof re-upload flow, status filter alignment |
 | 1.1 | 2026-02-26 | Patch | Auth/login redirect stabilization, logout visibility, API client hardening |
 | 1.0 | 2026-02-24 | Release | Phase 1 MVP complete |
+
+---
+
+## 📅 March 01, 2026 - API Migration & Notifications Stability Patch
+
+### 🎯 Objectives Met
+- ✅ Removed deprecated `charityClient.entities.*` usage from active app flows
+- ✅ Fixed notifications create mutation runtime failure
+- ✅ Fixed dashboard blank-screen regression after login
+- ✅ Reduced router migration warnings and notification console noise
+
+---
+
+## Frontend Changes (Patch 1.4)
+
+### 1. Resource API Migration (Active Flows)
+
+**Impact:** High - Eliminates deprecation warnings and aligns with current client contract  
+**Type:** Refactor + Reliability  
+**Files Modified:**
+- `src/pages/Campaigns.jsx`
+- `src/pages/Members.jsx`
+- `src/pages/Profile.jsx`
+- `src/pages/Reports.jsx`
+- `src/pages/Settings.jsx`
+- `src/pages/AuditLogs.jsx`
+- `src/components/ProfileCompletionModal.jsx`
+- `src/components/onboarding/OnboardingWizard.jsx`
+- `src/components/campaigns/RecurringDonationForm.jsx`
+
+**Change Details:**
+- Migrated calls from deprecated proxy (`entities.*`) to resource APIs (`members`, `challans`, `campaigns`, `auditLogs`, `invites`, `users`, `notifications`).
+- Updated documentation examples to avoid reintroducing deprecated patterns.
+
+---
+
+### 2. Notifications Runtime & Accessibility Fixes
+
+**Impact:** High - Fixes user-facing action failure in Notifications page  
+**Type:** Bug Fix  
+**Files Modified:** `src/pages/Notifications.jsx`, `src/components/NotificationManager.jsx`, `src/api/charityClient.js`
+
+**Change Details:**
+- Replaced invalid notification create path with supported API usage.
+- Added notification method compatibility aliases in client (`create`, `update`, `delete`) to prevent runtime breaks.
+- Added dialog description in notification form modal to satisfy a11y requirement.
+- Removed noisy placeholder subscription warning from console.
+
+---
+
+### 3. Dashboard/Router Safety Improvements
+
+**Impact:** Medium - Stabilizes post-login render path  
+**Type:** Reliability + Upgrade Readiness  
+**Files Modified:** `src/pages/Dashboard.jsx`, `src/App.jsx`
+
+**Change Details:**
+- Hardened dashboard role checks and safe array usage to prevent `undefined.length` crashes.
+- Enabled React Router future flags (`v7_startTransition`, `v7_relativeSplatPath`) to reduce v7 deprecation warnings.
+
+---
+
+## Validation Summary (2026-03-01)
+
+- `npm run lint` → ✅ pass
+- `npm run build` → ✅ pass
+
+---
+
+## Backend Coordination Notes (Generated from Patch 1.4)
+
+- No backend contract change required.
+- Frontend is now aligned to existing resource endpoints and confirmed March 1 challan contracts.
 
 ---
 

@@ -11,6 +11,9 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-03-01 | Active frontend flows migrated from deprecated `entities.*` to resource APIs | Frontend | ✅ | Removes runtime deprecation noise and aligns with resource client contract |
+| 2026-03-01 | Notifications page switched to supported notification methods with compatibility aliases | Frontend | ✅ | Fixes `Notification.create is not a function` runtime error |
+| 2026-03-01 | Dashboard render hardened against undefined datasets post-login | Frontend | ✅ | Prevents blank-screen crash after login |
 | 2026-03-01 | Non-admin users get a dedicated member dashboard view | Frontend | ✅ | Member profile, challan insights, upcoming dues, campaign participation |
 | 2026-03-01 | Dashboard render path split by role (`superadmin` / `admin` / `member`) | Frontend | ✅ | Prevents mixed admin/member UI exposure |
 | 2026-03-01 | Challans UI derives "Proof Uploaded" from `pending + proof_uploaded_at` | Frontend | ✅ | Keeps UI readable while preserving backend status model |
@@ -341,6 +344,67 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ### Required Backend Enforcement
 
 Please confirm backend authorization mirrors these rules on all relevant endpoints (`/challans`, challan update/proof upload, approve/reject), so role checks are enforced server-side and not only by frontend UI.
+
+---
+
+## 2026-03-01 - Backend to Frontend Communication (Challan Contracts Aligned)
+
+**Summary:** Backend confirms March 1 challan contracts are now aligned with frontend expectations.
+
+### Backend Implementation Confirmations
+
+1. **Create-on-behalf support (admin/superadmin)**
+   - Admin/superadmin can create challans on behalf of any active member using `member_id`.
+
+2. **Proof upload/re-upload on behalf (admin/superadmin)**
+   - Admin/superadmin can upload and re-upload proof for member challans.
+
+3. **Rejected challan re-upload transition**
+   - Re-upload is supported for rejected challans.
+   - Re-upload transitions challan back to review state (`pending`).
+
+### Backend Contract Confirmations
+
+1. **Proof upload state model remains**
+   - Persisted status after proof upload: `pending`.
+   - `proof_uploaded_at` is set.
+
+2. **Canonical persisted status vocabulary remains**
+   - `generated`, `pending`, `approved`, `rejected`.
+   - “Proof Uploaded” remains frontend UI-derived only.
+
+3. **Visibility scope remains role-based**
+   - Member visibility is self-scoped.
+   - Admin can access all challans.
+
+### Frontend Follow-up
+
+- No required change for member flow.
+- Optional UI enhancement only: explicitly expose admin create-on-behalf and re-upload-on-behalf actions where needed.
+
+---
+
+## 2026-03-01 - Frontend to Backend Communication (Patch 1.4 Alignment)
+
+**Summary:** Frontend completed migration to resource-specific client methods across active pages and fixed notification/dashboard runtime stability issues.
+
+### Items to Communicate to Backend
+
+1. **No contract changes requested**
+   - Frontend changes are internal refactor/stability improvements.
+   - Existing backend endpoints and contracts remain valid.
+
+2. **Notification flow compatibility**
+   - Frontend now uses resource notifications methods consistently.
+   - Compatibility aliases were added client-side to avoid transient breakage.
+
+3. **Role-based dashboard and challan behavior remains unchanged**
+   - Existing March 1 backend challan/access confirmations continue to apply.
+
+### Frontend Validation Completed
+
+- `npm run lint` → ✅ Pass
+- `npm run build` → ✅ Pass
 
 ---
 
