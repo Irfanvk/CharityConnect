@@ -42,14 +42,14 @@ export default function Members() {
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ['members'],
-    queryFn: () => charityClient.entities.Member.list('-created_date'),
+    queryFn: () => charityClient.members.list({ order: '-created_date' }),
   });
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
-      const member = await charityClient.entities.Member.create(data);
+      const member = await charityClient.members.create(data);
       // Log audit
-      await charityClient.entities.AuditLog.create({
+      await charityClient.auditLogs.create({
         action_type: "member_created",
         performed_by: user?.email,
         performed_by_name: user?.full_name,
@@ -68,11 +68,11 @@ export default function Members() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data, logStatusChange = false, oldStatus = null }) => {
-      const member = await charityClient.entities.Member.update(id, data);
+      const member = await charityClient.members.update(id, data);
       // Log audit
       const actionType = logStatusChange ? "member_status_changed" : "member_updated";
       const details = logStatusChange ? { old_status: oldStatus, new_status: data.status } : {};
-      await charityClient.entities.AuditLog.create({
+      await charityClient.auditLogs.create({
         action_type: actionType,
         performed_by: user?.email,
         performed_by_name: user?.full_name,
@@ -92,9 +92,9 @@ export default function Members() {
 
   const deleteMutation = useMutation({
     mutationFn: async ({ id, name }) => {
-      await charityClient.entities.Member.delete(id);
+      await charityClient.members.delete(id);
       // Log audit
-      await charityClient.entities.AuditLog.create({
+      await charityClient.auditLogs.create({
         action_type: "member_deleted",
         performed_by: user?.email,
         performed_by_name: user?.full_name,

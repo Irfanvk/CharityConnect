@@ -29,17 +29,17 @@ export default function Reports() {
 
   const { data: challans = [] } = useQuery({
     queryKey: ['challans'],
-    queryFn: () => charityClient.entities.Challan.list('-created_date'),
+    queryFn: () => charityClient.challans.list({ order: '-created_date' }),
   });
 
   const { data: campaigns = [] } = useQuery({
     queryKey: ['campaigns'],
-    queryFn: () => charityClient.entities.Campaign.list('-created_date'),
+    queryFn: () => charityClient.campaigns.list({ order: '-created_date' }),
   });
 
   const { data: members = [] } = useQuery({
     queryKey: ['members'],
-    queryFn: () => charityClient.entities.Member.list(),
+    queryFn: () => charityClient.members.list(),
   });
 
   // Filter data based on report type
@@ -106,7 +106,7 @@ export default function Reports() {
     a.click();
 
     // Log audit
-    await charityClient.entities.AuditLog.create({
+    await charityClient.auditLogs.create({
       action_type: "report_generated",
       performed_by: user?.email,
       performed_by_name: user?.full_name,

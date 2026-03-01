@@ -33,7 +33,7 @@ export default function RecurringDonationForm({ open, onOpenChange, campaign, on
       const currentUser = await charityClient.auth.me();
       setUser(currentUser);
       
-      const members = await charityClient.entities.Member.list();
+      const members = await charityClient.members.list();
       const userMember = members.find(m => m.email === currentUser.email);
       setMember(userMember);
     };

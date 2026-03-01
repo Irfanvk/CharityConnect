@@ -54,17 +54,17 @@ export default function Profile() {
 
   const { data: members = [] } = useQuery({
     queryKey: ['members'],
-    queryFn: () => charityClient.entities.Member.list(),
+    queryFn: () => charityClient.members.list(),
   });
 
   const { data: challans = [] } = useQuery({
     queryKey: ['challans'],
-    queryFn: () => charityClient.entities.Challan.list('-created_date'),
+    queryFn: () => charityClient.challans.list({ order: '-created_date' }),
   });
 
   const { data: invites = [] } = useQuery({
     queryKey: ['invites'],
-    queryFn: () => charityClient.entities.Invite.list(),
+    queryFn: () => charityClient.invites.list(),
   });
 
   // Phase 1: RecurringDonations disabled - will implement in Phase 2
@@ -104,7 +104,7 @@ export default function Profile() {
 
       // Update member record if exists
       if (memberProfile) {
-        await charityClient.entities.Member.update(memberProfile.id, {
+        await charityClient.members.update(memberProfile.id, {
           phone: formData.phone,
           email: formData.email,
         });

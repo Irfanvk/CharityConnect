@@ -44,19 +44,19 @@ export default function Campaigns() {
 
   const { data: campaigns = [], isLoading } = useQuery({
     queryKey: ['campaigns'],
-    queryFn: () => charityClient.entities.Campaign.list('-created_date'),
+    queryFn: () => charityClient.campaigns.list({ order: '-created_date' }),
   });
 
   const { data: challans = [] } = useQuery({
     queryKey: ['challans'],
-    queryFn: () => charityClient.entities.Challan.list('-created_date'),
+    queryFn: () => charityClient.challans.list({ order: '-created_date' }),
   });
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
-      const campaign = await charityClient.entities.Campaign.create(data);
+      const campaign = await charityClient.campaigns.create(data);
       // Log audit
-      await charityClient.entities.AuditLog.create({
+      await charityClient.auditLogs.create({
         action_type: "campaign_created",
         performed_by: user?.email,
         performed_by_name: user?.full_name,
@@ -100,9 +100,9 @@ export default function Campaigns() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      const campaign = await charityClient.entities.Campaign.update(id, data);
+      const campaign = await charityClient.campaigns.update(id, data);
       // Log audit
-      await charityClient.entities.AuditLog.create({
+      await charityClient.auditLogs.create({
         action_type: "campaign_updated",
         performed_by: user?.email,
         performed_by_name: user?.full_name,
@@ -121,9 +121,9 @@ export default function Campaigns() {
 
   const deleteMutation = useMutation({
     mutationFn: async ({ id, title }) => {
-      await charityClient.entities.Campaign.delete(id);
+      await charityClient.campaigns.delete(id);
       // Log audit
-      await charityClient.entities.AuditLog.create({
+      await charityClient.auditLogs.create({
         action_type: "campaign_deleted",
         performed_by: user?.email,
         performed_by_name: user?.full_name,

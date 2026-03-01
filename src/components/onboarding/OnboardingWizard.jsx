@@ -50,14 +50,14 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
         phone: formData.phone,
         reminder_settings: {
           enabled: formData.reminderEnabled,
-          day: parseInt(formData.reminderDay)
+          day: Number(formData.reminderDay)
         },
         onboarding_completed: true
       });
 
       // Update member profile
       if (memberProfile) {
-        await charityClient.entities.Member.update(memberProfile.id, {
+        await charityClient.members.update(memberProfile.id, {
           phone: formData.phone,
           address: formData.address,
           city: formData.city,

@@ -41,7 +41,7 @@ export default function Dashboard() {
 
   const { data: members = [] } = useQuery({
     queryKey: ['members'],
-    queryFn: () => charityClient.entities.Member.list(),
+    queryFn: () => charityClient.members.list(),
   });
 
   const membersArray = Array.isArray(members) ? members : [];
@@ -52,14 +52,14 @@ export default function Dashboard() {
 
   const { data: challans } = useQuery({
     queryKey: ['challans'],
-    queryFn: () => charityClient.entities.Challan.list('-created_date', 100),
+    queryFn: () => charityClient.challans.list({ order: '-created_date', limit: 100 }),
   });
 
   const challansArray = Array.isArray(challans) ? challans : [];
 
   const { data: campaigns } = useQuery({
     queryKey: ['campaigns'],
-    queryFn: () => charityClient.entities.Campaign.list(),
+    queryFn: () => charityClient.campaigns.list(),
   });
 
   const campaignsArray = Array.isArray(campaigns) ? campaigns : [];
@@ -76,7 +76,7 @@ export default function Dashboard() {
 
   const { data: auditLogs } = useQuery({
     queryKey: ['auditLogs'],
-    queryFn: () => charityClient.entities.AuditLog.list('-created_date', 50),
+    queryFn: () => charityClient.auditLogs.list({ order: '-created_date', limit: 50 }),
     enabled: user?.is_superadmin === true,
   });
 
@@ -91,9 +91,9 @@ export default function Dashboard() {
 
   const recurringDonationsArray = [];
 
-  const isSuperAdmin = user?.is_superadmin === true;
-  const isAdmin = user?.role === 'admin';
-  const isMember = !isAdmin && !isSuperAdmin;
+  const isSuperAdmin = user?.is_superadmin === true || user?.role === 'superadmin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  const isMember = !!user && !isAdmin && !isSuperAdmin;
 
   // Calculate stats
   const activeMembers = membersArray.filter(m => m.status === 'active').length;
@@ -247,6 +247,7 @@ export default function Dashboard() {
               value={activeMembers}
               subtitle={`${membersArray.length} total members`}
               icon={Users}
+              trend={0}
               color="emerald"
             />
             <StatsCard
@@ -254,6 +255,7 @@ export default function Dashboard() {
               value={`₹${totalCollected.toLocaleString()}`}
               subtitle="From approved payments"
               icon={TrendingUp}
+              trend={0}
               color="blue"
             />
             <StatsCard
@@ -261,13 +263,15 @@ export default function Dashboard() {
               value={pendingApprovals}
               subtitle="Awaiting review"
               icon={Clock}
+              trend={0}
               color="amber"
             />
             <StatsCard
               title="Active Campaigns"
               value={activeCampaigns}
-              subtitle={`${campaigns.length} total campaigns`}
+              subtitle={`${campaignsArray.length} total campaigns`}
               icon={Heart}
+              trend={0}
               color="rose"
             />
           </>
@@ -278,6 +282,7 @@ export default function Dashboard() {
               value={`₹${userChallans.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0).toLocaleString()}`}
               subtitle="Your total donations"
               icon={TrendingUp}
+              trend={0}
               color="emerald"
             />
             <StatsCard
@@ -285,6 +290,7 @@ export default function Dashboard() {
               value={userPending}
               subtitle="Awaiting approval"
               icon={Clock}
+              trend={0}
               color="amber"
             />
             <StatsCard
@@ -292,6 +298,7 @@ export default function Dashboard() {
               value={userApproved}
               subtitle="Successfully completed"
               icon={Receipt}
+              trend={0}
               color="blue"
             />
             <StatsCard
@@ -299,6 +306,7 @@ export default function Dashboard() {
               value={activeCampaigns}
               subtitle="Participate now"
               icon={Heart}
+              trend={0}
               color="rose"
             />
           </>

@@ -42,16 +42,16 @@ export default function Settings() {
 
   const { data: invites = [] } = useQuery({
     queryKey: ['invites'],
-    queryFn: () => charityClient.entities.Invite.list('-created_date'),
+    queryFn: () => charityClient.invites.list({ order: '-created_date' }),
   });
 
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
-    queryFn: () => charityClient.entities.User.list(),
+    queryFn: () => charityClient.users.list(),
   });
 
   const createInviteMutation = useMutation({
-    mutationFn: (data) => charityClient.entities.Invite.create(data),
+    mutationFn: (data) => charityClient.invites.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invites'] });
       setInviteOpen(false);

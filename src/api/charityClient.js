@@ -270,6 +270,21 @@ const charityClient = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+
+    create: (data) =>
+      apiFetch(API_PATHS.notifications.list, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    update: (id, data) =>
+      apiFetch(API_PATHS.notifications.byId(id), {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+
+    delete: (id) =>
+      apiFetch(API_PATHS.notifications.byId(id), { method: 'DELETE' }),
     
     markAsRead: (id) =>
       apiFetch(API_PATHS.notifications.read(id), { method: 'PUT' }),
@@ -280,7 +295,7 @@ const charityClient = {
     // Keep subscribe method for compatibility if it exists
     subscribe: (callback) => {
       // SSE or websocket subscription logic if needed
-      console.warn('Notification subscription not yet implemented');
+      void callback;
       return () => {}; // Return unsubscribe function
     },
   },

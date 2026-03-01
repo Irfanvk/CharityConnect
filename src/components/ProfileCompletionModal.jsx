@@ -25,7 +25,7 @@ export default function ProfileCompletionModal({ open, member, onComplete }) {
     e.preventDefault();
     setLoading(true);
     
-    await charityClient.entities.Member.update(member.id, {
+    await charityClient.members.update(member.id, {
       ...formData,
       notes: null // Clear the incomplete profile note
     });

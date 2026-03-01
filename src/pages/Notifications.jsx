@@ -17,6 +17,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -53,11 +54,11 @@ export default function Notifications() {
 
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['notifications'],
-    queryFn: () => charityClient.entities.Notification.list('-created_date'),
+    queryFn: () => charityClient.notifications.list({ order: '-created_date' }),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => charityClient.entities.Notification.create(data),
+    mutationFn: (data) => charityClient.notifications.send(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       setFormOpen(false);
@@ -66,16 +67,16 @@ export default function Notifications() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => charityClient.entities.Notification.update(id, data),
+    mutationFn: ({ id, data }) => charityClient.notifications.update(id, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async ({ id, title, isAdmin }) => {
-      await charityClient.entities.Notification.delete(id);
+      await charityClient.notifications.delete(id);
       // Log audit if admin deleted
       if (isAdmin) {
-        await charityClient.entities.AuditLog.create({
+        await charityClient.auditLogs.create({
           action_type: "notification_deleted",
           performed_by: user?.email,
           performed_by_name: user?.full_name,
@@ -88,7 +89,7 @@ export default function Notifications() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
 
   // Filter notifications for current user
   const userNotifications = notifications.filter(n => {
@@ -102,8 +103,8 @@ export default function Notifications() {
 
   const markAsRead = async (notification) => {
     if (!isRead(notification)) {
-      const readBy = [...(notification.read_by || []), user?.email];
-      await updateMutation.mutateAsync({ id: notification.id, data: { read_by: readBy } });
+      await charityClient.notifications.markAsRead(notification.id);
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
     }
   };
 
@@ -213,6 +214,9 @@ export default function Notifications() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold">Post Notification</DialogTitle>
+            <DialogDescription>
+              Create and send a notification to members or admins.
+            </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-5">

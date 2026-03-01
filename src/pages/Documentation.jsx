@@ -584,13 +584,13 @@ export default function Documentation() {
                   <p>charityClient.auth.logout();</p>
                   
                   <p className="text-slate-500 mt-3">// Entity Operations</p>
-                  <p>const members = await charityClient.entities.Member.list();</p>
-                  <p>await charityClient.entities.Challan.create(data);</p>
-                  <p>await charityClient.entities.Campaign.update(id, data);</p>
-                  <p>await charityClient.entities.Member.delete(id);</p>
+                  <p>const members = await charityClient.members.list();</p>
+                  <p>await charityClient.challans.create(data);</p>
+                  <p>await charityClient.campaigns.update(id, data);</p>
+                  <p>await charityClient.members.delete(id);</p>
                   
                   <p className="text-slate-500 mt-3">// Real-time Subscriptions</p>
-                  <p>const unsubscribe = charityClient.entities.Notification.subscribe?.((event) ={'>'} {'{'}...</p>
+                  <p>const unsubscribe = charityClient.notifications.subscribe?.((event) ={'>'} {'{'}...</p>
                 </div>
               </div>
 

@@ -36,7 +36,7 @@ export default function AuditLogs() {
 
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ['auditLogs'],
-    queryFn: () => charityClient.entities.AuditLog.list('-created_date', 500),
+    queryFn: () => charityClient.auditLogs.list({ order: '-created_date', limit: 500 }),
   });
 
   const filteredLogs = logs.filter(log => {

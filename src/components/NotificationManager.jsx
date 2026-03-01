@@ -16,7 +16,7 @@ export default function NotificationManager({ user }) {
     if (!user || permission !== "granted") return;
 
     // Subscribe to new notifications
-    const unsubscribe = charityClient.entities?.Notification?.subscribe?.((event) => {
+    const unsubscribe = charityClient.notifications.subscribe((event) => {
       if (event.type !== "create") return;
 
       const notification = event.data;
@@ -25,7 +25,7 @@ export default function NotificationManager({ user }) {
       const isRelevant = 
         notification.target_type === "all" ||
         (notification.target_type === "member" && notification.target_member_id === user.email) ||
-        (notification.target_type === "admins" && user.role === "admin");
+        (notification.target_type === "admins" && (user.role === "admin" || user.role === "superadmin"));
 
       if (isRelevant && !notification.read_by?.includes(user.email)) {
         // Show browser notification
