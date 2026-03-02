@@ -96,21 +96,43 @@ export default function Profile() {
   const handleSave = async () => {
     setLoading(true);
     try {
-      await charityClient.auth.updateMe?.({
+      const updatePayload = {
         full_name: formData.full_name,
         phone: formData.phone,
         email: formData.email,
-      });
+      };
+
+      let didUpdate = false;
+
+      if (user?.id) {
+        await charityClient.users.update(user.id, {
+          full_name: updatePayload.full_name,
+          email: updatePayload.email,
+        });
+        didUpdate = true;
+      }
 
       // Update member record if exists
       if (memberProfile) {
         await charityClient.members.update(memberProfile.id, {
-          phone: formData.phone,
-          email: formData.email,
+          full_name: updatePayload.full_name,
+          phone: updatePayload.phone,
+          email: updatePayload.email,
         });
+        didUpdate = true;
+      }
+
+      if (!didUpdate) {
+        throw new Error('No profile update endpoint is available for this user.');
       }
 
       await loadUser();
+      setUser((prev) => ({
+        ...(prev || {}),
+        full_name: updatePayload.full_name,
+        phone: updatePayload.phone,
+        email: updatePayload.email,
+      }));
       setEditing(false);
       toast({
         title: "Profile updated",
@@ -119,7 +141,7 @@ export default function Profile() {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to update profile.",
+        description: error?.message || "Failed to update profile.",
         variant: "destructive",
       });
     } finally {

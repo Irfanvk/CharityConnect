@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { charityClient } from "@/api/charityClient";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,9 +11,8 @@ import { APP_BRAND } from "@/config/appPaths";
 
 export default function Register() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1); // 1: verify code, 2: registration form
+  const [step, setStep] = useState(1); // 1: enter code, 2: registration form + backend validation
   const [inviteCode, setInviteCode] = useState('');
-  const [verifiedInvite, setVerifiedInvite] = useState(null);
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -29,31 +27,43 @@ export default function Register() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  const { data: invites = [] } = useQuery({
-    queryKey: ['invites'],
-    queryFn: () => charityClient.invites.list(),
-  });
-
   const verifyInviteCode = () => {
-    const invite = invites.find(i => 
-      i.invite_code === inviteCode.toUpperCase() && 
-      i.status === 'pending' &&
-      new Date(i.expires_at) > new Date()
-    );
+    const normalizedCode = inviteCode.trim().toUpperCase();
+    const inviteCodePattern = /^INV-[A-Z0-9]{6}$/;
 
-    if (!invite) {
-      setError('Invalid or expired invite code. Please contact an administrator.');
+    if (!inviteCodePattern.test(normalizedCode)) {
+      setError('Invalid invite code format. Expected format: INV-XXXXXX');
       return;
     }
 
-    setVerifiedInvite(invite);
-    setFormData({
-      ...formData,
-      phone: invite.phone || '',
-      email: invite.email || ''
-    });
+    setInviteCode(normalizedCode);
     setStep(2);
     setError('');
+  };
+
+  const getReadableError = (err) => {
+    const detail = err?.data?.detail;
+
+    if (Array.isArray(detail) && detail.length > 0) {
+      return detail
+        .map((item) => item?.msg || item?.message)
+        .filter(Boolean)
+        .join(', ');
+    }
+
+    if (typeof detail === 'string' && detail.trim()) {
+      return detail;
+    }
+
+    if (typeof err?.data?.message === 'string' && err.data.message.trim()) {
+      return err.data.message;
+    }
+
+    if (typeof err?.message === 'string' && err.message.trim()) {
+      return err.message;
+    }
+
+    return 'Invalid invite or registration failed. Please try again or contact support.';
   };
 
   const handleRegister = async (e) => {
@@ -76,9 +86,14 @@ export default function Register() {
     }
 
     try {
+      await charityClient.invites.validate(
+        formData.email || formData.phone,
+        inviteCode.trim().toUpperCase()
+      );
+
       // Register with backend - creates both User and Member
       await charityClient.auth.register({
-        invite_code: inviteCode,
+        invite_code: inviteCode.trim().toUpperCase(),
         username: formData.username,
         password: formData.password,
         email: formData.email,
@@ -97,7 +112,7 @@ export default function Register() {
       setSuccess(true);
     } catch (err) {
       console.error('Registration error:', err);
-      setError(err.message || 'Registration failed. Please try again or contact support.');
+      setError(getReadableError(err));
     } finally {
       setLoading(false);
     }

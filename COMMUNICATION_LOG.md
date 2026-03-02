@@ -3,7 +3,7 @@
 **Project:** CharityConnect  
 **Purpose:** Decisions, meeting minutes, and action items  
 **Owner:** Integration Lead  
-**Last Updated:** 2026-03-01
+**Last Updated:** 2026-03-02
 
 ---
 
@@ -11,6 +11,7 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-03-02 | Frontend migrated to canonical notification and invite contract usage | Frontend | ✅ | Removed `/notifications/send` fallback and moved Settings invite expiry display to `expiry_date` only |
 | 2026-03-01 | Active frontend flows migrated from deprecated `entities.*` to resource APIs | Frontend | ✅ | Removes runtime deprecation noise and aligns with resource client contract |
 | 2026-03-01 | Notifications page switched to supported notification methods with compatibility aliases | Frontend | ✅ | Fixes `Notification.create is not a function` runtime error |
 | 2026-03-01 | Dashboard render hardened against undefined datasets post-login | Frontend | ✅ | Prevents blank-screen crash after login |
@@ -425,6 +426,40 @@ Please confirm backend authorization mirrors these rules on all relevant endpoin
 3. **Role-based dashboard safety**
    - Frontend now hard-splits dashboard views by role.
    - Please confirm backend role checks remain strict on admin-only endpoints (members list, audit/admin operations).
+
+### Frontend Validation Completed
+
+- `npm run lint` → ✅ Pass
+
+---
+
+## 2026-03-02 - Frontend Contract Migration (Canonical Endpoint Enforcement)
+
+**Summary:** Frontend completed required contract hardening from the API freeze notes by removing deprecated notification create fallback and moving invite UI rendering to canonical expiry field usage.
+
+### Frontend Changes Applied
+
+1. **Notification create contract hardened**
+   - ✅ Removed client fallback to deprecated `POST /notifications/send`.
+   - ✅ Frontend now uses only canonical `POST /notifications/` for create flows.
+
+2. **Notification API path cleanup**
+   - ✅ Removed deprecated `notifications.send` alias from frontend API path config.
+
+3. **Invite expiry field usage migrated**
+   - ✅ Invite creation already uses canonical `expiry_date`.
+   - ✅ Settings invite list display now reads canonical `expiry_date` only (legacy `expires_at` display fallback removed).
+
+### Backend Communication (for log + awareness)
+
+1. **Deprecation timeline request**
+   - Please publish final removal date for backend compatibility aliases (`expires_at`, `/notifications/send`) in `API_CHANGELOG.md`.
+
+2. **Canonical-only run confirmation**
+   - Frontend integration runs now treat `POST /notifications/send` as unavailable by design.
+
+3. **Regression watch**
+   - If backend still emits invite records without `expiry_date`, Settings expiry column will intentionally remain blank under canonical mode.
 
 ### Frontend Validation Completed
 

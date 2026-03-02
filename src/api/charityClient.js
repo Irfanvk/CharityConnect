@@ -223,14 +223,33 @@ const charityClient = {
       });
     },
     
-    approve: (id) =>
-      apiFetch(API_PATHS.challans.approve(id), { method: 'POST' }),
+    approve: async (id) => {
+      try {
+        return await apiFetch(API_PATHS.challans.approve(id), { method: 'PATCH' });
+      } catch (error) {
+        if (error?.status === 404 || error?.status === 405) {
+          return await apiFetch(API_PATHS.challans.approve(id), { method: 'POST' });
+        }
+        throw error;
+      }
+    },
     
-    reject: (id, reason) =>
-      apiFetch(API_PATHS.challans.reject(id), {
-        method: 'POST',
-        body: JSON.stringify({ reason }),
-      }),
+    reject: async (id, reason) => {
+      try {
+        return await apiFetch(API_PATHS.challans.reject(id), {
+          method: 'PATCH',
+          body: JSON.stringify({ reason }),
+        });
+      } catch (error) {
+        if (error?.status === 404 || error?.status === 405) {
+          return await apiFetch(API_PATHS.challans.reject(id), {
+            method: 'POST',
+            body: JSON.stringify({ reason }),
+          });
+        }
+        throw error;
+      }
+    },
   },
 
   campaigns: {
@@ -266,7 +285,7 @@ const charityClient = {
     get: (id) => apiFetch(API_PATHS.notifications.byId(id), { method: 'GET' }),
     
     send: (data) =>
-      apiFetch(API_PATHS.notifications.send, {
+      apiFetch(API_PATHS.notifications.list, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -302,8 +321,16 @@ const charityClient = {
 
   invites: {
     list: async (query = {}) => {
-      const data = await apiFetch(API_PATHS.invites.list, { method: 'GET' }, query);
-      return extractArray(data);
+      try {
+        const data = await apiFetch(API_PATHS.invites.list, { method: 'GET' }, query);
+        return extractArray(data);
+      } catch (error) {
+        if (error?.status === 404 || error?.status === 405) {
+          const data = await apiFetch(API_PATHS.invites.pending, { method: 'GET' }, query);
+          return extractArray(data);
+        }
+        throw error;
+      }
     },
     
     getPending: async () => {
@@ -319,11 +346,12 @@ const charityClient = {
         body: JSON.stringify(data),
       }),
     
-    validate: (code) =>
-      apiFetch(API_PATHS.invites.validate, {
-        method: 'POST',
-        body: JSON.stringify({ code }),
-      }),
+    validate: (emailOrPhone, inviteCode) =>
+      apiFetch(
+        API_PATHS.invites.validate,
+        { method: 'POST' },
+        { email_or_phone: emailOrPhone, invite_code: inviteCode }
+      ),
     
     update: (id, data) =>
       apiFetch(API_PATHS.invites.byId(id), {

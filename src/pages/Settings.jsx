@@ -66,8 +66,8 @@ export default function Settings() {
   const handleInvite = async () => {
     setLoading(true);
     const code = generateInviteCode();
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + 7); // 7 days expiry
 
     await createInviteMutation.mutateAsync({
       invite_code: code,
@@ -75,7 +75,7 @@ export default function Settings() {
       email: inviteData.email,
       status: 'pending',
       invited_by: user?.email,
-      expires_at: expiresAt.toISOString()
+      expiry_date: expiryDate.toISOString()
     });
     setLoading(false);
   };
@@ -167,7 +167,7 @@ export default function Settings() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {invite.expires_at && format(new Date(invite.expires_at), "MMM d, yyyy")}
+                          {invite.expiry_date && format(new Date(invite.expiry_date), "MMM d, yyyy")}
                         </TableCell>
                       </TableRow>
                     ))

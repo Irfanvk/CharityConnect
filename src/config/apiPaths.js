@@ -31,7 +31,6 @@ export const API_PATHS = {
   notifications: {
     list: '/notifications/',
     byId: (id) => `/notifications/${id}`,
-    send: '/notifications/send',
     read: (id) => `/notifications/${id}/read`,
     markAllRead: '/notifications/mark-all-read',
   },
