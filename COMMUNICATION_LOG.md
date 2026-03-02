@@ -11,6 +11,7 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-03-02 | Admin Reports page rebuilt into modular 3-tab reporting suite with per-report CSV export | Frontend | ✅ | Added Members, Donations, Challans report modules with period filters and tab-specific export schemas |
 | 2026-03-02 | Frontend migrated to canonical notification and invite contract usage | Frontend | ✅ | Removed `/notifications/send` fallback and moved Settings invite expiry display to `expiry_date` only |
 | 2026-03-01 | Active frontend flows migrated from deprecated `entities.*` to resource APIs | Frontend | ✅ | Removes runtime deprecation noise and aligns with resource client contract |
 | 2026-03-01 | Notifications page switched to supported notification methods with compatibility aliases | Frontend | ✅ | Fixes `Notification.create is not a function` runtime error |
@@ -464,6 +465,41 @@ Please confirm backend authorization mirrors these rules on all relevant endpoin
 ### Frontend Validation Completed
 
 - `npm run lint` → ✅ Pass
+
+---
+
+## 2026-03-02 - Frontend to Backend Communication (Reports Module Rebuild)
+
+**Summary:** Frontend rebuilt Admin Reports into a modular multi-report page with independent analytics sections and CSV exports.
+
+### Frontend Changes Applied
+
+1. **Report module architecture**
+   - ✅ Added report components for:
+     - Member Activity
+     - Donation Summary
+     - Challan Status
+   - ✅ Added shared report period filter component (monthly/yearly/all-time).
+
+2. **Reports page rewrite**
+   - ✅ Replaced old single-report flow with tabbed admin reports (`Members`, `Donations`, `Challans`).
+   - ✅ Added per-tab CSV export using report-specific columns.
+
+3. **Validation**
+   - ✅ `npm run lint` passed.
+   - ✅ `npm run build` passed.
+
+### Items to Communicate to Backend
+
+1. **No new API contract requested**
+   - Reports module uses existing endpoints only (`/members/`, `/challans/`, `/campaigns/`).
+
+2. **Access expectations**
+   - Reports remain admin/superadmin-only in frontend.
+   - Please keep backend role protection strict on report data source endpoints.
+
+3. **Optional reliability note**
+   - Export action logs via `POST /audit-logs/` as best-effort; export download should not fail if audit log write fails.
 
 ---
 

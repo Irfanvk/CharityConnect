@@ -1,144 +1,101 @@
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { 
-  FileText, Download, TrendingUp, DollarSign, 
-  Receipt, CheckCircle, XCircle, Clock 
-} from "lucide-react";
 import { format } from "date-fns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Download, FileText } from "lucide-react";
+import ReportFilters from "@/components/reports/ReportFilters";
+import MemberActivityReport, { exportMemberCSV } from "@/components/reports/MemberActivityReport";
+import DonationSummaryReport, { exportDonationCSV } from "@/components/reports/DonationSummaryReport";
+import ChallanStatusReport, { exportChallanCSV } from "@/components/reports/ChallanStatusReport";
+
+function downloadCSV({ headers, rows, filename }) {
+  const csvContent = [
+    headers.join(","),
+    ...rows.map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")),
+  ].join("\n");
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${filename}.csv`;
+  anchor.click();
+  window.URL.revokeObjectURL(url);
+}
 
 export default function Reports() {
-  const [user, setUser] = useState(null);
-  const [reportType, setReportType] = useState("monthly");
-  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
-  const [selectedYear, setSelectedYear] = useState(format(new Date(), "yyyy"));
+  const [activeTab, setActiveTab] = useState("members");
+  const [memberPeriod, setMemberPeriod] = useState("monthly");
+  const [memberValue, setMemberValue] = useState(format(new Date(), "yyyy-MM"));
+  const [donationPeriod, setDonationPeriod] = useState("monthly");
+  const [donationValue, setDonationValue] = useState(format(new Date(), "yyyy-MM"));
+  const [challanPeriod, setChallanPeriod] = useState("monthly");
+  const [challanValue, setChallanValue] = useState(format(new Date(), "yyyy-MM"));
 
-  useEffect(() => {
-    charityClient.auth.me().then(setUser).catch(() => {});
-  }, []);
-
-  const { data: challans = [] } = useQuery({
-    queryKey: ['challans'],
-    queryFn: () => charityClient.challans.list({ order: '-created_date' }),
-  });
-
-  const { data: campaigns = [] } = useQuery({
-    queryKey: ['campaigns'],
-    queryFn: () => charityClient.campaigns.list({ order: '-created_date' }),
+  const { data: user } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => charityClient.auth.me(),
   });
 
   const { data: members = [] } = useQuery({
-    queryKey: ['members'],
+    queryKey: ["members"],
     queryFn: () => charityClient.members.list(),
   });
 
-  // Filter data based on report type
-  const getFilteredChallans = () => {
-    return challans.filter(c => {
-      const challanDate = new Date(c.created_date);
-      if (reportType === "monthly") {
-        return format(challanDate, "yyyy-MM") === selectedMonth;
-      } else {
-        return format(challanDate, "yyyy") === selectedYear;
-      }
-    });
-  };
+  const { data: challans = [] } = useQuery({
+    queryKey: ["challans"],
+    queryFn: () => charityClient.challans.list({ order: "-created_date" }),
+  });
 
-  const filteredChallans = getFilteredChallans();
+  const { data: campaigns = [] } = useQuery({
+    queryKey: ["campaigns"],
+    queryFn: () => charityClient.campaigns.list({ order: "-created_date" }),
+  });
 
-  // Calculate metrics
-  const totalCollections = filteredChallans
-    .filter(c => c.status === 'approved')
-    .reduce((sum, c) => sum + c.amount, 0);
+  const isAdmin = useMemo(
+    () => user?.role === "admin" || user?.role === "superadmin",
+    [user]
+  );
 
-  const monthlyCollections = filteredChallans
-    .filter(c => c.type === 'monthly' && c.status === 'approved')
-    .reduce((sum, c) => sum + c.amount, 0);
+  const exportCurrentReport = async () => {
+    let csvData;
+    let reportName;
 
-  const campaignCollections = filteredChallans
-    .filter(c => c.type === 'donation' && c.status === 'approved')
-    .reduce((sum, c) => sum + c.amount, 0);
-
-  const approvedChallans = filteredChallans.filter(c => c.status === 'approved').length;
-  const pendingChallans = filteredChallans.filter(c => c.status === 'pending' || c.status === 'proof_uploaded').length;
-  const rejectedChallans = filteredChallans.filter(c => c.status === 'rejected').length;
-  const generatedChallans = filteredChallans.filter(c => c.status === 'generated').length;
-
-  // Export to CSV
-  const exportToCSV = async () => {
-    const headers = [
-      'Challan Number', 'Member Name', 'Type', 'Amount', 
-      'Month', 'Campaign', 'Status', 'Created Date', 'Approved Date'
-    ];
-    
-    const rows = filteredChallans.map(c => [
-      c.challan_number,
-      c.member_name,
-      c.type,
-      c.amount,
-      c.month || '',
-      c.campaign_name || '',
-      c.status,
-      format(new Date(c.created_date), 'yyyy-MM-dd'),
-      c.approved_at ? format(new Date(c.approved_at), 'yyyy-MM-dd') : ''
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `financial-report-${reportType}-${reportType === 'monthly' ? selectedMonth : selectedYear}.csv`;
-    a.click();
-
-    // Log audit
-    await charityClient.auditLogs.create({
-      action_type: "report_generated",
-      performed_by: user?.email,
-      performed_by_name: user?.full_name,
-      target_type: "Report",
-      target_name: `${reportType === 'monthly' ? format(new Date(selectedMonth + '-01'), 'MMMM yyyy') : selectedYear} Financial Report`,
-      details: { 
-        report_type: reportType,
-        period: reportType === 'monthly' ? selectedMonth : selectedYear,
-        total_collections: totalCollections,
-        total_challans: filteredChallans.length
-      }
-    });
-  };
-
-  // Generate months for dropdown
-  const getMonthOptions = () => {
-    const months = [];
-    for (let i = 0; i < 12; i++) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      months.push(format(date, "yyyy-MM"));
+    if (activeTab === "members") {
+      csvData = exportMemberCSV(members, memberPeriod, memberValue);
+      reportName = "Member Activity";
+    } else if (activeTab === "donations") {
+      csvData = exportDonationCSV(challans, campaigns, donationPeriod, donationValue);
+      reportName = "Donation Summary";
+    } else {
+      csvData = exportChallanCSV(challans, challanPeriod, challanValue);
+      reportName = "Challan Status";
     }
-    return months;
+
+    downloadCSV(csvData);
+
+    try {
+      await charityClient.auditLogs.create({
+        action_type: "report_generated",
+        performed_by: user?.email,
+        performed_by_name: user?.full_name,
+        target_type: "Report",
+        target_name: reportName,
+        details: {
+          tab: activeTab,
+          rows_exported: csvData.rows.length,
+          filename: csvData.filename,
+        },
+      });
+    } catch {
+      // Non-blocking: exporting should not fail due to audit logging.
+    }
   };
 
-  // Generate years for dropdown
-  const getYearOptions = () => {
-    const currentYear = new Date().getFullYear();
-    return Array.from({ length: 5 }, (_, i) => String(currentYear - i));
-  };
-
-  if (user?.role !== 'admin') {
+  if (!isAdmin) {
     return (
       <Card className="border-0 shadow-sm">
         <CardContent className="p-12 text-center">
@@ -151,204 +108,59 @@ export default function Reports() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Financial Reports</h1>
-          <p className="text-slate-500">Generate and export financial reports</p>
+          <h1 className="text-2xl font-bold text-slate-900">Admin Reports</h1>
+          <p className="text-slate-500">Member activity, donation summaries, and challan status reports</p>
         </div>
-        <Button 
-          onClick={exportToCSV}
-          className="bg-emerald-600 hover:bg-emerald-700"
-        >
+        <Button onClick={exportCurrentReport} className="bg-emerald-600 hover:bg-emerald-700">
           <Download className="w-4 h-4 mr-2" />
-          Export to CSV
+          Export CSV
         </Button>
       </div>
 
-      {/* Report Type & Period Selection */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <Tabs value={reportType} onValueChange={setReportType}>
-          <TabsList>
-            <TabsTrigger value="monthly">Monthly Report</TabsTrigger>
-            <TabsTrigger value="yearly">Yearly Report</TabsTrigger>
-          </TabsList>
-        </Tabs>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="members">Members</TabsTrigger>
+          <TabsTrigger value="donations">Donations</TabsTrigger>
+          <TabsTrigger value="challans">Challans</TabsTrigger>
+        </TabsList>
 
-        {reportType === "monthly" ? (
-          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {getMonthOptions().map(month => (
-                <SelectItem key={month} value={month}>
-                  {format(new Date(month + '-01'), 'MMMM yyyy')}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <Select value={selectedYear} onValueChange={setSelectedYear}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {getYearOptions().map(year => (
-                <SelectItem key={year} value={year}>
-                  {year}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </div>
+        <TabsContent value="members" className="space-y-4">
+          <ReportFilters
+            period={memberPeriod}
+            onPeriodChange={setMemberPeriod}
+            value={memberValue}
+            onValueChange={setMemberValue}
+          />
+          <MemberActivityReport members={members} period={memberPeriod} value={memberValue} />
+        </TabsContent>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-teal-50">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Total Collections</p>
-                <p className="text-xl font-bold text-slate-900">₹{totalCollections.toLocaleString()}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 text-xs text-emerald-600">
-              <TrendingUp className="w-3 h-3" />
-              <span>{approvedChallans} approved</span>
-            </div>
-          </CardContent>
-        </Card>
+        <TabsContent value="donations" className="space-y-4">
+          <ReportFilters
+            period={donationPeriod}
+            onPeriodChange={setDonationPeriod}
+            value={donationValue}
+            onValueChange={setDonationValue}
+          />
+          <DonationSummaryReport
+            challans={challans}
+            campaigns={campaigns}
+            period={donationPeriod}
+            value={donationValue}
+          />
+        </TabsContent>
 
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-indigo-50">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <Receipt className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Monthly Payments</p>
-                <p className="text-xl font-bold text-slate-900">₹{monthlyCollections.toLocaleString()}</p>
-              </div>
-            </div>
-            <div className="text-xs text-blue-600">
-              Membership fees
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-rose-50 to-pink-50">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-rose-100 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-rose-600" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Campaign Donations</p>
-                <p className="text-xl font-bold text-slate-900">₹{campaignCollections.toLocaleString()}</p>
-              </div>
-            </div>
-            <div className="text-xs text-rose-600">
-              From campaigns
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-amber-50 to-orange-50">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                <FileText className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Total Challans</p>
-                <p className="text-xl font-bold text-slate-900">{filteredChallans.length}</p>
-              </div>
-            </div>
-            <div className="text-xs text-amber-600">
-              All statuses
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Challan Status Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-slate-500">Approved</span>
-              <CheckCircle className="w-5 h-5 text-emerald-600" />
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{approvedChallans}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-slate-500">Pending Review</span>
-              <Clock className="w-5 h-5 text-amber-600" />
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{pendingChallans}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-slate-500">Rejected</span>
-              <XCircle className="w-5 h-5 text-rose-600" />
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{rejectedChallans}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-slate-500">Generated</span>
-              <Receipt className="w-5 h-5 text-slate-600" />
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{generatedChallans}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Detailed Breakdown */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg">Campaign Breakdown</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {campaigns.map(campaign => {
-              const campaignChallans = filteredChallans.filter(
-                c => c.campaign_id === campaign.id && c.status === 'approved'
-              );
-              const campaignTotal = campaignChallans.reduce((sum, c) => sum + c.amount, 0);
-              
-              if (campaignTotal === 0) return null;
-              
-              return (
-                <div key={campaign.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50">
-                  <div>
-                    <p className="font-medium text-slate-900">{campaign.title}</p>
-                    <p className="text-xs text-slate-500">{campaignChallans.length} donations</p>
-                  </div>
-                  <p className="text-lg font-semibold text-emerald-600">
-                    ₹{campaignTotal.toLocaleString()}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="challans" className="space-y-4">
+          <ReportFilters
+            period={challanPeriod}
+            onPeriodChange={setChallanPeriod}
+            value={challanValue}
+            onValueChange={setChallanValue}
+          />
+          <ChallanStatusReport challans={challans} period={challanPeriod} value={challanValue} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

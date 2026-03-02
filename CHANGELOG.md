@@ -22,11 +22,71 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|---------|
+| 1.5 | 2026-03-02 | Patch | Admin Reports page rebuilt as multi-report module (Members, Donations, Challans) with per-tab CSV export |
 | 1.4 | 2026-03-01 | Patch | Resource API migration across active pages, notifications runtime fix, router future flags |
 | 1.3 | 2026-03-01 | Patch | Dedicated member dashboard rollout with profile, challan insights, upcoming dues, and campaign participation |
 | 1.2 | 2026-03-01 | Patch | Challan role-based visibility, proof re-upload flow, status filter alignment |
 | 1.1 | 2026-02-26 | Patch | Auth/login redirect stabilization, logout visibility, API client hardening |
 | 1.0 | 2026-02-24 | Release | Phase 1 MVP complete |
+
+---
+
+## 📅 March 02, 2026 - Reports Module Rebuild Patch
+
+### 🎯 Objectives Met
+- ✅ Replaced legacy single-report page with focused multi-report admin module
+- ✅ Added independent report tabs for Members, Donations, and Challans
+- ✅ Added per-tab period filters (monthly/yearly/all-time)
+- ✅ Added per-tab CSV export with report-specific schema
+
+---
+
+## Frontend Changes (Patch 1.5)
+
+### 1. Reports Module Components Added
+
+**Impact:** High - Improves reporting coverage and export quality  
+**Type:** Feature + Refactor  
+**Files Added:**
+- `src/components/reports/ReportFilters.jsx`
+- `src/components/reports/MemberActivityReport.jsx`
+- `src/components/reports/DonationSummaryReport.jsx`
+- `src/components/reports/ChallanStatusReport.jsx`
+
+**Change Details:**
+- Added reusable period filter control for report tabs.
+- Added member activity report with member-status snapshots and period-based new member list.
+- Added donation summary report with total split, campaign breakdown, top contributors, and approved transaction table.
+- Added challan status report with status summary, pending approvals, recent rejections, and challan listing.
+
+---
+
+### 2. Reports Page Rewritten to Multi-Tab Architecture
+
+**Impact:** High - Replaces legacy report UX with modular analytics surface  
+**Type:** UI Flow + Reporting  
+**Files Modified:** `src/pages/Reports.jsx`
+
+**Change Details:**
+- Replaced previous monthly/yearly single report mode with tabbed reports (`members`, `donations`, `challans`).
+- Wired per-tab period state and report-specific CSV export handlers.
+- Added shared CSV download utility with safe escaping.
+- Kept admin-only access behavior and non-blocking audit logging for report exports.
+
+---
+
+## Validation Summary (2026-03-02)
+
+- `npm run lint` → ✅ pass
+- `npm run build` → ✅ pass
+
+---
+
+## Backend Coordination Notes (Generated from Patch 1.5)
+
+- No new endpoint is required for this frontend change.
+- Existing admin-level read access to `/members/`, `/challans/`, `/campaigns/` remains required.
+- Existing audit endpoint support (`POST /audit-logs/`) is used as best-effort export logging.
 
 ---
 
