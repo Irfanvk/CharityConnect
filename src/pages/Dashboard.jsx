@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/AuthContext";
 import { Users, Receipt, Heart, TrendingUp, Calendar, Clock } from "lucide-react";
 import { format } from "date-fns";
 import StatsCard from "@/components/dashboard/StatsCard";
@@ -13,13 +14,20 @@ import PullToRefresh from "@/components/mobile/PullToRefresh";
 import { APP_IMAGES } from "@/config/appPaths";
 
 export default function Dashboard() {
-  const [user, setUser] = useState(null);
+  const { user: authUser } = useAuth();
+  const [user, setUser] = useState(authUser || null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => {
     loadUserData();
   }, []);
+
+  useEffect(() => {
+    if (authUser) {
+      setUser((prev) => ({ ...(prev || {}), ...authUser }));
+    }
+  }, [authUser]);
 
   const loadUserData = async () => {
     try {
@@ -28,7 +36,7 @@ export default function Dashboard() {
         setUser(null);
         return;
       }
-      setUser(currentUser);
+      setUser((prev) => ({ ...(prev || {}), ...currentUser }));
       
       // Check if onboarding is needed
       if (currentUser.role !== 'admin' && !currentUser.onboarding_completed) {
@@ -94,6 +102,11 @@ export default function Dashboard() {
   const isSuperAdmin = user?.is_superadmin === true || user?.role === 'superadmin';
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const isMember = !!user && !isAdmin && !isSuperAdmin;
+  const displayName =
+    user?.full_name?.trim() ||
+    user?.username?.trim() ||
+    user?.email?.split("@")[0] ||
+    (isSuperAdmin ? "Superadmin" : isMember ? "Member" : "User");
 
   // Calculate stats
   const activeMembers = membersArray.filter(m => m.status === 'active').length;
@@ -137,7 +150,7 @@ export default function Dashboard() {
           />
           <div className="relative">
             <h1 className="text-3xl font-bold mb-2">
-              Welcome back, {user?.full_name || 'Superadmin'}! 🚀
+              Welcome back, {displayName}! 🚀
             </h1>
             <p className="text-purple-100 text-lg">
               System-wide analytics and performance insights
@@ -183,7 +196,7 @@ export default function Dashboard() {
             />
             <div className="relative">
               <h1 className="text-2xl font-bold mb-1">
-                Welcome back, {user?.full_name || 'Member'}! 👋
+                Welcome back, {displayName}! 👋
               </h1>
               <p className="text-emerald-100">Track your contributions and stay connected</p>
               <div className="flex items-center gap-2 mt-3 text-emerald-100 text-sm">
@@ -224,7 +237,7 @@ export default function Dashboard() {
         />
         <div className="relative">
           <h1 className="text-3xl font-bold mb-2">
-            Welcome back, {user?.full_name || 'User'}! 👋
+            Welcome back, {displayName}! 👋
           </h1>
           <p className="text-emerald-100 text-lg">
             {isAdmin 

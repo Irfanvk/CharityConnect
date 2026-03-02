@@ -91,6 +91,12 @@ export default function Layout({ children, currentPageName }) {
   };
 
   const isAdmin = currentUser?.role === 'admin';
+  const displayName =
+    currentUser?.full_name?.trim() ||
+    currentUser?.username?.trim() ||
+    currentUser?.email?.split('@')[0] ||
+    'User';
+  const avatarInitial = displayName?.charAt(0)?.toUpperCase() || 'U';
   const hasRequestsPage = Boolean(pagesConfig?.Pages?.[ROUTE_KEYS.REQUESTS]);
 
   const navigation = [
@@ -221,10 +227,10 @@ export default function Layout({ children, currentPageName }) {
                 <DropdownMenuTrigger asChild>
                   <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors select-none">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-semibold">
-                      {currentUser.full_name?.charAt(0) || currentUser.email?.charAt(0)?.toUpperCase()}
+                      {avatarInitial}
                     </div>
                     <div className="flex-1 text-left">
-                      <p className="font-medium text-slate-800 dark:text-white text-sm truncate">{currentUser.full_name || 'User'}</p>
+                      <p className="font-medium text-slate-800 dark:text-white text-sm truncate">{displayName}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{currentUser.role}</p>
                     </div>
                     <ChevronDown className="w-4 h-4 text-slate-400" />
