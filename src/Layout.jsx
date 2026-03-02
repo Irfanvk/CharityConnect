@@ -232,14 +232,14 @@ export default function Layout({ children, currentPageName }) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuItem asChild>
-                    <Link to={PAGE_PATHS.PROFILE} className="flex items-center gap-2">
+                    <Link to={PAGE_PATHS.PROFILE} onClick={() => setSidebarOpen(false)} className="flex items-center gap-2">
                       <User className="w-4 h-4" />
                       My Profile
                     </Link>
                   </DropdownMenuItem>
                   {isAdmin && (
                     <DropdownMenuItem asChild>
-                      <Link to={PAGE_PATHS.SETTINGS} className="flex items-center gap-2">
+                      <Link to={PAGE_PATHS.SETTINGS} onClick={() => setSidebarOpen(false)} className="flex items-center gap-2">
                         <Settings className="w-4 h-4" />
                         Settings
                       </Link>
