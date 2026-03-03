@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,25 +21,54 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
 
+const toDateInputValue = (value) => {
+  if (!value) return '';
+  const asDate = new Date(value);
+  if (Number.isNaN(asDate.getTime())) return '';
+  return format(asDate, 'yyyy-MM-dd');
+};
+
+const getInitialFormData = (campaign) => {
+  if (!campaign) {
+    return {
+      title: '',
+      description: '',
+      target_amount: '',
+      min_amount: 100,
+      start_date: format(new Date(), 'yyyy-MM-dd'),
+      end_date: '',
+      status: 'active',
+      image_url: ''
+    };
+  }
+
+  return {
+    title: campaign.title || '',
+    description: campaign.description || '',
+    target_amount: campaign.target_amount ?? '',
+    min_amount: campaign.min_amount ?? 100,
+    start_date: toDateInputValue(campaign.start_date),
+    end_date: toDateInputValue(campaign.end_date),
+    status: campaign.status || 'active',
+    image_url: campaign.image_url || ''
+  };
+};
+
 export default function CampaignForm({ open, onOpenChange, campaign, onSubmit }) {
-  const [formData, setFormData] = useState(campaign || {
-    title: '',
-    description: '',
-    target_amount: '',
-    min_amount: 100,
-    start_date: format(new Date(), 'yyyy-MM-dd'),
-    end_date: '',
-    status: 'active',
-    image_url: ''
-  });
+  const [formData, setFormData] = useState(getInitialFormData(campaign));
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setFormData(getInitialFormData(campaign));
+  }, [open, campaign]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     await onSubmit({
       ...formData,
-      target_amount: parseFloat(formData.target_amount),
+      target_amount: Number(formData.target_amount) || 0,
       min_amount: parseFloat(formData.min_amount) || 100,
       collected_amount: campaign?.collected_amount || 0,
       participants_count: campaign?.participants_count || 0

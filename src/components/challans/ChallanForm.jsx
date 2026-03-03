@@ -32,10 +32,12 @@ export default function ChallanForm({
   currentUser 
 }) {
   const isAdmin = currentUser?.role === 'admin';
+  const normalizeId = (value) => (value === null || value === undefined ? '' : String(value));
+  const areSameId = (left, right) => normalizeId(left) === normalizeId(right);
 
   // Find the current user's own member record
   const myMember = members.find(m => m.email === currentUser?.email);
-  const defaultMemberId = !isAdmin && myMember ? myMember.id : '';
+  const defaultMemberId = !isAdmin && myMember ? normalizeId(myMember.id) : '';
 
   const [formData, setFormData] = useState({
     challan_number: suggestedNumber || '',
@@ -53,7 +55,7 @@ export default function ChallanForm({
   const getUnpaidMonths = (memberId) => {
     if (!memberId) return [];
     const paidMonths = existingChallans
-      .filter(c => c.member_id === memberId && c.type === 'monthly' && c.status !== 'rejected')
+      .filter(c => areSameId(c.member_id, memberId) && c.type === 'monthly' && c.status !== 'rejected')
       .map(c => c.month);
     
     const months = [];
@@ -72,8 +74,8 @@ export default function ChallanForm({
     e.preventDefault();
     setLoading(true);
     
-    const member = members.find(m => m.id === formData.member_id);
-    const campaign = campaigns.find(c => c.id === formData.campaign_id);
+    const member = members.find(m => areSameId(m.id, formData.member_id));
+    const campaign = campaigns.find(c => areSameId(c.id, formData.campaign_id));
     
     const monthsToPay = selectedMonths.length > 0 ? selectedMonths : [formData.month];
     const monthlyAmount = member?.monthly_amount || 100;
@@ -109,7 +111,7 @@ export default function ChallanForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">Generate Challan</DialogTitle>
         </DialogHeader>
@@ -134,7 +136,7 @@ export default function ChallanForm({
                   {members
                     .filter(m => m.status === 'active')
                     .map(member => (
-                      <SelectItem key={member.id} value={member.id}>
+                      <SelectItem key={member.id} value={normalizeId(member.id)}>
                         {member.full_name} ({member.member_id})
                       </SelectItem>
                     ))
@@ -218,7 +220,7 @@ export default function ChallanForm({
                 <Select
                   value={formData.campaign_id}
                   onValueChange={(value) => {
-                    const campaign = campaigns.find(c => c.id === value);
+                    const campaign = campaigns.find(c => areSameId(c.id, value));
                     setFormData({
                       ...formData, 
                       campaign_id: value,
@@ -231,10 +233,10 @@ export default function ChallanForm({
                   </SelectTrigger>
                   <SelectContent>
                     {activeCampaigns.length === 0 ? (
-                      <SelectItem value={null} disabled>No active campaigns</SelectItem>
+                      <SelectItem value="__no_campaign" disabled>No active campaigns</SelectItem>
                     ) : (
                       activeCampaigns.map(campaign => (
-                        <SelectItem key={campaign.id} value={campaign.id}>
+                        <SelectItem key={campaign.id} value={normalizeId(campaign.id)}>
                           {campaign.title}
                         </SelectItem>
                       ))
@@ -249,7 +251,7 @@ export default function ChallanForm({
                   type="number"
                   value={formData.amount}
                   onChange={(e) => setFormData({...formData, amount: e.target.value})}
-                  min={campaigns.find(c => c.id === formData.campaign_id)?.min_amount || 1}
+                  min={campaigns.find(c => areSameId(c.id, formData.campaign_id))?.min_amount || 1}
                 />
               </div>
             </>
@@ -261,11 +263,11 @@ export default function ChallanForm({
                 <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">Payment Summary</p>
               </div>
               <div className="space-y-1 text-sm text-emerald-700 dark:text-emerald-300">
-                <p>Monthly Amount: ₹{members.find(m => m.id === formData.member_id)?.monthly_amount || 100}</p>
+                <p>Monthly Amount: ₹{members.find(m => areSameId(m.id, formData.member_id))?.monthly_amount || 100}</p>
                 <p>Months: {selectedMonths.length}</p>
                 <div className="pt-2 border-t border-emerald-200 dark:border-emerald-700">
                   <p className="font-semibold text-base text-emerald-900 dark:text-emerald-100">
-                    Total: ₹{((members.find(m => m.id === formData.member_id)?.monthly_amount || 100) * selectedMonths.length).toLocaleString()}
+                    Total: ₹{((members.find(m => areSameId(m.id, formData.member_id))?.monthly_amount || 100) * selectedMonths.length).toLocaleString()}
                   </p>
                 </div>
               </div>

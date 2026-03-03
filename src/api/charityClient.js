@@ -121,6 +121,15 @@ function normalizeCampaign(campaign) {
   };
 }
 
+function normalizeAmount(amount) {
+  if (typeof amount === 'number') return amount;
+  if (typeof amount === 'string') return Number(amount) || 0;
+  if (amount && typeof amount === 'object') {
+    return Number(amount.parsedValue ?? amount.value ?? amount.source) || 0;
+  }
+  return 0;
+}
+
 function normalizeChallan(challan) {
   const normalized = withDateAliases(challan || {});
   const backendType = normalized.type;
@@ -128,6 +137,7 @@ function normalizeChallan(challan) {
     ...normalized,
     type: backendType === 'campaign' ? 'donation' : backendType,
     backend_type: backendType,
+    amount: normalizeAmount(normalized.amount),
     proof_url: normalized.proof_url || normalized.proof_path || null,
     proof_path: normalized.proof_path || normalized.proof_url || null,
   };

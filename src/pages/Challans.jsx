@@ -62,6 +62,17 @@ const matchesStatusFilter = (challan, filter) => {
   return challan.status === filter;
 };
 
+const normalizeId = (value) => (value === null || value === undefined ? '' : String(value));
+
+const parseAmount = (amount) => {
+  if (typeof amount === 'number') return amount;
+  if (typeof amount === 'string') return Number(amount) || 0;
+  if (amount && typeof amount === 'object') {
+    return Number(amount.parsedValue ?? amount.value ?? amount.source) || 0;
+  }
+  return 0;
+};
+
 export default function Challans() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -214,14 +225,26 @@ export default function Challans() {
   let displayChallans = challans;
   if (!isAdmin) {
     displayChallans = challans.filter(c => 
-      myMember ? c.member_id === myMember.id : c.created_by === user?.email
+      myMember ? normalizeId(c.member_id) === normalizeId(myMember.id) : c.created_by === user?.email
     );
   }
 
-  const filteredChallans = displayChallans.filter(c => {
-    const matchesSearch = 
-      c.challan_number?.toLowerCase().includes(search.toLowerCase()) ||
-      c.member_name?.toLowerCase().includes(search.toLowerCase());
+  const displayChallansWithFallbacks = displayChallans.map((challan) => {
+    const linkedMember = members.find((member) => normalizeId(member.id) === normalizeId(challan.member_id));
+    const normalizedAmount = parseAmount(challan.amount);
+    return {
+      ...challan,
+      challan_number: challan.challan_number || `CH-${challan.id}`,
+      member_name: challan.member_name || linkedMember?.full_name || `Member #${challan.member_id}`,
+      amount: normalizedAmount,
+    };
+  });
+
+  const filteredChallans = displayChallansWithFallbacks.filter(c => {
+    const searchTerm = search.trim().toLowerCase();
+    const matchesSearch = !searchTerm ||
+      c.challan_number?.toLowerCase().includes(searchTerm) ||
+      c.member_name?.toLowerCase().includes(searchTerm);
     const matchesStatus = matchesStatusFilter(c, statusFilter);
     return matchesSearch && matchesStatus;
   });
@@ -370,7 +393,7 @@ export default function Challans() {
                               </DropdownMenuItem>
                             )}
                             {(challan.status === 'generated' || challan.status === 'rejected') && 
-                             (isAdmin || (myMember && challan.member_id === myMember.id)) && (
+                             (isAdmin || (myMember && normalizeId(challan.member_id) === normalizeId(myMember.id))) && (
                               <DropdownMenuItem onClick={() => { setSelectedChallan(challan); setUploadOpen(true); }}>
                                 <Upload className="w-4 h-4 mr-2" />
                                 {challan.status === 'rejected' ? 'Re-upload Proof' : 'Upload Proof'}
