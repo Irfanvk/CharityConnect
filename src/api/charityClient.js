@@ -1,9 +1,35 @@
-import { AUTH_TOKEN_KEY } from '@/config/constants';
+import { AUTH_TOKEN_KEY, SESSION_EXPIRED_TOAST_KEY } from '@/config/constants';
 import { APP_PATHS } from '@/config/appPaths';
 import { API_PATHS } from '@/config/apiPaths';
 
 const BASE_URL = import.meta.env.VITE_CHARITY_APP_BASE_URL || '';
 const DEFAULT_TIMEOUT = 15000; // 15 seconds
+
+function shouldSkipUnauthorizedRedirect(path = '') {
+  const normalizedPath = String(path || '').split('?')[0];
+  return normalizedPath === API_PATHS.auth.login || normalizedPath === API_PATHS.auth.register;
+}
+
+function handleUnauthorized(path = '') {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+
+  if (shouldSkipUnauthorizedRedirect(path)) {
+    return;
+  }
+
+  if (window.location.pathname === APP_PATHS.LOGIN) {
+    return;
+  }
+
+  sessionStorage.setItem(SESSION_EXPIRED_TOAST_KEY, '1');
+
+  const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  window.location.href = `${APP_PATHS.LOGIN}?returnTo=${encodeURIComponent(returnTo)}`;
+}
 
 function normalizeSortQuery(query = {}) {
   if (!query || typeof query !== 'object') return query;
@@ -168,7 +194,7 @@ async function apiFetch(path, options = {}, query = {}) {
     clearTimeout(timeoutId);
 
     if (response.status === 401) {
-      localStorage.removeItem(AUTH_TOKEN_KEY);
+      handleUnauthorized(path);
       throw {
         status: 401,
         message: 'Unauthorized',

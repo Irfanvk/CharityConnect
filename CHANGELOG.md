@@ -22,6 +22,7 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|---------|
+| 1.9 | 2026-03-04 | Patch | Global unauthorized handling: auto-redirect to login on 401 + one-time session-expired toast |
 | 1.8 | 2026-03-04 | Patch | Bulk challan frontend rollout: bulk-create wiring, admin Bulk Operations dashboard tab, approve/reject-all flows |
 | 1.7 | 2026-03-03 | Patch | API contract hardening: response normalization, FormData header fix, challan/notification/audit payload compatibility |
 | 1.6 | 2026-03-03 | Patch | Members edit flow now fetches latest member details before form edit; added fetch-failure toast feedback |
@@ -31,6 +32,52 @@ This document records all technical changes, implementations, and decisions made
 | 1.2 | 2026-03-01 | Patch | Challan role-based visibility, proof re-upload flow, status filter alignment |
 | 1.1 | 2026-02-26 | Patch | Auth/login redirect stabilization, logout visibility, API client hardening |
 | 1.0 | 2026-02-24 | Release | Phase 1 MVP complete |
+
+---
+
+## 📅 March 04, 2026 - Unauthorized Session Redirect & Re-Login UX Patch
+
+### 🎯 Objectives Met
+- ✅ Enforced app-wide redirect to Sign In on backend `401 Unauthorized` responses
+- ✅ Ensured invalid/expired session clears stored auth token before redirect
+- ✅ Added user-visible session-expired toast after redirect to login
+
+---
+
+## Frontend Changes (Patch 1.9)
+
+### 1. Centralized Unauthorized Redirect Handling
+
+**Impact:** High - Prevents stale invalid sessions from remaining in protected pages  
+**Type:** Auth Reliability + Security UX  
+**Files Modified:** `src/api/charityClient.js`, `src/config/constants.js`
+
+**Change Details:**
+- Added centralized `401` handling in API fetch layer.
+- On unauthorized response, frontend now:
+  - clears `auth_token` from storage,
+  - sets one-time session-expired marker,
+  - redirects to login with `returnTo` query.
+- Excluded auth bootstrap endpoints (`/auth/login`, `/auth/register`) from forced redirect behavior.
+
+---
+
+### 2. Login-Screen Session Expired Toast Bridge
+
+**Impact:** Medium - Improves clarity for users when session expires  
+**Type:** UX Feedback  
+**Files Modified:** `src/App.jsx`
+
+**Change Details:**
+- Added login-route toast bridge that consumes one-time session-expired marker from `sessionStorage`.
+- Displays destructive toast: `Session expired` / `Please sign in again to continue.`
+- Marker is cleared immediately after display to prevent duplicate toasts.
+
+---
+
+## Validation Summary (2026-03-04)
+
+- `npm run build` → ✅ pass
 
 ---
 

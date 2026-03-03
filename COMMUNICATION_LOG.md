@@ -3,7 +3,7 @@
 **Project:** CharityConnect  
 **Purpose:** Decisions, meeting minutes, and action items  
 **Owner:** Integration Lead  
-**Last Updated:** 2026-03-03
+**Last Updated:** 2026-03-04
 
 ---
 
@@ -11,6 +11,8 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-03-04 | Frontend enforces global unauthorized session handling (401 → token clear + login redirect + returnTo) | Frontend | ✅ | Applies to protected API calls with login/register exclusions to avoid redirect loops |
+| 2026-03-04 | Frontend added one-time "Session expired" toast on login after forced unauthorized redirect | Frontend | ✅ | Toast is bridged via sessionStorage marker and shown only once per invalidation event |
 | 2026-03-04 | Frontend implemented bulk challan v1.1 integration (create + pending review + approve/reject-all actions) | Frontend | ✅ | Dashboard tab and challan multi-month bulk-create routing completed |
 | 2026-03-03 | Backend implemented bulk challan operations v1.1 (models, schemas, routes, audit logging) | Backend | ✅ | Complete implementation: POST /challans/bulk-create, GET /admin/bulk-pending-review, PATCH approve/reject endpoints |
 | 2026-03-03 | Bulk challan operations enable 200+ member scalability | Both | ✅ | v1.1 enhancement: Month multi-select, single-action approval, 10x admin speedup |
@@ -30,7 +32,7 @@
 | 2026-03-01 | Challans UI derives "Proof Uploaded" from `pending + proof_uploaded_at` | Frontend | ✅ | Keeps UI readable while preserving backend status model |
 | 2026-03-01 | Non-admin challan visibility constrained to linked member record (fallback: creator email) | Frontend | ✅ | Access-scope hardening in Challans page |
 | 2026-03-01 | Rejected challans support proof re-upload for authorized users | Frontend | ✅ | Requires backend to keep transition-to-pending behavior |
-| 2026-02-26 | Frontend auth redirect handled by context state (not global 401 hard redirect) | Frontend | ✅ | Prevents login loop and session bounce |
+| 2026-02-26 | Frontend auth redirect handled by context state (not global 401 hard redirect) | Frontend | ✅ | Superseded by 2026-03-04 global 401 handling update; original approach prevented login loop and session bounce |
 | 2026-02-26 | Login success flow updates context session immediately | Frontend | ✅ | Removes race between login and auth guard |
 | 2026-02-26 | Logout action must be visible in app shell for authenticated users | Frontend | ✅ | Added header-level logout button |
 | 2026-02-26 | Public app settings call is optional when app_id missing | Frontend | ✅ | Skip endpoint to avoid 404 noise |
@@ -39,6 +41,38 @@
 | 2026-02-24 | Add /files/upload endpoint | Backend | ✅ | Matches frontend proof upload flow |
 | 2026-02-24 | Registration collects username + password | Frontend | ✅ | Required for auth flow |
 | 2026-02-24 | Disable RecurringDonation and Request in Phase 1 | Both | ✅ | Phase 2 feature set |
+
+---
+
+## 2026-03-04 - Frontend to Backend Communication (Unauthorized Session Handling Update)
+
+**Summary:** Frontend now treats backend `401` responses as an expired/invalid session event and forces a clean re-login flow.
+
+### Frontend Changes Applied
+
+1. **Global unauthorized interception in API client**
+   - On `401`, frontend now clears stored `auth_token` and redirects to login with `returnTo`.
+   - Redirect is skipped for `/auth/login` and `/auth/register` requests.
+
+2. **Session-expired user feedback**
+   - A one-time marker is set before redirect.
+   - Login route consumes marker and shows destructive toast:
+     - `Session expired`
+     - `Please sign in again to continue.`
+
+3. **Loop prevention behavior**
+   - If already on login page, frontend does not force another redirect.
+   - Toast marker is removed immediately after showing to avoid repeated messages.
+
+### Backend Confirmation Requested
+
+- Keep `401` as canonical response for invalid/missing/expired JWT on protected endpoints.
+- Preserve structured error response compatibility (`detail` string or `detail[]`).
+- Continue `403` usage for role/permission denial when token is valid.
+
+### Status
+
+- Frontend implementation complete and documented in Patch 1.9.
 
 ---
 

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
@@ -9,7 +10,9 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
 import { APP_PATHS } from '@/config/appPaths';
+import { SESSION_EXPIRED_TOAST_KEY } from '@/config/constants';
 
 const { Pages, PUBLIC_PAGES, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -20,6 +23,31 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   : <>{children}</>;
 
 const isLoginPath = (pathname = '') => pathname.toLowerCase() === APP_PATHS.LOGIN;
+
+const SessionExpiredToastBridge = () => {
+  const location = useLocation();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!isLoginPath(location.pathname)) {
+      return;
+    }
+
+    const shouldShowToast = sessionStorage.getItem(SESSION_EXPIRED_TOAST_KEY) === '1';
+    if (!shouldShowToast) {
+      return;
+    }
+
+    sessionStorage.removeItem(SESSION_EXPIRED_TOAST_KEY);
+    toast({
+      title: 'Session expired',
+      description: 'Please sign in again to continue.',
+      variant: 'destructive',
+    });
+  }, [location.pathname, toast]);
+
+  return null;
+};
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, isAuthenticated, authError, navigateToLogin, checkAppState } = useAuth();
@@ -125,6 +153,7 @@ function App() {
             v7_relativeSplatPath: true,
           }}
         >
+          <SessionExpiredToastBridge />
           <NavigationTracker />
           <AuthenticatedApp />
         </Router>
