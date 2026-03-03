@@ -3,7 +3,7 @@
 **Project:** CharityConnect  
 **Purpose:** Decisions, meeting minutes, and action items  
 **Owner:** Integration Lead  
-**Last Updated:** 2026-03-02
+**Last Updated:** 2026-03-03
 
 ---
 
@@ -11,6 +11,8 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-03-03 | Admin member edit now fetches latest record before opening editable form fields | Frontend | ✅ | Prevents stale values and aligns edit state with persisted backend data |
+| 2026-03-03 | Member detail fetch failures in admin edit flow now surface destructive toast feedback | Frontend | ✅ | Provides immediate operator feedback instead of silent failure |
 | 2026-03-02 | Admin Reports page rebuilt into modular 3-tab reporting suite with per-report CSV export | Frontend | ✅ | Added Members, Donations, Challans report modules with period filters and tab-specific export schemas |
 | 2026-03-02 | Frontend migrated to canonical notification and invite contract usage | Frontend | ✅ | Removed `/notifications/send` fallback and moved Settings invite expiry display to `expiry_date` only |
 | 2026-03-01 | Active frontend flows migrated from deprecated `entities.*` to resource APIs | Frontend | ✅ | Removes runtime deprecation noise and aligns with resource client contract |
@@ -30,6 +32,30 @@
 | 2026-02-24 | Add /files/upload endpoint | Backend | ✅ | Matches frontend proof upload flow |
 | 2026-02-24 | Registration collects username + password | Frontend | ✅ | Required for auth flow |
 | 2026-02-24 | Disable RecurringDonation and Request in Phase 1 | Both | ✅ | Phase 2 feature set |
+
+---
+
+## 2026-03-03 - Frontend to Backend Communication (Members Edit Reliability)
+
+**Summary:** Frontend patch 1.6 updated admin member editing so form fields are populated from a fresh member detail read and now shows explicit error feedback when that read fails.
+
+### Items to Communicate to Backend
+
+1. **Member detail endpoint reliability for edit flow**
+   - Admin edit now depends on `GET /members/{id}` when opening the edit dialog.
+   - Please keep this endpoint response complete for editable fields (`member_id`, `full_name`, `phone`, `email`, `address`, `city`, `join_date`, `status`, `monthly_amount`, `notes`).
+
+2. **Error payload clarity**
+   - Frontend now surfaces error message text from failed detail reads directly in admin toast notifications.
+   - Please keep error responses human-readable and consistent (`message` or equivalent detail field).
+
+3. **No contract expansion required**
+   - This patch introduces no new endpoints and no schema expansion.
+   - Existing member update contract remains unchanged.
+
+### Frontend Validation Completed
+
+- `npm run build` → ✅ Pass
 
 ---
 

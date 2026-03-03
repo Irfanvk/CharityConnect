@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,21 +21,30 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
 
-export default function MemberForm({ open, onOpenChange, member, onSubmit, suggestedId, existingMembers }) {
-  const [formData, setFormData] = useState(member || {
-    member_id: suggestedId || '',
-    full_name: '',
-    phone: '',
-    email: '',
-    address: '',
-    city: '',
-    join_date: format(new Date(), 'yyyy-MM-dd'),
-    status: 'active',
-    monthly_amount: 100,
-    notes: ''
-  });
+const getInitialFormData = (member, suggestedId) => ({
+  member_id: member?.member_id || suggestedId || '',
+  full_name: member?.full_name || '',
+  phone: member?.phone || '',
+  email: member?.email || '',
+  address: member?.address || '',
+  city: member?.city || '',
+  join_date: member?.join_date || format(new Date(), 'yyyy-MM-dd'),
+  status: member?.status || 'active',
+  monthly_amount: member?.monthly_amount ?? 100,
+  notes: member?.notes || ''
+});
+
+export default function MemberForm({ open, onOpenChange, member, onSubmit, suggestedId, existingMembers, isFetchingMember = false }) {
+  const [formData, setFormData] = useState(() => getInitialFormData(member, suggestedId));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (open) {
+      setFormData(getInitialFormData(member, suggestedId));
+      setError('');
+    }
+  }, [open, member, suggestedId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -52,8 +61,11 @@ export default function MemberForm({ open, onOpenChange, member, onSubmit, sugge
     }
     
     setLoading(true);
-    await onSubmit(formData);
-    setLoading(false);
+    try {
+      await onSubmit(formData);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -65,6 +77,12 @@ export default function MemberForm({ open, onOpenChange, member, onSubmit, sugge
           </DialogTitle>
         </DialogHeader>
 
+        {member && isFetchingMember ? (
+          <div className="py-8 flex items-center justify-center text-slate-600">
+            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+            Loading member details...
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-sm">
@@ -203,12 +221,13 @@ export default function MemberForm({ open, onOpenChange, member, onSubmit, sugge
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button type="submit" disabled={loading || isFetchingMember} className="bg-emerald-600 hover:bg-emerald-700">
               {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {member ? 'Update Member' : 'Add Member'}
             </Button>
           </div>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );

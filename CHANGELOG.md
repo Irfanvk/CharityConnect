@@ -22,12 +22,77 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|---------|
+| 1.6 | 2026-03-03 | Patch | Members edit flow now fetches latest member details before form edit; added fetch-failure toast feedback |
 | 1.5 | 2026-03-02 | Patch | Admin Reports page rebuilt as multi-report module (Members, Donations, Challans) with per-tab CSV export |
 | 1.4 | 2026-03-01 | Patch | Resource API migration across active pages, notifications runtime fix, router future flags |
 | 1.3 | 2026-03-01 | Patch | Dedicated member dashboard rollout with profile, challan insights, upcoming dues, and campaign participation |
 | 1.2 | 2026-03-01 | Patch | Challan role-based visibility, proof re-upload flow, status filter alignment |
 | 1.1 | 2026-02-26 | Patch | Auth/login redirect stabilization, logout visibility, API client hardening |
 | 1.0 | 2026-02-24 | Release | Phase 1 MVP complete |
+
+---
+
+## 📅 March 03, 2026 - Member Edit Prefill & Error Feedback Patch
+
+### 🎯 Objectives Met
+- ✅ Ensured admin member edit form loads latest persisted member details before editing
+- ✅ Prevented stale form state when switching between add/edit or between different members
+- ✅ Added explicit UI feedback when member-detail fetch fails
+
+---
+
+## Frontend Changes (Patch 1.6)
+
+### 1. Members Edit Detail Fetch Before Form Edit
+
+**Impact:** High - Improves admin edit reliability and data accuracy  
+**Type:** Bug Fix + UX Reliability  
+**Files Modified:** `src/pages/Members.jsx`
+
+**Change Details:**
+- Added member detail query (`charityClient.members.get(id)`) that runs when edit dialog opens.
+- Passed fetched member data to edit form instead of relying only on table row snapshot.
+- Added safe dialog-close cleanup to reset edit state.
+
+---
+
+### 2. Member Form State Rehydration
+
+**Impact:** High - Prevents stale or empty fields during edit transitions  
+**Type:** Form State Fix  
+**Files Modified:** `src/components/members/MemberForm.jsx`
+
+**Change Details:**
+- Added a form initializer helper for consistent defaults.
+- Added `useEffect` synchronization so form fields refresh from incoming `member` data on dialog open/prop change.
+- Added loading-state handling while submitting to avoid partial state behavior.
+
+---
+
+### 3. Edit Fetch Failure Feedback
+
+**Impact:** Medium - Improves operator visibility for backend/network failures  
+**Type:** UX Error Handling  
+**Files Modified:** `src/pages/Members.jsx`
+
+**Change Details:**
+- Integrated `useToast` on Members page.
+- Shows destructive toast when member detail fetch for edit fails.
+- Added one-time-per-member guard to avoid duplicate error toasts during the same failure cycle.
+
+---
+
+## Validation Summary (2026-03-03)
+
+- `npm run build` → ✅ pass
+
+---
+
+## Backend Coordination Notes (Generated from Patch 1.6)
+
+- No new endpoint is required.
+- Frontend now depends on reliable `GET /members/{id}` responses for admin edit prefill.
+- On error responses, backend message text is surfaced in admin toast feedback where available.
 
 ---
 

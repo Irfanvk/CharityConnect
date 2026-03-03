@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/components/ui/use-toast";
 import {
   Table,
   TableBody,
@@ -34,7 +35,16 @@ export default function Members() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [user, setUser] = useState(null);
+  const editFetchErrorShownForId = useRef(null);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const handleFormOpenChange = (open) => {
+    setFormOpen(open);
+    if (!open) {
+      setEditingMember(null);
+    }
+  };
 
   React.useEffect(() => {
     charityClient.auth.me().then(setUser).catch(() => {});
@@ -44,6 +54,33 @@ export default function Members() {
     queryKey: ['members'],
     queryFn: () => charityClient.members.list({ order: '-created_date' }),
   });
+
+  const {
+    data: editingMemberDetails,
+    isLoading: isEditingMemberLoading,
+    isError: isEditingMemberError,
+    error: editingMemberError,
+  } = useQuery({
+    queryKey: ['member', editingMember?.id],
+    queryFn: () => charityClient.members.get(editingMember.id),
+    enabled: Boolean(formOpen && editingMember?.id),
+  });
+
+  React.useEffect(() => {
+    if (!formOpen || !editingMember?.id) {
+      editFetchErrorShownForId.current = null;
+      return;
+    }
+
+    if (isEditingMemberError && editFetchErrorShownForId.current !== editingMember.id) {
+      toast({
+        title: "Unable to load member details",
+        description: editingMemberError?.message || "Please try again.",
+        variant: "destructive",
+      });
+      editFetchErrorShownForId.current = editingMember.id;
+    }
+  }, [formOpen, editingMember?.id, isEditingMemberError, editingMemberError, toast]);
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
@@ -324,8 +361,9 @@ export default function Members() {
       {/* Member Form */}
       <MemberForm
         open={formOpen}
-        onOpenChange={setFormOpen}
-        member={editingMember}
+        onOpenChange={handleFormOpenChange}
+        member={editingMemberDetails || editingMember}
+        isFetchingMember={Boolean(editingMember?.id) && isEditingMemberLoading}
         onSubmit={handleSubmit}
         suggestedId={getSuggestedId()}
         existingMembers={members}
