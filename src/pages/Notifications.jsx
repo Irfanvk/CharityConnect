@@ -93,13 +93,17 @@ export default function Notifications() {
 
   // Filter notifications for current user
   const userNotifications = notifications.filter(n => {
+    if (!n.target_type) return true;
     if (n.target_type === 'all') return true;
     if (n.target_type === 'member' && n.target_member_id === user?.email) return true;
     if (n.target_type === 'admins' && isAdmin) return true;
-    return false;
+    return true;
   });
 
-  const isRead = (notification) => notification.read_by?.includes(user?.email);
+  const isRead = (notification) => {
+    if (notification?.is_read) return true;
+    return Boolean(notification?.read_by?.includes(user?.email));
+  };
 
   const markAsRead = async (notification) => {
     if (!isRead(notification)) {
@@ -111,10 +115,7 @@ export default function Notifications() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    await createMutation.mutateAsync({
-      ...formData,
-      read_by: []
-    });
+    await createMutation.mutateAsync({ ...formData });
     setLoading(false);
   };
 

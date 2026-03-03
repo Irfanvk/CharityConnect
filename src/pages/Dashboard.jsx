@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/AuthContext";
 import { Users, Receipt, Heart, TrendingUp, Calendar, Clock } from "lucide-react";
 import { format } from "date-fns";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StatsCard from "@/components/dashboard/StatsCard";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import CampaignProgress from "@/components/dashboard/CampaignProgress";
@@ -12,11 +13,13 @@ import OnboardingWizard from "@/components/onboarding/OnboardingWizard";
 import SuperAdminDashboard from "@/components/dashboard/SuperAdminDashboard";
 import PullToRefresh from "@/components/mobile/PullToRefresh";
 import { APP_IMAGES } from "@/config/appPaths";
+import BulkOperationsPanel from "@/components/dashboard/BulkOperationsPanel";
 
 export default function Dashboard() {
   const { user: authUser } = useAuth();
   const [user, setUser] = useState(authUser || null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [adminTab, setAdminTab] = useState("overview");
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -252,6 +255,19 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid */}
+      {isAdmin && (
+        <Tabs value={adminTab} onValueChange={setAdminTab}>
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="bulk-operations">Bulk Operations</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+
+      {isAdmin && adminTab === "bulk-operations" ? (
+        <BulkOperationsPanel />
+      ) : (
+        <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {isAdmin ? (
           <>
@@ -331,6 +347,8 @@ export default function Dashboard() {
         <RecentActivity challans={isAdmin ? challansArray : userChallans} />
         <CampaignProgress campaigns={campaignsArray} />
       </div>
+      </>
+      )}
       </div>
     </PullToRefresh>
   );

@@ -51,15 +51,14 @@ export default function ProofUpload({ open, onOpenChange, challan, onSubmit }) {
     
     setLoading(true);
     try {
-      // Use new backend file upload endpoint
-      const { file_url } = await charityClient.files.upload(file);
-      
-      // Update challan with proof URL
-      await onSubmit({
-        proof_url: file_url,
-        proof_uploaded_at: new Date().toISOString(),
-        status: 'pending' // Backend uses 'pending' status after proof upload
-      });
+      if (!challan?.id) {
+        throw new Error('Invalid challan selected for proof upload.');
+      }
+
+      const uploaded = await charityClient.challans.uploadProof(challan.id, file);
+      if (typeof onSubmit === 'function') {
+        await onSubmit(uploaded);
+      }
       
       setFile(null);
       setPreview(null);

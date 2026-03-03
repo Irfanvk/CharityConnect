@@ -23,6 +23,13 @@ export const API_PATHS = {
     uploadProof: (id) => `/challans/${id}/upload-proof`,
     approve: (id) => `/challans/${id}/approve`,
     reject: (id) => `/challans/${id}/reject`,
+    bulkCreate: '/challans/bulk-create',
+  },
+  bulk: {
+    pendingReview: '/admin/bulk-pending-review',
+    byGroupId: (bulkGroupId) => `/admin/bulk/${bulkGroupId}`,
+    approve: (bulkGroupId) => `/admin/bulk/${bulkGroupId}/approve`,
+    reject: (bulkGroupId) => `/admin/bulk/${bulkGroupId}/reject`,
   },
   campaigns: {
     list: '/campaigns/',

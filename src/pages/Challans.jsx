@@ -35,6 +35,7 @@ import { format } from "date-fns";
 import ChallanForm from "@/components/challans/ChallanForm";
 import ProofUpload from "@/components/challans/ProofUpload";
 import PullToRefresh from "@/components/mobile/PullToRefresh";
+import { useToast } from "@/components/ui/use-toast";
 
 // Backend status: generated, pending, approved, rejected
 // Frontend displays proof_uploaded as visual state when proof_uploaded_at exists
@@ -71,6 +72,7 @@ export default function Challans() {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [user, setUser] = useState(null);
+  const { toast } = useToast();
   
   const queryClient = useQueryClient();
 
@@ -94,15 +96,45 @@ export default function Challans() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => charityClient.challans.create(data),
+    /** @param {any} data */
+    mutationFn: async (data) => {
+      const payload = data || {};
+      const months = payload?.selected_months || payload?.months_covered || [];
+      const isBulkMonthly = payload?.type === 'monthly' && Array.isArray(months) && months.length > 1;
+
+      if (isBulkMonthly) {
+        const amountPerMonth = Number(payload?.member_monthly_amount || 0) || Number(payload?.amount || 0) / months.length;
+        const result = await charityClient.challans.bulkCreate({
+          months,
+          amount_per_month: amountPerMonth,
+          member_id: isAdmin ? payload?.member_id : undefined,
+          notes: payload?.notes,
+        });
+
+        toast({
+          title: 'Bulk challans created',
+          description: `${months.length} challans created successfully.`,
+        });
+
+        return result;
+      }
+
+      return charityClient.challans.create(payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['challans'] });
       setFormOpen(false);
     },
+    onError: (error) => {
+      toast({
+        title: 'Unable to create challan',
+        description: error?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    },
   });
 
-  const updateChallan = async (id, data) => {
-    await charityClient.challans.update(id, data);
+  const refreshChallanData = async () => {
     await queryClient.invalidateQueries({ queryKey: ['challans'] });
     await queryClient.invalidateQueries({ queryKey: ['campaigns'] });
     setUploadOpen(false);
@@ -120,11 +152,10 @@ export default function Challans() {
   };
 
   const handleApprove = async (challan) => {
-    await updateChallan(challan.id, {
-      status: 'approved',
-      approved_by: user?.email,
-      approved_at: new Date().toISOString()
+    await charityClient.challans.approve(challan.id, {
+      approved_by_admin_id: user?.id,
     });
+    await refreshChallanData();
 
     // Update campaign collected amount if donation
     if (challan.type === 'donation' && challan.campaign_id) {
@@ -152,12 +183,11 @@ export default function Challans() {
   const handleReject = async () => {
     if (!selectedChallan) return;
 
-    await updateChallan(selectedChallan.id, {
-      status: 'rejected',
+    await charityClient.challans.reject(selectedChallan.id, {
       rejection_reason: rejectReason,
-      approved_by: user?.email,
-      approved_at: new Date().toISOString()
+      approved_by_admin_id: user?.id,
     });
+    await refreshChallanData();
 
     // Log audit
     await charityClient.auditLogs.create({
@@ -390,7 +420,7 @@ export default function Challans() {
         open={uploadOpen}
         onOpenChange={setUploadOpen}
         challan={selectedChallan}
-        onSubmit={(data) => selectedChallan ? updateChallan(selectedChallan.id, data) : Promise.resolve()}
+        onSubmit={refreshChallanData}
       />
 
       {/* Proof View Dialog */}

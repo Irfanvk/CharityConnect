@@ -22,6 +22,8 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|---------|
+| 1.8 | 2026-03-04 | Patch | Bulk challan frontend rollout: bulk-create wiring, admin Bulk Operations dashboard tab, approve/reject-all flows |
+| 1.7 | 2026-03-03 | Patch | API contract hardening: response normalization, FormData header fix, challan/notification/audit payload compatibility |
 | 1.6 | 2026-03-03 | Patch | Members edit flow now fetches latest member details before form edit; added fetch-failure toast feedback |
 | 1.5 | 2026-03-02 | Patch | Admin Reports page rebuilt as multi-report module (Members, Donations, Challans) with per-tab CSV export |
 | 1.4 | 2026-03-01 | Patch | Resource API migration across active pages, notifications runtime fix, router future flags |
@@ -29,6 +31,124 @@ This document records all technical changes, implementations, and decisions made
 | 1.2 | 2026-03-01 | Patch | Challan role-based visibility, proof re-upload flow, status filter alignment |
 | 1.1 | 2026-02-26 | Patch | Auth/login redirect stabilization, logout visibility, API client hardening |
 | 1.0 | 2026-02-24 | Release | Phase 1 MVP complete |
+
+---
+
+## 📅 March 04, 2026 - Bulk Challan Frontend Rollout Patch
+
+### 🎯 Objectives Met
+- ✅ Multi-month challan creation now routes to backend bulk-create endpoint
+- ✅ Added admin dashboard tab for pending bulk operations
+- ✅ Added single-action bulk approve and bulk reject workflows
+
+---
+
+## Frontend Changes (Patch 1.8)
+
+### 1. Bulk API Client Integration
+
+**Impact:** High - Enables v1.1 backend bulk operations from frontend  
+**Type:** Feature + Integration  
+**Files Modified:** `src/config/apiPaths.js`, `src/api/charityClient.js`
+
+**Change Details:**
+- Added endpoint paths for:
+  - `POST /challans/bulk-create`
+  - `GET /admin/bulk-pending-review`
+  - `PATCH /admin/bulk/{bulk_group_id}/approve`
+  - `PATCH /admin/bulk/{bulk_group_id}/reject`
+- Added `charityClient.challans.bulkCreate` and `charityClient.bulkOperations.*` methods.
+
+---
+
+### 2. Challan Multi-Month Create Routing
+
+**Impact:** High - Uses backend bulk flow when multiple months are selected  
+**Type:** Workflow Update  
+**Files Modified:** `src/components/challans/ChallanForm.jsx`, `src/pages/Challans.jsx`
+
+**Change Details:**
+- Preserved month multi-select UI.
+- Added monthly metadata (`selected_months`, per-month amount) from form submission.
+- If monthly + multiple months selected, frontend now calls `bulk-create` instead of single challan create.
+
+---
+
+### 3. Admin Bulk Operations Dashboard Tab
+
+**Impact:** High - Adds operational review/approval surface for bulk submissions  
+**Type:** Feature  
+**Files Added:** `src/components/dashboard/BulkOperationsPanel.jsx`  
+**Files Modified:** `src/pages/Dashboard.jsx`
+
+**Change Details:**
+- Added admin dashboard tabs: `Overview` and `Bulk Operations`.
+- Added pending bulk operations list UI.
+- Added `Approve All` and `Reject All` actions with toast feedback.
+
+---
+
+## Validation Summary (2026-03-04)
+
+- `npm run build` → ✅ pass
+
+---
+
+## 📅 March 03, 2026 - API Contract Alignment & Compatibility Patch
+
+### 🎯 Objectives Met
+- ✅ Reduced frontend/backend field-name and payload-shape mismatches
+- ✅ Hardened client error parsing and multipart upload handling
+- ✅ Aligned challan approve/reject/upload behavior with documented backend endpoints
+- ✅ Added compatibility mapping for notification and audit-log payload models
+
+---
+
+## Frontend Changes (Patch 1.7)
+
+### 1. API Client Contract Normalization
+
+**Impact:** High - Cross-module stability and reduced runtime integration errors  
+**Type:** Reliability + Compatibility  
+**Files Modified:** `src/api/charityClient.js`
+
+**Change Details:**
+- Added response normalization aliases for common date and identity fields (e.g., `created_at` → `created_date`, `member_code` ↔ `member_id`, `proof_path` ↔ `proof_url`).
+- Added sort query normalization (`order=-created_date` → `sort_by=created_at&sort_order=desc`) to preserve existing frontend query usage.
+- Added robust backend error extraction from `detail[]` and string/object error payload variants.
+- Fixed multipart handling to avoid forcing JSON `Content-Type` on `FormData` requests.
+
+---
+
+### 2. Challan Endpoint/Method Alignment
+
+**Impact:** High - Aligns admin action flows with backend routes  
+**Type:** Contract Fix  
+**Files Modified:** `src/pages/Challans.jsx`, `src/components/challans/ProofUpload.jsx`, `src/api/charityClient.js`
+
+**Change Details:**
+- Switched approve/reject flow to dedicated backend endpoints in client/page logic.
+- Switched proof upload flow to `POST /challans/{id}/upload-proof` (direct challan upload path).
+- Added payload compatibility mapping for reject reason field variants.
+
+---
+
+### 3. Notification & Audit Payload Compatibility
+
+**Impact:** High - Prevents action failures for notifications and audit writes  
+**Type:** Contract Fix + UX Reliability  
+**Files Modified:** `src/api/charityClient.js`, `src/pages/Notifications.jsx`, `src/Layout.jsx`, `src/components/NotificationManager.jsx`
+
+**Change Details:**
+- Added notification payload mapping (`target_type` frontend model → backend `target_role` model).
+- Added read-state compatibility (`is_read` and legacy `read_by`) for unread indicators.
+- Added audit log payload mapping (`action_type/target_*` frontend model → backend `action/entity_*` model).
+
+---
+
+## Validation Summary (2026-03-03)
+
+- `npm run build` → ✅ pass
 
 ---
 

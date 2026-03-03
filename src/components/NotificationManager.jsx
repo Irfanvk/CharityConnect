@@ -23,11 +23,14 @@ export default function NotificationManager({ user }) {
       
       // Check if this notification is relevant to the current user
       const isRelevant = 
+        !notification.target_type ||
         notification.target_type === "all" ||
         (notification.target_type === "member" && notification.target_member_id === user.email) ||
         (notification.target_type === "admins" && (user.role === "admin" || user.role === "superadmin"));
 
-      if (isRelevant && !notification.read_by?.includes(user.email)) {
+      const isRead = Boolean(notification?.is_read || notification?.read_by?.includes(user.email));
+
+      if (isRelevant && !isRead) {
         // Show browser notification
         new Notification(`${APP_BRAND.NAME} - ${notification.title}`, {
           body: notification.message,

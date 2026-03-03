@@ -80,11 +80,15 @@ export default function Layout({ children, currentPageName }) {
         return;
       }
       const notifications = await charityClient.notifications.list();
+      const isNotificationRead = (notification) => {
+        if (notification?.is_read) return true;
+        return Boolean(notification?.read_by?.includes(currentUser.email));
+      };
       const unread = notifications.filter(n => {
-        if (n.target_type === 'all') return !n.read_by?.includes(currentUser.email);
-        if (n.target_type === 'member') return n.target_member_id === currentUser.email && !n.read_by?.includes(currentUser.email);
-        if (n.target_type === 'admins' && currentUser.role === 'admin') return !n.read_by?.includes(currentUser.email);
-        return false;
+        if (!n.target_type || n.target_type === 'all') return !isNotificationRead(n);
+        if (n.target_type === 'member') return n.target_member_id === currentUser.email && !isNotificationRead(n);
+        if (n.target_type === 'admins' && currentUser.role === 'admin') return !isNotificationRead(n);
+        return !isNotificationRead(n);
       });
       setUnreadCount(unread.length);
     } catch (e) {}

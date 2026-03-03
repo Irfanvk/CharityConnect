@@ -3,7 +3,7 @@
 **Project:** CharityConnect  
 **Purpose:** Decisions, meeting minutes, and action items  
 **Owner:** Integration Lead  
-**Last Updated:** 2026-03-03
+**Last Updated:** 2026-03-04
 
 ---
 
@@ -11,6 +11,10 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-03-04 | Frontend implemented bulk challan v1.1 integration (create + pending review + approve/reject-all actions) | Frontend | ✅ | Dashboard tab and challan multi-month bulk-create routing completed |
+| 2026-03-03 | Frontend API client hardened with response/payload compatibility mappings | Frontend | ✅ | Added aliases for date and member fields, FormData header safety, and standardized backend error parsing |
+| 2026-03-03 | Challan approval/rejection/proof flows aligned to documented backend endpoints | Frontend | ✅ | Uses dedicated `/approve`, `/reject`, and `/upload-proof` methods instead of generic update assumptions |
+| 2026-03-03 | Audit log create payload mapped to backend schema | Frontend | ✅ | Maps `action_type/target_*` to backend `action/entity_*` fields to avoid contract clashes |
 | 2026-03-03 | Admin member edit now fetches latest record before opening editable form fields | Frontend | ✅ | Prevents stale values and aligns edit state with persisted backend data |
 | 2026-03-03 | Member detail fetch failures in admin edit flow now surface destructive toast feedback | Frontend | ✅ | Provides immediate operator feedback instead of silent failure |
 | 2026-03-02 | Admin Reports page rebuilt into modular 3-tab reporting suite with per-report CSV export | Frontend | ✅ | Added Members, Donations, Challans report modules with period filters and tab-specific export schemas |
@@ -32,6 +36,76 @@
 | 2026-02-24 | Add /files/upload endpoint | Backend | ✅ | Matches frontend proof upload flow |
 | 2026-02-24 | Registration collects username + password | Frontend | ✅ | Required for auth flow |
 | 2026-02-24 | Disable RecurringDonation and Request in Phase 1 | Both | ✅ | Phase 2 feature set |
+
+---
+
+## 2026-03-04 - Frontend to Backend Communication (Bulk Operations Implemented)
+
+**Summary:** Frontend has implemented the bulk operations integration against v1.1 documentation.
+
+### Completed on Frontend
+
+1. **Challan create flow routing**
+   - Monthly multi-select now routes to `POST /challans/bulk-create` for multi-month submissions.
+
+2. **Admin dashboard tab**
+   - Added `Bulk Operations` tab with pending queue from `GET /admin/bulk-pending-review`.
+
+3. **Bulk actions**
+   - Added `Approve All` via `PATCH /admin/bulk/{bulk_group_id}/approve`.
+   - Added `Reject All` via `PATCH /admin/bulk/{bulk_group_id}/reject` with reason capture.
+
+### Validation Status
+
+- Frontend compile/build: ✅ Pass
+- Live API validation with seeded 5+ members: ⏳ Pending backend-connected integration run
+
+### Request to Backend Team
+
+- Please share test dataset/credentials for at least 5 members with pending bulk groups (or seed script reference) so we can complete end-to-end validation in one pass.
+
+---
+
+## 2026-03-03 - Frontend to Backend Communication (Contract Alignment Pass)
+
+**Summary:** Frontend completed a compatibility pass to reduce schema/method mismatches and now requests confirmations/clarifications below so both teams stay on one contract path.
+
+### Confirmed Frontend Alignment
+
+1. **Sort compatibility in list endpoints**
+   - Frontend now maps legacy `order=-created_date` style to `sort_by/sort_order` query params where applicable.
+
+2. **Field alias handling**
+   - Frontend now accepts both old and new shape variants for key fields:
+     - `created_date` / `created_at`
+     - `member_id` / `member_code`
+     - `proof_url` / `proof_path`
+
+3. **Challan action methods**
+   - Frontend challan approve/reject/upload flows now call dedicated backend endpoints.
+
+4. **Audit payload mapping**
+   - Frontend audit writes now map app event payload keys to backend schema keys.
+
+### Items Requiring Backend Confirmation / Clarification
+
+1. **Member write contract completeness**
+   - Current backend docs for `PUT /members/{id}` list limited fields (`monthly_amount`, `address`, `status`).
+   - Frontend member management currently edits additional fields (`full_name`, `phone`, `email`, `city`, `notes`, member code/id).
+   - Please confirm canonical writable fields for admin member edit.
+
+2. **Notification audience model for list responses**
+   - Backend docs describe creation via `user_id` / `target_role`, but frontend UX historically uses `target_type` patterns.
+   - Please confirm whether list responses should include normalized audience metadata for display/filtering.
+
+3. **Audit log accepted payload keys**
+   - Frontend now sends backend-native keys (`action`, `entity_type`, `entity_id`, optional `new_values`).
+   - Please confirm whether additional metadata keys are ignored or validated strictly.
+
+4. **Challan monthly multi-month behavior**
+   - Frontend allows selecting multiple months in one action and currently sends aggregated context fields.
+   - Backend docs define single `month` (YYYY-MM).
+   - Please confirm canonical backend behavior for multi-month submission (single aggregated challan vs one challan per month).
 
 ---
 

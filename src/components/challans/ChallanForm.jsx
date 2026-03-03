@@ -87,6 +87,8 @@ export default function ChallanForm({
       member_name: member?.full_name,
       campaign_name: campaign?.title,
       amount: totalAmount,
+      member_monthly_amount: monthlyAmount,
+      selected_months: formData.type === 'monthly' ? monthsToPay : [],
       months_covered: formData.type === 'monthly' ? monthsToPay : undefined,
       months_count: formData.type === 'monthly' ? monthsToPay.length : 1,
       month: formData.type === 'monthly' ? monthsToPay[0] : undefined
