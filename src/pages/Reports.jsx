@@ -71,7 +71,7 @@ export default function Reports() {
       csvData = exportDonationCSV(challans, campaigns, donationPeriod, donationValue);
       reportName = "Donation Summary";
     } else {
-      csvData = exportChallanCSV(challans, challanPeriod, challanValue);
+      csvData = exportChallanCSV(challans, challanPeriod, challanValue, members);
       reportName = "Challan Status";
     }
 
@@ -158,7 +158,7 @@ export default function Reports() {
             value={challanValue}
             onValueChange={setChallanValue}
           />
-          <ChallanStatusReport challans={challans} period={challanPeriod} value={challanValue} />
+          <ChallanStatusReport challans={challans} members={members} period={challanPeriod} value={challanValue} />
         </TabsContent>
       </Tabs>
     </div>

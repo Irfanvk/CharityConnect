@@ -15,7 +15,15 @@ function filterByPeriod(items, period, value) {
   });
 }
 
-export function exportChallanCSV(challans, period, value) {
+const normalizeId = (value) => (value === null || value === undefined ? "" : String(value));
+
+function resolveMemberName(challan, members = []) {
+  if (challan?.member_name) return challan.member_name;
+  const linkedMember = members.find((member) => normalizeId(member.id) === normalizeId(challan?.member_id));
+  return linkedMember?.full_name || linkedMember?.member_name || `Member #${challan?.member_id ?? "-"}`;
+}
+
+export function exportChallanCSV(challans, period, value, members = []) {
   const filtered = filterByPeriod(challans, period, value);
   const headers = [
     "Challan Number",
@@ -30,8 +38,8 @@ export function exportChallanCSV(challans, period, value) {
     "Rejection Reason",
   ];
   const rows = filtered.map((c) => [
-    c.challan_number,
-    c.member_name || "",
+    c.challan_number || `CH-${c.id}`,
+    resolveMemberName(c, members),
     c.type,
     c.amount,
     c.month || "",
@@ -52,7 +60,7 @@ const statusConfig = {
   rejected: { label: "Rejected", color: "bg-rose-100 text-rose-700", icon: XCircle, bg: "bg-rose-50" },
 };
 
-export default function ChallanStatusReport({ challans, period, value }) {
+export default function ChallanStatusReport({ challans, members = [], period, value }) {
   const filtered = filterByPeriod(challans, period, value);
 
   const counts = {
@@ -108,8 +116,8 @@ export default function ChallanStatusReport({ challans, period, value }) {
                 {needsAction.map((c) => (
                   <div key={c.id} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800">
                     <div>
-                      <p className="text-sm font-medium text-slate-800">{c.member_name || "—"}</p>
-                      <p className="text-xs text-slate-400">{c.challan_number} · {c.created_date ? format(new Date(c.created_date), "dd MMM yyyy") : ""}</p>
+                      <p className="text-sm font-medium text-slate-800">{resolveMemberName(c, members)}</p>
+                      <p className="text-xs text-slate-400">{(c.challan_number || `CH-${c.id}`)} · {c.created_date ? format(new Date(c.created_date), "dd MMM yyyy") : ""}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-semibold">₹{(c.amount || 0).toLocaleString()}</p>
@@ -136,10 +144,10 @@ export default function ChallanStatusReport({ challans, period, value }) {
                 {recentRejections.map((c) => (
                   <div key={c.id} className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-900/20 space-y-1">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-slate-800">{c.member_name || "—"}</p>
+                      <p className="text-sm font-medium text-slate-800">{resolveMemberName(c, members)}</p>
                       <p className="text-sm font-semibold text-rose-600">₹{(c.amount || 0).toLocaleString()}</p>
                     </div>
-                    <p className="text-xs text-slate-400">{c.challan_number} · {c.created_date ? format(new Date(c.created_date), "dd MMM yyyy") : ""}</p>
+                    <p className="text-xs text-slate-400">{(c.challan_number || `CH-${c.id}`)} · {c.created_date ? format(new Date(c.created_date), "dd MMM yyyy") : ""}</p>
                     {c.rejection_reason && <p className="text-xs text-rose-600 italic">"{c.rejection_reason}"</p>}
                   </div>
                 ))}
@@ -168,8 +176,8 @@ export default function ChallanStatusReport({ challans, period, value }) {
                   const cfg = statusConfig[c.status] || statusConfig.generated;
                   return (
                     <tr key={c.id} className="hover:bg-slate-50">
-                      <td className="py-2 px-3 font-mono text-xs text-slate-500">{c.challan_number}</td>
-                      <td className="py-2 px-3 text-slate-800">{c.member_name || "—"}</td>
+                      <td className="py-2 px-3 font-mono text-xs text-slate-500">{c.challan_number || `CH-${c.id}`}</td>
+                      <td className="py-2 px-3 text-slate-800">{resolveMemberName(c, members)}</td>
                       <td className="py-2 px-3 hidden sm:table-cell">
                         <Badge className={`text-xs border-0 ${c.type === "monthly" ? "bg-blue-100 text-blue-700" : "bg-rose-100 text-rose-700"}`}>{c.type}</Badge>
                       </td>

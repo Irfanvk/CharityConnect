@@ -495,20 +495,10 @@ const charityClient = {
       })),
     
     update: async (id, data) => {
-      try {
-        return normalizeCampaign(await apiFetch(API_PATHS.campaigns.byId(id), {
-          method: 'PATCH',
-          body: JSON.stringify(data),
-        }));
-      } catch (error) {
-        if (error?.status === 404 || error?.status === 405) {
-          return normalizeCampaign(await apiFetch(API_PATHS.campaigns.byId(id), {
-            method: 'PUT',
-            body: JSON.stringify(data),
-          }));
-        }
-        throw error;
-      }
+      return normalizeCampaign(await apiFetch(API_PATHS.campaigns.byId(id), {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }));
     },
     
     delete: (id) =>
