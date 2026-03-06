@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import NotificationManager from "@/components/NotificationManager";
+import PWAInstallButton from "@/components/PWAInstallButton";
 import BottomNav from "@/components/mobile/BottomNav";
 import BackButton from "@/components/mobile/BackButton";
 import { motion, AnimatePresence } from "framer-motion";
@@ -298,6 +299,7 @@ export default function Layout({ children, currentPageName }) {
             </div>
 
             <div className="flex items-center gap-3">
+              <PWAInstallButton />
               {isAuthenticated && (
                 <Button
                   variant="outline"
