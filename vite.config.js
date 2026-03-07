@@ -10,9 +10,10 @@ export default defineConfig(({ mode }) => {
   const backendOrigin = new URL(backendUrl).origin;
   const escapedBackendOrigin = backendOrigin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const backendApiPattern = new RegExp(`^${escapedBackendOrigin}/api/.*`);
+  const isProd = mode === 'production';
 
   return {
-    logLevel: 'error', // Suppress warnings, only show errors
+    logLevel: isProd ? 'error' : 'warn',
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url))
@@ -26,6 +27,32 @@ export default defineConfig(({ mode }) => {
           secure: false,
         },
       },
+    },
+    build: {
+      // Production build optimizations
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
+        },
+      },
+      // Code splitting for better caching
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            // Separate vendor chunks
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'radix-ui': ['@radix-ui/react-accordion', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
+            'form-handling': ['@hookform/resolvers', 'react-hook-form'],
+            'query': ['@tanstack/react-query'],
+          },
+        },
+      },
+      // Reduce chunk size warnings
+      chunkSizeWarningLimit: 1000,
+      // Source maps for debugging (set to false if not needed)
+      sourcemap: false,
     },
     plugins: [
       react(),
