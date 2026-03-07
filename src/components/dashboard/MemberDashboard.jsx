@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { format, addMonths, startOfMonth } from "date-fns";
+import { format, addMonths, startOfMonth, formatDistanceToNow } from "date-fns";
 import {
   TrendingUp,
   Clock,
@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import StatsCard from "./StatsCard";
 import { PAGE_PATHS } from "@/config/appPaths";
+import { getMemberSetup } from "@/lib/memberSetup";
 
 const statusConfig = {
   generated: { label: "Generated", color: "bg-slate-100 text-slate-700", icon: Receipt },
@@ -38,7 +39,7 @@ const getStatusForCard = (challan) => {
   return statusConfig[challan.status] || statusConfig.generated;
 };
 
-export default function MemberDashboard({ user, memberProfile, challans, campaigns }) {
+export default function MemberDashboard({ user, memberProfile, challans, campaigns, memberSetupData, onOpenSetup }) {
   const memberIdentifiers = new Set(
     [memberProfile?.id, memberProfile?.member_id].filter(Boolean)
   );
@@ -93,8 +94,30 @@ export default function MemberDashboard({ user, memberProfile, challans, campaig
     .sort((a, b) => new Date(b.created_date) - new Date(a.created_date))
     .slice(0, 5);
 
+  const displayPhone = memberProfile?.phone || user?.phone || memberSetupData?.phone;
+  const displayEmail = memberProfile?.email || user?.email || memberSetupData?.email;
+  const displayCity = memberProfile?.city || memberSetupData?.city;
+  const displayAddress = memberProfile?.address || memberSetupData?.address;
+  
+  const setupData = getMemberSetup(user?.id);
+  const setupCompletedAt = setupData?.completedAt;
+
   return (
     <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        {setupCompletedAt && (
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            <span>
+              Setup completed {formatDistanceToNow(new Date(setupCompletedAt), { addSuffix: true })}
+            </span>
+          </div>
+        )}
+        <Button variant="outline" size="sm" onClick={onOpenSetup} className="ml-auto">
+          Open Setup Wizard
+        </Button>
+      </div>
+
       {memberProfile && (
         <Card className="border-0 shadow-sm bg-white dark:bg-slate-900">
           <CardContent className="p-6">
@@ -121,28 +144,33 @@ export default function MemberDashboard({ user, memberProfile, challans, campaig
                   {memberProfile.member_id}
                 </p>
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-slate-600 dark:text-slate-400">
-                  {memberProfile.phone && (
+                  {displayPhone && (
                     <div className="flex items-center gap-2">
                       <Phone className="w-3.5 h-3.5" />
-                      {memberProfile.phone}
+                      {displayPhone}
                     </div>
                   )}
-                  {memberProfile.email && (
+                  {displayEmail && (
                     <div className="flex items-center gap-2">
                       <Mail className="w-3.5 h-3.5" />
-                      {memberProfile.email}
+                      {displayEmail}
                     </div>
                   )}
-                  {memberProfile.city && (
+                  {displayCity && (
                     <div className="flex items-center gap-2">
                       <MapPin className="w-3.5 h-3.5" />
-                      {memberProfile.city}
+                      {displayCity}
                     </div>
                   )}
                   {memberProfile.join_date && (
                     <div className="flex items-center gap-2">
                       <Calendar className="w-3.5 h-3.5" />
                       Joined {format(new Date(memberProfile.join_date), "MMM yyyy")}
+                    </div>
+                  )}
+                  {displayAddress && (
+                    <div className="sm:col-span-2 text-xs text-slate-500">
+                      Address: {displayAddress}
                     </div>
                   )}
                 </div>
@@ -291,8 +319,10 @@ export default function MemberDashboard({ user, memberProfile, challans, campaig
                   .filter((campaign) => campaign.status === "active")
                   .slice(0, 3)
                   .map((campaign) => {
-                    const progress = campaign.target_amount > 0
-                      ? Math.min(100, (campaign.collected_amount / campaign.target_amount) * 100)
+                    const targetAmount = Number(campaign.target_amount) || 0;
+                    const collectedAmount = Number(campaign.collected_amount) || 0;
+                    const progress = targetAmount > 0
+                      ? Math.min(100, (collectedAmount / targetAmount) * 100)
                       : 0;
                     const participated = donatedCampaignIds.has(campaign.id);
                     return (
@@ -313,7 +343,7 @@ export default function MemberDashboard({ user, memberProfile, challans, campaig
                         </div>
                         <Progress value={progress} className="h-1.5" />
                         <p className="text-xs text-slate-500">
-                          ₹{campaign.collected_amount?.toLocaleString()} / ₹{campaign.target_amount?.toLocaleString()}
+                          ₹{collectedAmount.toLocaleString()} / ₹{targetAmount.toLocaleString()}
                         </p>
                       </div>
                     );

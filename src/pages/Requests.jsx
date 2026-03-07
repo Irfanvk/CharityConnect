@@ -37,9 +37,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { 
   Plus, Search, MoreVertical, MessageSquare, CheckCircle, 
-  XCircle, Clock, AlertCircle, Loader2 
+  XCircle, Clock, AlertCircle, Loader2, UserCheck 
 } from "lucide-react";
 import { format } from "date-fns";
+import { useToast } from "@/components/ui/use-toast";
 
 const statusConfig = {
   pending: { label: "Pending", color: "bg-amber-100 text-amber-700", icon: Clock },
@@ -71,8 +72,10 @@ export default function Requests() {
     priority: 'medium'
   });
   const [loading, setLoading] = useState(false);
+  const [applying, setApplying] = useState(false);
   
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   useEffect(() => {
     charityClient.auth.me().then(setUser).catch(() => {});
@@ -80,11 +83,11 @@ export default function Requests() {
 
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ['requests'],
-    queryFn: () => charityClient.entities.Request.list('-created_date'),
+    queryFn: () => charityClient.requests.list({ order: '-created_date' }),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => charityClient.entities.Request.create(data),
+    mutationFn: () => charityClient.requests.create(formData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['requests'] });
       setFormOpen(false);
@@ -92,37 +95,92 @@ export default function Requests() {
     },
   });
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => charityClient.entities.Request.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['requests'] });
-      setResponseOpen(false);
-      setSelectedRequest(null);
-      setAdminResponse("");
-    },
-  });
-
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    await createMutation.mutateAsync(formData);
+    await createMutation.mutateAsync();
     setLoading(false);
   };
 
   const handleResolve = async (status) => {
+    if (!selectedRequest) return;
     setLoading(true);
-    await updateMutation.mutateAsync({
-      id: selectedRequest.id,
-      data: {
-        status,
-        admin_response: adminResponse,
-        resolved_by: user?.email,
-        resolved_at: new Date().toISOString()
-      }
+    await charityClient.requests.update(selectedRequest.id, {
+      status,
+      admin_response: adminResponse,
+      resolved_by: user?.email,
+      resolved_at: new Date().toISOString(),
     });
+    await queryClient.invalidateQueries({ queryKey: ['requests'] });
+    setResponseOpen(false);
+    setSelectedRequest(null);
+    setAdminResponse("");
     setLoading(false);
+  };
+
+  const parseContactChanges = (message) => {
+    const changes = {};
+    const phoneMatch = message?.match(/(?:new\s+)?phone:?\s*([+\d\s()-]+)/i);
+    const emailMatch = message?.match(/(?:new\s+)?email:?\s*([\w._%+-]+@[\w.-]+\.[a-zA-Z]{2,})/i);
+    
+    if (phoneMatch) changes.phone = phoneMatch[1].trim();
+    if (emailMatch) changes.email = emailMatch[1].trim();
+    
+    return changes;
+  };
+
+  const handleApplyChanges = async () => {
+    if (!selectedRequest) return;
+    
+    try {
+      setApplying(true);
+      
+      // Parse contact changes from the request message
+      const changes = parseContactChanges(selectedRequest.message);
+      
+      if (!changes.phone && !changes.email) {
+        toast({
+          title: "No changes detected",
+          description: "Could not find phone or email in the request message.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Get the member data first
+      const members = await charityClient.members.list({ email: selectedRequest.created_by });
+      const member = members.find(m => m.email === selectedRequest.created_by);
+      
+      if (!member) {
+        toast({
+          title: "Member not found",
+          description: "Could not find the member who submitted this request.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Update the member with the new contact information
+      await charityClient.members.update(member.id, changes);
+      
+      toast({
+        title: "Changes applied",
+        description: `Updated ${Object.keys(changes).join(' and ')} for ${member.full_name}.`,
+      });
+      
+      setResponseOpen(false);
+      setSelectedRequest(null);
+    } catch (error) {
+      toast({
+        title: "Failed to apply changes",
+        description: error?.message || "An error occurred while updating member information.",
+        variant: "destructive",
+      });
+    } finally {
+      setApplying(false);
+    }
   };
 
   // Filter requests based on user role
@@ -467,6 +525,31 @@ export default function Requests() {
                       Reject
                     </Button>
                   </div>
+                </div>
+              )}
+
+              {isAdmin && selectedRequest.status === 'resolved' && selectedRequest.request_type === 'approval' && (
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-slate-600 mb-3">
+                    This is a resolved approval request for contact information changes.
+                  </p>
+                  <Button 
+                    onClick={handleApplyChanges}
+                    disabled={applying}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                  >
+                    {applying ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Applying Changes...
+                      </>
+                    ) : (
+                      <>
+                        <UserCheck className="w-4 h-4 mr-2" />
+                        Apply Contact Changes
+                      </>
+                    )}
+                  </Button>
                 </div>
               )}
             </div>

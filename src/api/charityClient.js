@@ -51,9 +51,17 @@ function buildUrl(path, query = {}) {
   const url = new URL(`${base}${path}`, window.location.origin);
 
   Object.entries(normalizeSortQuery(query) || {}).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) {
-      url.searchParams.append(key, value);
+    if (value === undefined || value === null) return;
+
+    if (typeof value === 'string') {
+      const normalized = value.trim();
+      // Skip empty placeholders often produced by optional filter controls.
+      if (!normalized || normalized === 'undefined' || normalized === 'null') return;
+      url.searchParams.append(key, normalized);
+      return;
     }
+
+    url.searchParams.append(key, value);
   });
 
   return url.toString();
@@ -158,11 +166,40 @@ function normalizeInvite(invite) {
 }
 
 function normalizeAuditLog(log) {
-  return withDateAliases(log || {});
+  const normalized = withDateAliases(log || {});
+
+  let parsedDetails = {};
+  if (typeof normalized.new_values === 'string' && normalized.new_values.trim()) {
+    try {
+      parsedDetails = JSON.parse(normalized.new_values);
+    } catch {
+      parsedDetails = { raw: normalized.new_values };
+    }
+  }
+
+  return {
+    ...normalized,
+    action_type: normalized.action || normalized.action_type || 'update',
+    performed_by: normalized.performed_by || (normalized.user_id ? `User #${normalized.user_id}` : 'System'),
+    performed_by_name: normalized.performed_by_name || (normalized.user_id ? `User #${normalized.user_id}` : 'System'),
+    target_name:
+      normalized.target_name ||
+      (normalized.entity_type && normalized.entity_id !== undefined
+        ? `${normalized.entity_type} #${normalized.entity_id}`
+        : normalized.entity_type || null),
+    details:
+      normalized.details && typeof normalized.details === 'object'
+        ? normalized.details
+        : parsedDetails,
+  };
 }
 
 function normalizeUser(user) {
   return withDateAliases(user || {});
+}
+
+function normalizeRequest(request) {
+  return withDateAliases(request || {});
 }
 
 function normalizeBulkOperation(item) {
@@ -650,6 +687,31 @@ const charityClient = {
     },
   },
 
+  requests: {
+    list: async (query = {}) => {
+      const data = await apiFetch(API_PATHS.requests.list, { method: 'GET' }, query);
+      return extractArray(data).map(normalizeRequest);
+    },
+
+    get: async (id) => normalizeRequest(await apiFetch(API_PATHS.requests.byId(id), { method: 'GET' })),
+
+    create: async (data) =>
+      normalizeRequest(
+        await apiFetch(API_PATHS.requests.list, {
+          method: 'POST',
+          body: JSON.stringify(data),
+        })
+      ),
+
+    update: async (id, data) =>
+      normalizeRequest(
+        await apiFetch(API_PATHS.requests.byId(id), {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        })
+      ),
+  },
+
   invites: {
     list: async (query = {}) => {
       try {
@@ -770,7 +832,7 @@ const charityClient = {
         AuditLog: 'auditLogs',
         User: 'users',
         RecurringDonation: null, // Disabled for Phase 1
-        Request: null, // Disabled for Phase 1
+        Request: 'requests',
       };
 
       const resourceName = entityMap[entityName];

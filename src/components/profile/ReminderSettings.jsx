@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Bell, Calendar } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { getMemberSetup, saveMemberSetup } from "@/lib/memberSetup";
 
 export default function ReminderSettings({ user }) {
   const [remindersEnabled, setRemindersEnabled] = useState(false);
@@ -15,6 +16,13 @@ export default function ReminderSettings({ user }) {
   const { toast } = useToast();
 
   useEffect(() => {
+    const localSetup = getMemberSetup(user?.id);
+    if (localSetup?.reminder_settings) {
+      setRemindersEnabled(localSetup.reminder_settings.enabled || false);
+      setReminderDay(localSetup.reminder_settings.day || 5);
+      return;
+    }
+
     if (user?.reminder_settings) {
       setRemindersEnabled(user.reminder_settings.enabled || false);
       setReminderDay(user.reminder_settings.day || 5);
@@ -24,7 +32,9 @@ export default function ReminderSettings({ user }) {
   const handleSave = async () => {
     setLoading(true);
     try {
-      await charityClient.auth.updateMe?.({
+      const existing = getMemberSetup(user?.id) || {};
+      saveMemberSetup(user?.id, {
+        ...existing,
         reminder_settings: {
           enabled: remindersEnabled,
           day: parseInt(reminderDay)
@@ -33,7 +43,7 @@ export default function ReminderSettings({ user }) {
 
       toast({
         title: "Settings saved",
-        description: "Your reminder preferences have been updated.",
+        description: "Your reminder preferences have been updated for this account.",
       });
     } catch (error) {
       toast({

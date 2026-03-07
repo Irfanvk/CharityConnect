@@ -43,6 +43,10 @@ export const API_PATHS = {
     unreadCount: '/notifications/unread/count',
     adminSent: '/notifications/admin/sent',
   },
+  requests: {
+    list: '/requests/',
+    byId: (id) => `/requests/${id}`,
+  },
   invites: {
     list: '/invites/',
     pending: '/invites/pending',

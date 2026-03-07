@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { charityClient } from '@/api/charityClient';
 import { useAuth } from '@/lib/AuthContext';
-import { APP_PATHS } from '@/config/appPaths';
+import { APP_BRAND, APP_IMAGES, APP_PATHS } from '@/config/appPaths';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +12,7 @@ import { Loader2 } from 'lucide-react';
 
 export default function Login() {
   const [credentials, setCredentials] = useState({
-    email: '',
+    username: '',  // Accepts both username and email
     password: ''
   });
   const [error, setError] = useState('');
@@ -64,13 +64,47 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md">
+    <div className="relative min-h-screen overflow-hidden p-4 sm:p-6">
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: [
+            'radial-gradient(circle at 12% 18%, rgba(250, 204, 21, 0.26), transparent 34%)',
+            'radial-gradient(circle at 86% 20%, rgba(45, 212, 191, 0.22), transparent 30%)',
+            'radial-gradient(circle at 80% 82%, rgba(59, 130, 246, 0.18), transparent 36%)',
+            'linear-gradient(145deg, #f8fafc 0%, #ecfeff 35%, #fefce8 68%, #fff7ed 100%)',
+          ].join(','),
+        }}
+      />
+
+      <div
+        className="absolute inset-0 opacity-30 dark:opacity-20"
+        style={{
+          backgroundImage: [
+            'repeating-linear-gradient(45deg, rgba(15, 118, 110, 0.08) 0 2px, transparent 2px 26px)',
+            'repeating-linear-gradient(-45deg, rgba(217, 119, 6, 0.08) 0 2px, transparent 2px 26px)',
+          ].join(','),
+        }}
+      />
+
+      <div className="pointer-events-none absolute -left-16 top-8 h-44 w-44 rounded-full border border-amber-300/70 bg-amber-100/35 dark:border-amber-200/50 dark:bg-amber-200/10" />
+      <div className="pointer-events-none absolute -left-8 top-20 h-32 w-32 rounded-full border border-amber-300/60 bg-transparent dark:border-amber-200/40" />
+      <div className="pointer-events-none absolute bottom-16 right-8 h-36 w-36 rounded-full border border-emerald-300/60 bg-white/50 dark:border-emerald-200/40 dark:bg-white/10" />
+
+      <div className="relative z-10 flex min-h-[calc(100vh-2rem)] items-center justify-center sm:min-h-[calc(100vh-3rem)]">
+      <Card className="w-full max-w-md border-white/50 bg-white/95 text-slate-900 shadow-2xl backdrop-blur-sm dark:border-slate-500/40 dark:bg-slate-900/90 dark:text-slate-100">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            Welcome to CharityConnect
+          <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-xl bg-white/80 p-2 shadow-md dark:bg-slate-800/80">
+            <img
+              src={APP_IMAGES.LOGOS.PRIMARY}
+              alt={`${APP_BRAND.NAME} logo`}
+              className="h-full w-full object-contain"
+            />
+          </div>
+          <CardTitle className="text-2xl font-bold text-center text-emerald-900 dark:text-emerald-200">
+            {`Welcome to ${APP_BRAND.NAME}`}
           </CardTitle>
-          <CardDescription className="text-center">
+          <CardDescription className="text-center text-emerald-800/80 dark:text-emerald-100/80">
             Sign in to manage your charity contributions
           </CardDescription>
         </CardHeader>
@@ -84,23 +118,23 @@ export default function Login() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="username" className="text-slate-800 dark:text-slate-100">Username or Email</Label>
               <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="your.email@example.com"
-                value={credentials.email}
+                id="username"
+                name="username"
+                type="text"
+                placeholder="Enter username or email"
+                value={credentials.username}
                 onChange={handleChange}
                 required
                 disabled={isLoading}
-                autoComplete="email"
+                autoComplete="username"
                 autoFocus
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-slate-800 dark:text-slate-100">Password</Label>
               <Input
                 id="password"
                 name="password"
@@ -132,17 +166,18 @@ export default function Login() {
         </form>
 
         <CardFooter className="flex flex-col space-y-2">
-          <div className="text-sm text-center text-muted-foreground">
+          <div className="text-sm text-center text-slate-600 dark:text-slate-300">
             Don't have an account?{' '}
             <Link 
               to="/register" 
-              className="font-medium text-primary hover:underline"
+              className="font-medium text-emerald-700 hover:underline dark:text-emerald-300"
             >
               Register with invite code
             </Link>
           </div>
         </CardFooter>
       </Card>
+      </div>
     </div>
   );
 }

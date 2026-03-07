@@ -7,9 +7,12 @@ import {
   FileText, Bell, BarChart3, Code, Database, Key 
 } from "lucide-react";
 import { APP_BRAND } from "@/config/appPaths";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function Documentation() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
+  const isMember = user?.role === "member" || user?.role === "user";
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -27,13 +30,13 @@ export default function Documentation() {
 
       {/* Documentation Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
+        <TabsList className={`grid grid-cols-2 md:grid-cols-4 ${isMember ? "" : "lg:grid-cols-6"}`}>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="roles">User Roles</TabsTrigger>
           <TabsTrigger value="features">Features</TabsTrigger>
-          <TabsTrigger value="entities">Data Model</TabsTrigger>
           <TabsTrigger value="workflows">Workflows</TabsTrigger>
-          <TabsTrigger value="api">Technical</TabsTrigger>
+          {!isMember && <TabsTrigger value="entities">Data Model</TabsTrigger>}
+          {!isMember && <TabsTrigger value="api">Technical</TabsTrigger>}
         </TabsList>
 
         {/* Overview Tab */}
@@ -59,9 +62,16 @@ export default function Documentation() {
                 <li><strong>Payment Processing:</strong> Generate challans, upload proof, approve/reject payments</li>
                 <li><strong>Campaign Management:</strong> Create fundraising campaigns with goals and tracking</li>
                 <li><strong>Recurring Donations:</strong> Set up automatic monthly/yearly donation schedules</li>
-                <li><strong>Audit Trail:</strong> Complete logging of all administrative actions</li>
-                <li><strong>Analytics & Reports:</strong> Comprehensive reporting and performance insights</li>
+                {!isMember && <li><strong>Audit Trail:</strong> Complete logging of all administrative actions</li>}
+                {!isMember && <li><strong>Analytics & Reports:</strong> Comprehensive reporting and performance insights</li>}
                 <li><strong>Notifications:</strong> Real-time alerts for members and administrators</li>
+              </ul>
+
+              <h3>Registration Flow</h3>
+              <ul>
+                <li><strong>Step 1:</strong> Admin shares invite code with a member</li>
+                <li><strong>Step 2:</strong> Member completes registration using invite code</li>
+                <li><strong>Step 3:</strong> Member completes first-time setup and starts contributing</li>
               </ul>
 
               <h3>System Architecture</h3>
@@ -97,24 +107,26 @@ export default function Documentation() {
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Superadmin */}
-              <div className="border-l-4 border-purple-500 pl-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge className="bg-purple-600">Superadmin</Badge>
-                  <Shield className="w-4 h-4 text-purple-600" />
+              {!isMember && (
+                <div className="border-l-4 border-purple-500 pl-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge className="bg-purple-600">Superadmin</Badge>
+                    <Shield className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <p className="text-sm text-slate-700 mb-3">
+                    System developers with full access to advanced analytics and all system functions.
+                  </p>
+                  <h4 className="font-semibold text-sm mb-2">Permissions:</h4>
+                  <ul className="text-sm space-y-1 text-slate-600">
+                    <li>✓ All admin permissions</li>
+                    <li>✓ Advanced analytics dashboard with KPIs</li>
+                    <li>✓ System-wide performance metrics</li>
+                    <li>✓ Full audit log access</li>
+                    <li>✓ Engagement metrics and trends</li>
+                    <li>✓ Database and entity management</li>
+                  </ul>
                 </div>
-                <p className="text-sm text-slate-700 mb-3">
-                  System developers with full access to advanced analytics and all system functions.
-                </p>
-                <h4 className="font-semibold text-sm mb-2">Permissions:</h4>
-                <ul className="text-sm space-y-1 text-slate-600">
-                  <li>✓ All admin permissions</li>
-                  <li>✓ Advanced analytics dashboard with KPIs</li>
-                  <li>✓ System-wide performance metrics</li>
-                  <li>✓ Full audit log access</li>
-                  <li>✓ Engagement metrics and trends</li>
-                  <li>✓ Database and entity management</li>
-                </ul>
-              </div>
+              )}
 
               {/* Admin */}
               <div className="border-l-4 border-blue-500 pl-4">
@@ -138,10 +150,10 @@ export default function Documentation() {
                 </ul>
               </div>
 
-              {/* Regular User */}
+              {/* Member */}
               <div className="border-l-4 border-emerald-500 pl-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Badge className="bg-emerald-600">User</Badge>
+                  <Badge className="bg-emerald-600">Member</Badge>
                   <Users className="w-4 h-4 text-emerald-600" />
                 </div>
                 <p className="text-sm text-slate-700 mb-3">
@@ -239,6 +251,7 @@ export default function Documentation() {
             </Card>
 
             {/* Reports Module */}
+            {!isMember && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -261,8 +274,10 @@ export default function Documentation() {
                 </div>
               </CardContent>
             </Card>
+            )}
 
             {/* Audit Logs */}
+            {!isMember && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -285,6 +300,7 @@ export default function Documentation() {
                 </div>
               </CardContent>
             </Card>
+            )}
 
             {/* Notifications */}
             <Card>
@@ -313,6 +329,7 @@ export default function Documentation() {
         </TabsContent>
 
         {/* Entities Tab */}
+        {!isMember && (
         <TabsContent value="entities" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
@@ -435,6 +452,7 @@ export default function Documentation() {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
         {/* Workflows Tab */}
         <TabsContent value="workflows" className="space-y-6 mt-6">
@@ -554,6 +572,7 @@ export default function Documentation() {
         </TabsContent>
 
         {/* Technical Tab */}
+        {!isMember && (
         <TabsContent value="api" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
@@ -629,6 +648,7 @@ export default function Documentation() {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
       </Tabs>
 
       {/* Quick Reference Card */}

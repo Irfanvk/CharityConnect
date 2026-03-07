@@ -14,11 +14,13 @@ import SuperAdminDashboard from "@/components/dashboard/SuperAdminDashboard";
 import PullToRefresh from "@/components/mobile/PullToRefresh";
 import { APP_IMAGES } from "@/config/appPaths";
 import BulkOperationsPanel from "@/components/dashboard/BulkOperationsPanel";
+import { getMemberSetup, isMemberSetupCompleted, saveMemberSetup } from "@/lib/memberSetup";
 
 export default function Dashboard() {
   const { user: authUser } = useAuth();
   const [user, setUser] = useState(authUser || null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [memberSetupData, setMemberSetupData] = useState(null);
   const [adminTab, setAdminTab] = useState("overview");
   const queryClient = useQueryClient();
 
@@ -41,9 +43,14 @@ export default function Dashboard() {
       }
       setUser((prev) => ({ ...(prev || {}), ...currentUser }));
       
-      // Check if onboarding is needed
-      if (currentUser.role !== 'admin' && !currentUser.onboarding_completed) {
-        setShowOnboarding(true);
+      const memberRole = currentUser.role === 'member';
+      if (memberRole) {
+        const completed = isMemberSetupCompleted(currentUser.id);
+        setShowOnboarding(!completed);
+        setMemberSetupData(getMemberSetup(currentUser.id));
+      } else {
+        setShowOnboarding(false);
+        setMemberSetupData(null);
       }
     } catch (error) {
       console.error("Error loading user:", error);
@@ -137,7 +144,11 @@ export default function Dashboard() {
         <div className="space-y-8">
           <OnboardingWizard
             open={showOnboarding}
-            onComplete={() => {
+            onComplete={(setupData) => {
+              if (user?.id) {
+                saveMemberSetup(user.id, setupData || {});
+              }
+              setMemberSetupData(getMemberSetup(user?.id));
               setShowOnboarding(false);
               loadUserData();
             }}
@@ -184,7 +195,11 @@ export default function Dashboard() {
         <div className="space-y-6">
           <OnboardingWizard
             open={showOnboarding}
-            onComplete={() => {
+            onComplete={(setupData) => {
+              if (user?.id) {
+                saveMemberSetup(user.id, setupData || {});
+              }
+              setMemberSetupData(getMemberSetup(user?.id));
               setShowOnboarding(false);
               loadUserData();
             }}
@@ -214,6 +229,8 @@ export default function Dashboard() {
             memberProfile={memberProfile}
             challans={challansArray}
             campaigns={campaignsArray}
+            memberSetupData={memberSetupData}
+            onOpenSetup={() => setShowOnboarding(true)}
           />
         </div>
       </PullToRefresh>
@@ -225,7 +242,11 @@ export default function Dashboard() {
       <div className="space-y-8">
       <OnboardingWizard
         open={showOnboarding}
-        onComplete={() => {
+        onComplete={(setupData) => {
+          if (user?.id) {
+            saveMemberSetup(user.id, setupData || {});
+          }
+          setMemberSetupData(getMemberSetup(user?.id));
           setShowOnboarding(false);
           loadUserData();
         }}

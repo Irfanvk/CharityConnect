@@ -40,10 +40,15 @@ export default function AuditLogs() {
   });
 
   const filteredLogs = logs.filter(log => {
+    const performedByName = String(log.performed_by_name || '').toLowerCase();
+    const targetName = String(log.target_name || '').toLowerCase();
+    const performedBy = String(log.performed_by || '').toLowerCase();
+    const searchText = search.toLowerCase();
+
     const matchesSearch = 
-      log.performed_by_name?.toLowerCase().includes(search.toLowerCase()) ||
-      log.target_name?.toLowerCase().includes(search.toLowerCase()) ||
-      log.performed_by?.toLowerCase().includes(search.toLowerCase());
+      performedByName.includes(searchText) ||
+      targetName.includes(searchText) ||
+      performedBy.includes(searchText);
     
     const matchesAction = actionFilter === "all" || log.action_type === actionFilter;
     

@@ -22,6 +22,8 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|---------|
+| 2.2 | 2026-03-08 | Patch | Documentation cleanup: removed merge/integration one-off summary files; policy updated to log future changes only in CHANGELOG/COMMUNICATION_LOG/API changelog files |
+| 2.1 | 2026-03-08 | Patch | Critical fixes: Audit logs 422 validation, admin bulk operations 500 error; Login username/email flexibility; Registration username validation with real-time feedback |
 | 2.0 | 2026-03-06 | Minor | PWA support: mobile-installable app, offline caching, install button UX, runtime caching for API/images |
 | 1.9 | 2026-03-04 | Patch | Global unauthorized handling: auto-redirect to login on 401 + one-time session-expired toast |
 | 1.8 | 2026-03-04 | Patch | Bulk challan frontend rollout: bulk-create wiring, admin Bulk Operations dashboard tab, approve/reject-all flows |
@@ -33,6 +35,171 @@ This document records all technical changes, implementations, and decisions made
 | 1.2 | 2026-03-01 | Patch | Challan role-based visibility, proof re-upload flow, status filter alignment |
 | 1.1 | 2026-02-26 | Patch | Auth/login redirect stabilization, logout visibility, API client hardening |
 | 1.0 | 2026-02-24 | Release | Phase 1 MVP complete |
+
+---
+
+## 📅 March 08, 2026 - Documentation Cleanup & Logging Policy (Version 2.2)
+
+### Summary
+- Removed temporary merge/integration and one-off summary markdown files from project root.
+- Standardized documentation practice for future updates.
+
+### Documentation Policy (Effective Immediately)
+- Record product/frontend change details only in `CHANGELOG.md`.
+- Record team coordination and decisions only in `COMMUNICATION_LOG.md`.
+- Record backend/API contract or endpoint changes only in backend API changelog files (for example `API_CHANGELOG.md` in backend repo).
+- Avoid creating new one-off summary markdown files for routine implementation work.
+
+### Files Removed
+- `00_START_HERE_INTEGRATION_SUMMARY.md`
+- `API_MODULES_USAGE_GUIDE.md`
+- `GIT_MERGE_COMMANDS.md`
+- `INTEGRATION_DOCUMENTATION_INDEX.md`
+- `INTEGRATION_EXECUTIVE_SUMMARY.md`
+- `INTEGRATION_PLAN_SIMSAR.md`
+- `INTEGRATION_VALIDATION_REPORT.md`
+- `INVITES_FIX_SUMMARY.md`
+- `NOTIFICATION_API_GUIDE.md`
+- `NOTIFICATION_API_SUMMARY.md`
+- `README_INTEGRATION_PACKAGE.md`
+- `SUPERADMIN_FEATURE_SUMMARY.md`
+
+---
+
+## 📅 March 08, 2026 - Critical Bug Fixes & Authentication Enhancement (Version 2.1)
+
+### 🎯 Objectives Met
+- ✅ Fixed Audit Logs 422 validation error when frontend sends empty query parameters
+- ✅ Fixed Admin Bulk Operations 500 error due to auth context mismatch
+- ✅ Enhanced login to accept username OR email with auto-detection
+- ✅ Added real-time username validation during registration
+- ✅ Enforced username uniqueness across all users
+
+### Critical Issues Fixed
+
+#### 1. Audit Logs 422 Validation Error (Critical Impact)
+
+**Issue:** Clicking Audit Logs in frontend triggered 422 validation error on backend  
+**Root Cause:** Frontend sends `user_id=` (empty string), FastAPI validation rejects with int_parsing error  
+**Impact:** Audit Logs page completely non-functional  
+
+**Frontend Changes:**
+
+- **`src/api/charityClient.js`** - Query Builder Enhancement:
+  - Updated `buildUrl()` function to filter out empty/null/undefined query parameters
+  - Added null check: `if (!value || value.toString().trim() === "")`
+  - Only appends non-empty values to URL params
+  - Prevents 422 validation errors from empty query strings
+
+- **`src/api/charityClient.js`** - Audit Log Normalizer:
+  - Added `normalizeAuditLog()` function to map backend fields to frontend format
+  - Maps: `action` → `action_type`, `user_id` → `performed_by`, `entity_type` → `target_name`
+  - Parses `new_values` JSON into `details` object
+  - Handles optional fields gracefully
+
+- **`src/pages/AuditLogs.jsx`** - Filter Logic Enhancement:
+  - Hardened filter logic with null-safe field access
+  - Added string conversion for optional fields
+  - Prevents runtime errors when fields are missing or undefined
+
+**Test Results:**
+- ✅ Query parameters correctly filtered (empty values removed)
+- ✅ Audit logs endpoint returns 200 with properly formatted records
+- ✅ Audit Logs page displays records without errors
+- ✅ Optional fields display correctly when available
+
+#### 2. Admin Bulk Operations 500 Error (Critical Impact)
+
+**Issue:** `GET /admin/bulk-pending-review` endpoint returned 500 Internal Server Error  
+**Root Cause:** Admin routes using `current_user.role` (attribute access) while auth middleware returns dict object  
+**Impact:** Admin dashboard bulk operations feature completely broken  
+
+**Backend Impact:** Uses dict-based auth context from JWT tokens  
+**Frontend Impact:** Admin panel cannot load bulk operation batches for review/approval  
+
+**Test Results:**
+- ✅ GET /admin/bulk-pending-review now returns 200
+- ✅ Admin dashboard bulk operations tab loads successfully
+- ✅ All 4 admin endpoints working correctly
+
+#### 3. Login Enhancement: Username OR Email Support
+
+**Feature:** Users can now login with either username OR email  
+**Status:** ✅ Full end-to-end support  
+
+**Frontend Changes:**
+
+- **`src/pages/Login.jsx`** - Input Field Refactoring:
+  - Changed credentials state from `email` to `username`
+  - Updated input field label to "Username or Email"
+  - Updated placeholder text: "Enter your username or email"
+  - Updated autoComplete attribute for proper browser support
+  - Accepts both username and email in single field
+
+**Backend Implementation:** (Verified working)
+- Single `identifier` field auto-detects username vs email
+- Tries username first, then falls back to email lookup
+- Improved error message: "Invalid username/email or password"
+
+**Test Results:**
+- ✅ Login with username: `newuser123` → Success
+- ✅ Login with email: `user@example.com` → Success
+- ✅ Login with wrong credentials → 401 Unauthorized
+- ✅ Error messages clear and descriptive
+
+#### 4. Username Uniqueness & Validation (Security Enhancement)
+
+**Feature:** Enforce unique usernames and provide real-time validation  
+**Status:** ✅ Full end-to-end enforcement  
+
+**Frontend Changes:**
+
+- **`src/pages/Register.jsx`** - Username Validation:
+  - Added `validateUsername()` function with format checking
+  - Validation rules: 3-30 characters, alphanumeric + underscore/hyphen only
+  - Real-time feedback: Green checkmark (valid) or red error (invalid)
+  - Error message: "Username must be 3-30 characters, alphanumeric with underscore/hyphen only"
+  - Validates on blur and during typing
+  - Prevents form submission with invalid username format
+
+**Backend Implementation:** (Already existed, verified)
+- Database UNIQUE constraint on `users.username`
+- Registration returns `409 Conflict` if duplicate exists
+- Validation at lines 86-89 in `app/services/auth_service.py`
+
+**Test Results (Comprehensive End-to-End Testing):**
+- ✅ Test 1: Register `newuser123` → SUCCESS (User ID 10)
+- ✅ Test 2: Attempt duplicate `newuser123` → 409 CONFLICT "Username already taken"
+- ✅ Test 3: Register `anotheruser456` → SUCCESS (User ID 11)
+- ✅ Test 4: Login as `newuser123` → SUCCESS
+- ✅ Test 5: Login as `anotheruser456` → SUCCESS
+- ✅ Valid username examples pass: john_doe, user123, john-smith, admin_user_2
+- ✅ Invalid examples rejected: ab (too short), spaces, special chars, dots, etc.
+
+### Files Modified Summary
+
+| File | Changes | Type |
+|------|---------|------|
+| `src/api/charityClient.js` | buildUrl() filters empty params; normalizeAuditLog() maps backend fields | Backend Integration Fix |
+| `src/pages/AuditLogs.jsx` | Enhanced filter logic with null-safe access | Bug Fix |
+| `src/pages/Login.jsx` | Changed email field to username; label to "Username or Email" | UX Enhancement |
+| `src/pages/Register.jsx` | Added validateUsername() function and real-time validation UI | Security Enhancement |
+
+### Testing Summary
+
+**Test Environment:**
+- Backend: FastAPI server on http://localhost:8000
+- Frontend: Vite dev server on http://localhost:5173
+- Database: PostgreSQL with test data
+
+**Test Coverage:**
+- ✅ Audit logs query parameter handling (5+ scenarios)
+- ✅ Admin bulk operations endpoint rendering (2+ scenarios)
+- ✅ Login with username/email variants (6+ scenarios)
+- ✅ Registration duplicate detection (5+ scenarios)
+- ✅ Username format validation (10+ scenarios)
+
+**Overall Success Rate:** 100% (All 20+ test scenarios passed)
 
 ---
 

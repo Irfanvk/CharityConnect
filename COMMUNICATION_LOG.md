@@ -3,7 +3,7 @@
 **Project:** CharityConnect  
 **Purpose:** Decisions, meeting minutes, and action items  
 **Owner:** Integration Lead  
-**Last Updated:** 2026-03-04
+**Last Updated:** 2026-03-08
 
 ---
 
@@ -11,6 +11,12 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-03-08 | Standardized documentation policy: future updates go only to CHANGELOG/COMMUNICATION_LOG/API changelog files | Both | ✅ | Removed temporary merge/integration summary docs from root; avoid creating one-off summary markdown files going forward |
+| 2026-03-08 | Fixed audit logs 422 validation error (empty query param handling) | Both | ✅ | Frontend filters empty params; Backend normalizer maps user_id/action/entity_type to formatted fields; Audit Logs page now functional |
+| 2026-03-08 | Fixed admin bulk operations 500 error (auth context mismatch in dict-based JWT) | Backend | ✅ | Added _is_admin_role() helper for safe dict access in admin routes; All 4 endpoints now return 200 |
+| 2026-03-08 | Enhanced login authentication to accept username OR email (auto-detection) | Both | ✅ | Single identifier field in backend; Frontend updated with "Username or Email" label; Full end-to-end testing passed |
+| 2026-03-08 | Enforced username uniqueness across all users with 409 CONFLICT response | Both | ✅ | Backend returns 409 on duplicate; Frontend validates format (3-30 chars, alphanumeric+underscore/hyphen); Real-time UI feedback |
+| 2026-03-08 | Enhanced registration form with real-time username validation and inline error display | Frontend | ✅ | Added validateUsername() function; Shows green/red feedback during form entry; Comprehensive test suite all passed |
 | 2026-03-04 | Frontend enforces global unauthorized session handling (401 → token clear + login redirect + returnTo) | Frontend | ✅ | Applies to protected API calls with login/register exclusions to avoid redirect loops |
 | 2026-03-04 | Frontend added one-time "Session expired" toast on login after forced unauthorized redirect | Frontend | ✅ | Toast is bridged via sessionStorage marker and shown only once per invalidation event |
 | 2026-03-04 | Frontend implemented bulk challan v1.1 integration (create + pending review + approve/reject-all actions) | Frontend | ✅ | Dashboard tab and challan multi-month bulk-create routing completed |

@@ -59,22 +59,14 @@ export default function Settings() {
     },
   });
 
-  const generateInviteCode = () => {
-    return 'INV-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-  };
-
   const handleInvite = async () => {
     setLoading(true);
-    const code = generateInviteCode();
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + 7); // 7 days expiry
 
     await createInviteMutation.mutateAsync({
-      invite_code: code,
-      phone: inviteData.phone,
-      email: inviteData.email,
-      status: 'pending',
-      invited_by: user?.email,
+      phone: inviteData.phone || null,
+      email: inviteData.email || null,
       expiry_date: expiryDate.toISOString()
     });
     setLoading(false);

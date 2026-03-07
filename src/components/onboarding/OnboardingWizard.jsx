@@ -12,24 +12,37 @@ import {
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { APP_BRAND } from "@/config/appPaths";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function OnboardingWizard({ open, onComplete, user, memberProfile }) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [internalOpen, setInternalOpen] = useState(open);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   
   useEffect(() => {
     setInternalOpen(open);
   }, [open]);
   
   const [formData, setFormData] = useState({
-    phone: memberProfile?.phone || '',
+    phone: user?.phone || memberProfile?.phone || '',
+    email: user?.email || memberProfile?.email || '',
     address: memberProfile?.address || '',
     city: memberProfile?.city || '',
     reminderEnabled: false,
     reminderDay: 5,
   });
+
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      phone: user?.phone || memberProfile?.phone || prev.phone || '',
+      email: user?.email || memberProfile?.email || prev.email || '',
+      address: memberProfile?.address || prev.address || '',
+      city: memberProfile?.city || prev.city || '',
+    }));
+  }, [user, memberProfile]);
 
   const totalSteps = 3;
   const progress = (step / totalSteps) * 100;
@@ -45,30 +58,68 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
   const handleComplete = async () => {
     setLoading(true);
     try {
-      // Update user settings
-      await charityClient.auth.updateMe?.({
-        phone: formData.phone,
-        reminder_settings: {
-          enabled: formData.reminderEnabled,
-          day: Number(formData.reminderDay)
-        },
-        onboarding_completed: true
-      });
+      const normalizedPhone = String(formData.phone || '').trim();
+      const normalizedEmail = String(formData.email || '').trim().toLowerCase();
+      const phoneRegex = /^\+[1-9]\d{7,14}$/;
 
-      // Update member profile
-      if (memberProfile) {
-        await charityClient.members.update(memberProfile.id, {
-          phone: formData.phone,
-          address: formData.address,
-          city: formData.city,
+      if (!phoneRegex.test(normalizedPhone)) {
+        throw new Error('Enter a valid phone number in international format, for example +923001234567.');
+      }
+
+      const registeredPhone = String(user?.phone || '').trim();
+      const registeredEmail = String(user?.email || '').trim().toLowerCase();
+
+      const contactChangeRequests = [];
+      if (registeredPhone && normalizedPhone !== registeredPhone) {
+        contactChangeRequests.push(
+          charityClient.requests.create({
+            request_type: 'approval',
+            subject: 'Phone number change approval',
+            message: `Member requested phone update from ${registeredPhone} to ${normalizedPhone}.`,
+            priority: 'high',
+          })
+        );
+      }
+
+      if (registeredEmail && normalizedEmail && normalizedEmail !== registeredEmail) {
+        contactChangeRequests.push(
+          charityClient.requests.create({
+            request_type: 'approval',
+            subject: 'Email change approval',
+            message: `Member requested email update from ${registeredEmail} to ${normalizedEmail}.`,
+            priority: 'high',
+          })
+        );
+      }
+
+      if (contactChangeRequests.length > 0) {
+        await Promise.all(contactChangeRequests);
+        toast({
+          title: 'Approval request submitted',
+          description: 'Phone/email updates were sent to admin for approval.',
         });
       }
 
       queryClient.invalidateQueries({ queryKey: ['members'] });
       setStep(1);
       setInternalOpen(false);
+
+      onComplete?.({
+        phone: normalizedPhone,
+        email: normalizedEmail,
+        address: String(formData.address || '').trim(),
+        city: String(formData.city || '').trim(),
+        reminder_settings: {
+          enabled: Boolean(formData.reminderEnabled),
+          day: Number(formData.reminderDay),
+        },
+      });
     } catch (error) {
-      console.error(error);
+      toast({
+        title: 'Setup could not be completed',
+        description: error?.message || 'Please review your details and try again.',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
@@ -78,7 +129,6 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
     <Dialog open={internalOpen} onOpenChange={(newOpen) => {
       if (!newOpen) {
         setStep(1);
-        onComplete();
       }
       setInternalOpen(newOpen);
     }}>
@@ -126,7 +176,19 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                  placeholder="Enter your phone number"
+                  placeholder="+91987654321"
+                />
+                <p className="text-xs text-slate-500 mt-1">Use country code format (E.164). Example: +91987654321</p>
+              </div>
+
+              <div>
+                <Label htmlFor="email">Email Address *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  placeholder="name@example.com"
                 />
               </div>
 
@@ -149,6 +211,10 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
                   placeholder="Enter your city"
                 />
               </div>
+
+              <p className="text-xs text-slate-500">
+                For security, phone and email changes after registration require admin approval and are sent to Requests.
+              </p>
             </div>
           </div>
         )}
@@ -291,7 +357,7 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
           {step === 1 && (
             <Button 
               onClick={handleNext}
-              disabled={!formData.phone}
+              disabled={!formData.phone || !formData.email}
               className="bg-emerald-600 hover:bg-emerald-700"
             >
               Next Step <ArrowRight className="w-4 h-4 ml-2" />

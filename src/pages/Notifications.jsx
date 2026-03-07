@@ -26,6 +26,12 @@ import {
   Receipt, Heart, Trash2, Loader2 
 } from "lucide-react";
 import { format } from "date-fns";
+import { useToast } from "@/components/ui/use-toast";
+import {
+  dismissNotificationForUser,
+  emitNotificationsChanged,
+  isNotificationDismissed,
+} from "@/lib/notificationState";
 
 const typeConfig = {
   info: { label: "Info", color: "bg-blue-100 text-blue-700", icon: Info },
@@ -47,6 +53,7 @@ export default function Notifications() {
   const [loading, setLoading] = useState(false);
   
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   useEffect(() => {
     charityClient.auth.me().then(setUser).catch(() => {});
@@ -93,11 +100,12 @@ export default function Notifications() {
 
   // Filter notifications for current user
   const userNotifications = notifications.filter(n => {
+    if (isNotificationDismissed(user?.email, n.id)) return false;
     if (!n.target_type) return true;
     if (n.target_type === 'all') return true;
     if (n.target_type === 'member' && n.target_member_id === user?.email) return true;
     if (n.target_type === 'admins' && isAdmin) return true;
-    return true;
+    return false;
   });
 
   const isRead = (notification) => {
@@ -109,6 +117,43 @@ export default function Notifications() {
     if (!isRead(notification)) {
       await charityClient.notifications.markAsRead(notification.id);
       await queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      emitNotificationsChanged('read');
+    }
+  };
+
+  const handleDeleteNotification = async (notification) => {
+    try {
+      if (isAdmin) {
+        await deleteMutation.mutateAsync({
+          id: notification.id,
+          title: notification.title,
+          isAdmin,
+        });
+        emitNotificationsChanged('deleted');
+        toast({
+          title: 'Notification deleted',
+          description: 'Notification has been removed.',
+        });
+        return;
+      }
+
+      // Members can only remove from their own list (local dismiss), not globally delete.
+      dismissNotificationForUser(user?.email, notification.id);
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      emitNotificationsChanged('dismissed');
+      toast({
+        title: 'Notification removed',
+        description: 'This notification was removed from your list.',
+      });
+    } catch (error) {
+      const isForbidden = error?.status === 403;
+      toast({
+        title: isForbidden ? 'Action not allowed' : 'Could not remove notification',
+        description: isForbidden
+          ? 'Only admins can delete notifications for everyone.'
+          : (error?.message || 'Please try again.'),
+        variant: 'destructive',
+      });
     }
   };
 
@@ -189,11 +234,7 @@ export default function Notifications() {
                           size="icon"
                           onClick={(e) => { 
                             e.stopPropagation(); 
-                            deleteMutation.mutate({ 
-                              id: notification.id, 
-                              title: notification.title,
-                              isAdmin 
-                            }); 
+                            handleDeleteNotification(notification);
                           }}
                           className="text-slate-400 hover:text-rose-500"
                           title={isAdmin ? "Delete for everyone" : "Remove notification"}

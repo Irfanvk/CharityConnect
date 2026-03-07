@@ -5,9 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Heart, CheckCircle, XCircle, Loader2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { APP_BRAND } from "@/config/appPaths";
+import { Heart, CheckCircle, XCircle, Loader2, MoonStar } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { APP_BRAND, APP_IMAGES, APP_PATHS } from "@/config/appPaths";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -26,6 +26,27 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [usernameError, setUsernameError] = useState('');
+
+  // Validate username format and length
+  const validateUsername = (username) => {
+    if (!username) return '';
+    
+    if (username.length < 3) {
+      return 'Username must be at least 3 characters long';
+    }
+    
+    if (username.length > 30) {
+      return 'Username must not exceed 30 characters';
+    }
+    
+    // Allow alphanumeric, underscores, and hyphens
+    if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+      return 'Username can only contain letters, numbers, underscores, and hyphens';
+    }
+    
+    return '';
+  };
 
   const verifyInviteCode = () => {
     const normalizedCode = inviteCode.trim().toUpperCase();
@@ -70,6 +91,14 @@ export default function Register() {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    // Validate username format
+    const usernameErr = validateUsername(formData.username);
+    if (usernameErr) {
+      setError(usernameErr);
+      setLoading(false);
+      return;
+    }
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
@@ -120,39 +149,91 @@ export default function Register() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full border-0 shadow-xl">
+      <div className="relative min-h-screen overflow-hidden p-4 sm:p-6">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: [
+              'radial-gradient(circle at 16% 20%, rgba(125, 211, 252, 0.26), transparent 34%)',
+              'radial-gradient(circle at 82% 18%, rgba(192, 132, 252, 0.18), transparent 30%)',
+              'radial-gradient(circle at 84% 82%, rgba(16, 185, 129, 0.18), transparent 36%)',
+              'linear-gradient(150deg, #f8fafc 0%, #eff6ff 34%, #f0fdfa 68%, #fefce8 100%)',
+            ].join(','),
+          }}
+        />
+        <div className="relative z-10 flex min-h-[calc(100vh-2rem)] items-center justify-center sm:min-h-[calc(100vh-3rem)]">
+        <Card className="max-w-md w-full border-white/50 bg-white/95 text-slate-900 shadow-2xl backdrop-blur-sm dark:border-slate-500/40 dark:bg-slate-900/90 dark:text-slate-100">
           <CardContent className="p-8 text-center">
-            <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-8 h-8 text-emerald-600" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Registration Successful!</h2>
-            <p className="text-slate-600 mb-6">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Registration Successful!</h2>
+            <p className="text-slate-600 dark:text-slate-300 mb-6">
               Your account has been created successfully! You can now access your dashboard.
             </p>
-            <Button 
-              onClick={() => navigate('/dashboard')}
-              className="bg-emerald-600 hover:bg-emerald-700"
-            >
-              Go to Dashboard
-            </Button>
+            <div className="flex flex-col gap-3">
+              <Button 
+                onClick={() => navigate('/dashboard')}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                Go to Dashboard
+              </Button>
+              <Button asChild variant="outline">
+                <Link to={APP_PATHS.LOGIN}>Back to Login</Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center p-4">
-      <Card className="max-w-md w-full border-0 shadow-xl">
+    <div className="relative min-h-screen overflow-hidden p-4 sm:p-6">
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: [
+            'radial-gradient(circle at 16% 20%, rgba(125, 211, 252, 0.26), transparent 34%)',
+            'radial-gradient(circle at 82% 18%, rgba(192, 132, 252, 0.18), transparent 30%)',
+            'radial-gradient(circle at 84% 82%, rgba(16, 185, 129, 0.18), transparent 36%)',
+            'linear-gradient(150deg, #f8fafc 0%, #eff6ff 34%, #f0fdfa 68%, #fefce8 100%)',
+          ].join(','),
+        }}
+      />
+
+      <div
+        className="absolute inset-0 opacity-30 dark:opacity-20"
+        style={{
+          backgroundImage: [
+            'repeating-linear-gradient(60deg, rgba(14, 116, 144, 0.08) 0 2px, transparent 2px 24px)',
+            'repeating-linear-gradient(-60deg, rgba(5, 150, 105, 0.08) 0 2px, transparent 2px 24px)',
+          ].join(','),
+        }}
+      />
+
+      <div className="pointer-events-none absolute left-6 top-10 h-24 w-24 rounded-full border border-sky-300/70 bg-sky-100/40 dark:border-sky-200/50 dark:bg-sky-200/10" />
+      <div className="pointer-events-none absolute right-6 top-12 h-20 w-20 rounded-full border border-violet-300/70 bg-violet-100/40 dark:border-violet-200/50 dark:bg-violet-200/10" />
+      <div className="pointer-events-none absolute bottom-14 right-10 h-32 w-32 rounded-full border border-emerald-300/60 bg-white/50 dark:border-emerald-200/40 dark:bg-white/10" />
+
+      <div className="relative z-10 flex min-h-[calc(100vh-2rem)] items-center justify-center sm:min-h-[calc(100vh-3rem)]">
+      <Card className="max-w-md w-full border-white/50 bg-white/95 text-slate-900 shadow-2xl backdrop-blur-sm dark:border-slate-500/40 dark:bg-slate-900/90 dark:text-slate-100">
         <CardHeader className="text-center pb-6">
-          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/30">
-            <Heart className="w-8 h-8 text-white" />
+          <div className="w-14 h-14 rounded-xl bg-white/80 dark:bg-slate-800/80 p-2 mx-auto mb-3 shadow-md">
+            <img
+              src={APP_IMAGES.LOGOS.PRIMARY}
+              alt={`${APP_BRAND.NAME} logo`}
+              className="h-full w-full object-contain"
+            />
           </div>
-          <CardTitle className="text-2xl font-bold text-slate-900">
+          {/* <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-sky-500/25">
+            {step === 1 ? <MoonStar className="w-8 h-8 text-white" /> : <Heart className="w-8 h-8 text-white" />}
+          </div> */}
+          <CardTitle className="text-2xl font-bold text-slate-900 dark:text-slate-100">
             {step === 1 ? `Join ${APP_BRAND.NAME}` : 'Complete Registration'}
           </CardTitle>
-          <p className="text-slate-500 text-sm mt-2">
+          <p className="text-slate-600 dark:text-slate-300 text-sm mt-2">
             {step === 1 ? 'Enter your invite code to begin' : 'Fill in your details to create your account'}
           </p>
         </CardHeader>
@@ -168,7 +249,7 @@ export default function Register() {
           {step === 1 ? (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="inviteCode">Invite Code</Label>
+                <Label htmlFor="inviteCode" className="text-slate-800 dark:text-slate-100">Invite Code</Label>
                 <Input
                   id="inviteCode"
                   value={inviteCode}
@@ -184,26 +265,39 @@ export default function Register() {
               >
                 Verify Code
               </Button>
-              <p className="text-xs text-center text-slate-500">
+              <p className="text-xs text-center text-slate-600 dark:text-slate-300">
                 Don't have an invite code? Contact an administrator.
               </p>
             </div>
           ) : (
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username">Username *</Label>
+                <Label htmlFor="username" className="text-slate-800 dark:text-slate-100">
+                  Username * 
+                  {usernameError && (
+                    <span className="text-rose-600 dark:text-rose-400 text-xs ml-1">({usernameError})</span>
+                  )}
+                </Label>
                 <Input
                   id="username"
                   value={formData.username}
-                  onChange={(e) => setFormData({...formData, username: e.target.value})}
-                  placeholder="Choose a username"
+                  onChange={(e) => {
+                    const username = e.target.value;
+                    setFormData({...formData, username});
+                    setUsernameError(validateUsername(username));
+                  }}
+                  placeholder="Choose a username (3-30 characters)"
                   autoComplete="username"
                   required
+                  className={usernameError ? 'border-rose-500' : ''}
                 />
+                {!usernameError && formData.username && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">✓ Username looks good</p>
+                )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password *</Label>
+                <Label htmlFor="password" className="text-slate-800 dark:text-slate-100">Password *</Label>
                 <Input
                   id="password"
                   type="password"
@@ -217,7 +311,7 @@ export default function Register() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                <Label htmlFor="confirmPassword" className="text-slate-800 dark:text-slate-100">Confirm Password *</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
@@ -231,7 +325,7 @@ export default function Register() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="full_name">Full Name *</Label>
+                <Label htmlFor="full_name" className="text-slate-800 dark:text-slate-100">Full Name *</Label>
                 <Input
                   id="full_name"
                   value={formData.full_name}
@@ -242,7 +336,7 @@ export default function Register() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email *</Label>
+                <Label htmlFor="email" className="text-slate-800 dark:text-slate-100">Email *</Label>
                 <Input
                   id="email"
                   type="email"
@@ -254,7 +348,7 @@ export default function Register() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number *</Label>
+                <Label htmlFor="phone" className="text-slate-800 dark:text-slate-100">Phone Number *</Label>
                 <Input
                   id="phone"
                   value={formData.phone}
@@ -264,7 +358,7 @@ export default function Register() {
                 />
               </div>
 
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-600 dark:text-slate-300">
                 You can complete additional profile details (address, city, etc.) after registration.
               </p>
 
@@ -288,8 +382,15 @@ export default function Register() {
               </div>
             </form>
           )}
+
+          <div className="pt-2 text-center">
+            <Link to={APP_PATHS.LOGIN} className="text-sm font-medium text-emerald-700 hover:underline dark:text-emerald-300">
+              Back to Login
+            </Link>
+          </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

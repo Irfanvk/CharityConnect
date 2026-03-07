@@ -18,8 +18,10 @@ export default function CampaignProgress({ campaigns }) {
           <p className="text-slate-500 text-center py-8">No active campaigns</p>
         ) : (
           activeCampaigns.slice(0, 3).map((campaign) => {
-            const progress = campaign.target_amount > 0 
-              ? Math.min((campaign.collected_amount / campaign.target_amount) * 100, 100)
+            const targetAmount = Number(campaign.target_amount) || 0;
+            const collectedAmount = Number(campaign.collected_amount) || 0;
+            const progress = targetAmount > 0 
+              ? Math.min((collectedAmount / targetAmount) * 100, 100)
               : 0;
             
             return (
@@ -46,10 +48,10 @@ export default function CampaignProgress({ campaigns }) {
                 
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-600">
-                    ₹{(campaign.collected_amount || 0).toLocaleString()} raised
+                    ₹{collectedAmount.toLocaleString()} raised
                   </span>
                   <span className="font-medium text-slate-800">
-                    Goal: ₹{campaign.target_amount.toLocaleString()}
+                    Goal: ₹{targetAmount.toLocaleString()}
                   </span>
                 </div>
                 

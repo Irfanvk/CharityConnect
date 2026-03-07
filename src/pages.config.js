@@ -59,6 +59,7 @@ import Register from './pages/Register';
 import Reports from './pages/Reports';
 import Requests from './pages/Requests';
 import Settings from './pages/Settings';
+import SuperadminPanel from './pages/SuperadminPanel';
 import Login from './pages/Login';
 import __Layout from './Layout.jsx';
 
@@ -76,6 +77,7 @@ export const PAGES = {
     "Reports": Reports,
     "Requests": Requests,
     "Settings": Settings,
+    "SuperadminPanel": SuperadminPanel,
 }
 
 export const PUBLIC_PAGES = {

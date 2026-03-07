@@ -15,6 +15,7 @@ import {
   ChevronDown,
   User,
   Settings,
+  Shield,
   MessageSquare,
   FileText
 } from "lucide-react";
@@ -32,6 +33,10 @@ import PWAInstallButton from "@/components/PWAInstallButton";
 import BottomNav from "@/components/mobile/BottomNav";
 import BackButton from "@/components/mobile/BackButton";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  getDismissedNotificationIds,
+  NOTIFICATIONS_CHANGED_EVENT,
+} from "@/lib/notificationState";
 
 export default function Layout({ children, currentPageName }) {
   const { user: authUser, isAuthenticated, logout } = useAuth();
@@ -50,12 +55,20 @@ export default function Layout({ children, currentPageName }) {
 
     loadNotifications();
 
+    const handleNotificationsChanged = () => {
+      loadNotifications();
+    };
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, handleNotificationsChanged);
+
     // Real-time subscription for notifications
     const unsubscribe = charityClient.notifications.subscribe?.(() => {
       loadNotifications();
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe?.();
+      window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, handleNotificationsChanged);
+    };
   }, [currentUser]);
 
   const loadUser = async () => {
@@ -81,7 +94,9 @@ export default function Layout({ children, currentPageName }) {
         return;
       }
       const notifications = await charityClient.notifications.list();
+      const dismissed = new Set(getDismissedNotificationIds(currentUser.email));
       const isNotificationRead = (notification) => {
+        if (dismissed.has(notification?.id)) return true;
         if (notification?.is_read) return true;
         return Boolean(notification?.read_by?.includes(currentUser.email));
       };
@@ -95,7 +110,8 @@ export default function Layout({ children, currentPageName }) {
     } catch (e) {}
   };
 
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
+  const isSuperadmin = currentUser?.role === 'superadmin';
   const displayName =
     currentUser?.full_name?.trim() ||
     currentUser?.username?.trim() ||
@@ -114,9 +130,14 @@ export default function Layout({ children, currentPageName }) {
     ...(hasRequestsPage ? [{ name: "Requests", href: ROUTE_KEYS.REQUESTS, path: PAGE_PATHS.REQUESTS, icon: MessageSquare }] : []),
     { name: "Notifications", href: ROUTE_KEYS.NOTIFICATIONS, path: PAGE_PATHS.NOTIFICATIONS, icon: Bell, badge: unreadCount },
     { name: "Documentation", href: ROUTE_KEYS.DOCUMENTATION, path: PAGE_PATHS.DOCUMENTATION, icon: FileText },
+    { name: "Superadmin Panel", href: ROUTE_KEYS.SUPERADMIN_PANEL, path: PAGE_PATHS.SUPERADMIN_PANEL, icon: Shield, superadminOnly: true },
   ];
 
-  const filteredNav = navigation.filter(item => !item.adminOnly || isAdmin);
+  const filteredNav = navigation.filter(item => {
+    if (item.superadminOnly) return isSuperadmin;
+    if (item.adminOnly) return isAdmin;
+    return true;
+  });
 
   const mainPages = [ROUTE_KEYS.DASHBOARD, ROUTE_KEYS.MEMBERS, ROUTE_KEYS.CHALLANS, ROUTE_KEYS.CAMPAIGNS, ROUTE_KEYS.PROFILE];
   const isMainPage = mainPages.includes(currentPageName);
