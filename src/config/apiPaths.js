@@ -40,6 +40,8 @@ export const API_PATHS = {
     byId: (id) => `/notifications/${id}`,
     read: (id) => `/notifications/${id}/read`,
     markAllRead: '/notifications/mark-all-read',
+    unreadCount: '/notifications/unread/count',
+    adminSent: '/notifications/admin/sent',
   },
   invites: {
     list: '/invites/',

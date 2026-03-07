@@ -506,6 +506,103 @@ const charityClient = {
   },
 
   notifications: {
+    /**
+     * Create and send notification (matches TypeScript interface)
+     * @param {Object} payload - Notification data
+     * @param {string} payload.title - Notification title
+     * @param {string} payload.message - Notification message
+     * @param {number} [payload.user_id] - Optional specific user ID
+     * @param {'member' | 'admin' | 'superadmin'} [payload.target_role] - Optional role broadcast
+     * @returns {Promise<{sent_count: number, message: string}>}
+     */
+    create: async (payload) => {
+      return apiFetch(API_PATHS.notifications.list, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+
+    /**
+     * Get current user's notifications
+     * @param {Object} [params] - Query parameters
+     * @param {number} [params.skip] - Pagination offset (default: 0)
+     * @param {number} [params.limit] - Max records (default: 50)
+     * @returns {Promise<Array>}
+     */
+    listMine: async (params = {}) => {
+      const query = {
+        skip: params?.skip ?? 0,
+        limit: params?.limit ?? 50,
+      };
+      const data = await apiFetch(API_PATHS.notifications.list, { method: 'GET' }, query);
+      return extractArray(data).map(normalizeNotification);
+    },
+
+    /**
+     * Get unread notifications count
+     * @returns {Promise<number>}
+     */
+    unreadCount: async () => {
+      const data = await apiFetch(API_PATHS.notifications.unreadCount, { method: 'GET' });
+      return data?.unread_count ?? 0;
+    },
+
+    /**
+     * Mark a notification as read
+     * @param {number} notificationId - Notification ID
+     * @returns {Promise<Object>}
+     */
+    markRead: async (notificationId) => {
+      return normalizeNotification(
+        await apiFetch(API_PATHS.notifications.read(notificationId), { method: 'PUT' })
+      );
+    },
+
+    /**
+     * Mark all notifications as read
+     * @returns {Promise<{marked_read: number, message: string}>}
+     */
+    markAllRead: async () => {
+      return apiFetch(API_PATHS.notifications.markAllRead, { method: 'POST' });
+    },
+
+    /**
+     * List sent notification batches (Admin only)
+     * @param {Object} [params] - Query parameters
+     * @param {number} [params.minutes] - Time window in minutes (default: 10080 = 7 days)
+     * @param {'all' | 'members' | 'admins' | 'superadmins'} [params.audience_filter] - Filter by audience
+     * @param {number} [params.skip] - Pagination offset (default: 0)
+     * @param {number} [params.limit] - Max records (default: 50)
+     * @returns {Promise<Array>}
+     */
+    listSentBatches: async (params = {}) => {
+      const query = {
+        minutes: params?.minutes ?? 10080,
+        audience_filter: params?.audience_filter ?? 'all',
+        skip: params?.skip ?? 0,
+        limit: params?.limit ?? 50,
+      };
+      const data = await apiFetch(API_PATHS.notifications.adminSent, { method: 'GET' }, query);
+      return extractArray(data);
+    },
+
+    /**
+     * Delete a sent notification batch (Admin only)
+     * @param {Object} payload - Batch identification
+     * @param {string} payload.batch_created_at - ISO timestamp of batch creation
+     * @param {string} payload.title - Notification title
+     * @param {string} payload.message - Notification message
+     * @param {'all' | 'members' | 'admins' | 'superadmins'} payload.recipient_scope - Recipient scope
+     * @returns {Promise<{deleted_count: number, message: string}>}
+     */
+    deleteSentBatch: async (payload) => {
+      return apiFetch(API_PATHS.notifications.adminSent, {
+        method: 'DELETE',
+        body: JSON.stringify(payload),
+      });
+    },
+
+    // Legacy methods (keep for backward compatibility)
     list: async (query = {}) => {
       const data = await apiFetch(API_PATHS.notifications.list, { method: 'GET' }, query);
       return extractArray(data).map(normalizeNotification);
@@ -531,12 +628,6 @@ const charityClient = {
       });
     },
 
-    create: (data) =>
-      apiFetch(API_PATHS.notifications.list, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-
     update: (id, data) =>
       apiFetch(API_PATHS.notifications.byId(id), {
         method: 'PUT',
@@ -552,7 +643,6 @@ const charityClient = {
     markAllAsRead: () =>
       apiFetch(API_PATHS.notifications.markAllRead, { method: 'POST' }),
     
-    // Keep subscribe method for compatibility if it exists
     subscribe: (callback) => {
       // SSE or websocket subscription logic if needed
       void callback;
