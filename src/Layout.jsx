@@ -103,7 +103,7 @@ export default function Layout({ children, currentPageName }) {
       const unread = notifications.filter(n => {
         if (!n.target_type || n.target_type === 'all') return !isNotificationRead(n);
         if (n.target_type === 'member') return n.target_member_id === currentUser.email && !isNotificationRead(n);
-        if (n.target_type === 'admins' && currentUser.role === 'admin') return !isNotificationRead(n);
+        if (n.target_type === 'admins' && (currentUser.role === 'admin' || currentUser.role === 'superadmin')) return !isNotificationRead(n);
         return !isNotificationRead(n);
       });
       setUnreadCount(unread.length);

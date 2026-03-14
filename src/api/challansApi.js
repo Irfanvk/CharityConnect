@@ -7,14 +7,16 @@ export const createChallan = async (challanData) => {
 
 // Upload payment proof for a challan
 export const uploadPaymentProof = async (challanId, file) => {
-  const formData = new FormData();
-  formData.append("file", file);
-  return await charityClient.challans.uploadProof(challanId, formData);
+  return await charityClient.challans.uploadProof(challanId, file);
 };
 
 // Get all challans with optional filters (Admin only)
 export const getAllChallans = async (skip = 0, limit = 100, statusFilter = null) => {
-  return await charityClient.challans.getAll({ skip, limit, status_filter: statusFilter });
+  const query = { skip, limit };
+  if (statusFilter) {
+    query.status = statusFilter;
+  }
+  return await charityClient.challans.list(query);
 };
 
 // Get challans for a specific member (Admin or self)
@@ -24,7 +26,7 @@ export const getMemberChallans = async (memberId, skip = 0, limit = 100) => {
 
 // Get single challan by ID (Admin or owner)
 export const getChallanById = async (challanId) => {
-  return await charityClient.challans.getById(challanId);
+  return await charityClient.challans.get(challanId);
 };
 
 // Approve a challan (Admin only)

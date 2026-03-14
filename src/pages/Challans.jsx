@@ -146,7 +146,7 @@ export default function Challans() {
   // FIX: isAdmin moved here — BEFORE createMutation — so the mutation closure
   // captures the correct value. In the original it was defined ~40 lines later,
   // meaning isAdmin was always undefined inside the mutation.
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
 
   // ── Debounced search ──────────────────────────────────────────────────────
   // Only included in the query key (and sent to the API) after the user

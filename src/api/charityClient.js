@@ -393,8 +393,8 @@ const charityClient = {
     
     get: async (id) => normalizeChallan(await apiFetch(API_PATHS.challans.byId(id), { method: 'GET' })),
     
-    getByMember: async (memberId) => {
-      const data = await apiFetch(API_PATHS.challans.byMember(memberId), { method: 'GET' });
+    getByMember: async (memberId, query = {}) => {
+      const data = await apiFetch(API_PATHS.challans.byMember(memberId), { method: 'GET' }, query);
       return extractArray(data).map(normalizeChallan);
     },
     

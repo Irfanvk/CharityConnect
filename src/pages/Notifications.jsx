@@ -92,10 +92,10 @@ export default function Notifications() {
   const deleteMutation = useMutation({
     mutationFn: async ({ id, title, isAdmin }) => {
       await charityClient.notifications.delete(id);
-      // Log audit if admin deleted
+      // Log audit for admin deletion action
       if (isAdmin) {
         await charityClient.auditLogs.create({
-          action_type: "notification_deleted",
+          action_type: "notification_deleted_record",
           performed_by: user?.email,
           performed_by_name: user?.full_name,
           target_type: "Notification",
@@ -248,7 +248,7 @@ export default function Notifications() {
                             setDeleteTarget(notification);
                           }}
                           className="text-slate-400 hover:text-rose-500"
-                          title={isAdmin ? "Delete for everyone" : "Remove notification"}
+                          title={isAdmin ? "Delete this notification record" : "Remove notification"}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -266,11 +266,11 @@ export default function Notifications() {
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader className="space-y-2">
-            <AlertDialogTitle>{isAdmin ? "Delete Notification" : "Remove Notification"}</AlertDialogTitle>
+            <AlertDialogTitle>{isAdmin ? "Delete Notification Record" : "Remove Notification"}</AlertDialogTitle>
             <AlertDialogDescription>
               {isAdmin ? (
                 <>
-                  Are you sure you want to delete <strong>{deleteTarget?.title}</strong> for everyone?
+                  Are you sure you want to delete <strong>{deleteTarget?.title}</strong>?
                 </>
               ) : (
                 <>

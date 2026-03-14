@@ -178,7 +178,7 @@ export default function Campaigns() {
     }
   };
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
 
   const filteredCampaigns = campaigns.filter(c => 
     statusFilter === 'all' || c.status === statusFilter

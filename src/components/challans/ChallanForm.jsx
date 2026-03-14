@@ -31,7 +31,7 @@ export default function ChallanForm({
   suggestedNumber,
   currentUser 
 }) {
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const normalizeId = (value) => (value === null || value === undefined ? '' : String(value));
   const areSameId = (left, right) => normalizeId(left) === normalizeId(right);
 
