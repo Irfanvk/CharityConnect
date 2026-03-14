@@ -79,7 +79,7 @@ export default function Settings() {
     setLoading(false);
   };
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
 
   if (!isAdmin) {
     return (
@@ -88,7 +88,7 @@ export default function Settings() {
           <CardContent className="p-8 text-center">
             <Shield className="w-12 h-12 text-slate-300 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-slate-800 mb-2">Access Denied</h2>
-            <p className="text-slate-500">Only administrators can access settings.</p>
+            <p className="text-slate-500">Only admin or superadmin users can access settings.</p>
           </CardContent>
         </Card>
       </div>
