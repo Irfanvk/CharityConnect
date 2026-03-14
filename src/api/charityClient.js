@@ -532,6 +532,15 @@ const charityClient = {
     },
   },
 
+  admin: {
+    wipeData: async (payload) => {
+      return apiFetch(API_PATHS.admin.wipeData, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+  },
+
   campaigns: {
     list: async (query = {}) => {
       const data = await apiFetch(API_PATHS.campaigns.list, { method: 'GET' }, query);

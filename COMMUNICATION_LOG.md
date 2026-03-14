@@ -11,6 +11,8 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-03-14 | Members page now fetches full member set via paginated batching (skip/limit loop) | Frontend | ✅ | Fixes issue where only first 100 members were visible after import |
+| 2026-03-14 | Added superadmin-only wipe action in Members page with typed confirmation (`WIPE`) and options to keep admins + wipe file storage | Both | ✅ | Frontend dialog calls backend `/admin/system/wipe`; backend preserves superadmins always |
 | 2026-03-14 | Backend `/members/import` expanded to accept historical CSV variants (`si_no`, `username`, `period`, campaign rows) | Backend | ✅ | Import now links by member_code/username/email/phone, supports campaign challans, and auto-creates campaign from `suggested_campaign_name` when missing |
 | 2026-03-14 | Members import UX now includes file guidance and static template links under superadmin import controls | Frontend | ✅ | Added links for members/monthly/campaign templates and auto-enable donation mode for challan/campaign file names |
 | 2026-03-14 | Members page actions aligned to superadmin-only creation policy | Frontend | ✅ | Non-superadmin users no longer see Add Member action; UI now mirrors backend authorization for member create/import |

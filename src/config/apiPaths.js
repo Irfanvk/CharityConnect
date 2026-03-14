@@ -32,6 +32,9 @@ export const API_PATHS = {
     approve: (bulkGroupId) => `/admin/bulk/${bulkGroupId}/approve`,
     reject: (bulkGroupId) => `/admin/bulk/${bulkGroupId}/reject`,
   },
+  admin: {
+    wipeData: '/admin/system/wipe',
+  },
   campaigns: {
     list: '/campaigns/',
     byId: (id) => `/campaigns/${id}`,

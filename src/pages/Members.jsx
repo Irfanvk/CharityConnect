@@ -49,6 +49,14 @@ export default function Members() {
   const [user, setUser] = useState(null);
   const [includeDonations, setIncludeDonations] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState(null); // { id, name }
+  const [wipeOpen, setWipeOpen] = useState(false);
+  const [wipeConfirmText, setWipeConfirmText] = useState("");
+  const [wipePurpose, setWipePurpose] = useState("");
+  const [wipePasswordOne, setWipePasswordOne] = useState("");
+  const [wipePasswordTwo, setWipePasswordTwo] = useState("");
+  const [wipePasswordThree, setWipePasswordThree] = useState("");
+  const [wipeKeepAdmins, setWipeKeepAdmins] = useState(true);
+  const [wipeFiles, setWipeFiles] = useState(true);
   const editFetchErrorShownForId = useRef(null);
   const importFileInputRef = useRef(null);
   const queryClient = useQueryClient();
@@ -68,7 +76,27 @@ export default function Members() {
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ['members'],
-    queryFn: () => charityClient.members.list({ order: '-created_date' }),
+    queryFn: async () => {
+      const pageSize = 200;
+      let skip = 0;
+      const allMembers = [];
+
+      while (true) {
+        const batch = await charityClient.members.list({
+          order: '-created_date',
+          skip,
+          limit: pageSize,
+        });
+
+        allMembers.push(...batch);
+        if (batch.length < pageSize) break;
+
+        skip += pageSize;
+        if (skip > 10000) break;
+      }
+
+      return allMembers;
+    },
   });
 
   const {
@@ -211,6 +239,43 @@ export default function Members() {
     },
   });
 
+  const wipeMutation = useMutation({
+    mutationFn: async () => {
+      return charityClient.admin.wipeData({
+        confirm_text: wipeConfirmText,
+        purpose: wipePurpose,
+        password_attempts: [wipePasswordOne, wipePasswordTwo, wipePasswordThree],
+        keep_admins: wipeKeepAdmins,
+        wipe_files: wipeFiles,
+      });
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      queryClient.invalidateQueries({ queryKey: ['challans'] });
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+
+      setWipeOpen(false);
+      setWipeConfirmText("");
+      setWipePurpose("");
+      setWipePasswordOne("");
+      setWipePasswordTwo("");
+      setWipePasswordThree("");
+
+      toast({
+        title: "System wipe completed",
+        description: `Members deleted: ${result?.members_deleted ?? 0}, Challans deleted: ${result?.challans_deleted ?? 0}, Files deleted: ${result?.files_deleted ?? 0}`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Wipe failed",
+        description: error?.message || "Unable to complete wipe operation.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSubmit = async (data) => {
     if (editingMember) {
       await updateMutation.mutateAsync({ id: editingMember.id, data });
@@ -296,6 +361,13 @@ export default function Members() {
     return sortDirection === "asc" ? comparison : -comparison;
   });
 
+  const isWipeReady =
+    wipeConfirmText.trim().toUpperCase() === 'WIPE' &&
+    wipePurpose.trim().length > 0 &&
+    wipePasswordOne.trim().length > 0 &&
+    wipePasswordTwo.trim().length > 0 &&
+    wipePasswordThree.trim().length > 0;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -355,6 +427,15 @@ export default function Members() {
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Member
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setWipeOpen(true)}
+              className="border-rose-200 text-rose-700 hover:bg-rose-50"
+            >
+              Wipe Data
             </Button>
             </div>
           </div>
@@ -576,6 +657,98 @@ export default function Members() {
               }}
             >
               Yes, Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Wipe Confirmation Dialog (Superadmin) */}
+      <AlertDialog open={wipeOpen} onOpenChange={setWipeOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader className="space-y-2">
+            <AlertDialogTitle>Danger Zone: Wipe Data</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete all members, challans, campaigns, invites, notifications, requests, and audit logs.
+              Superadmin users are always preserved. Admin users are optional.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-3 text-sm">
+            <div>
+              <label className="block mb-1 text-slate-700">Purpose (required)</label>
+              <Input
+                value={wipePurpose}
+                onChange={(e) => setWipePurpose(e.target.value)}
+                placeholder="Reason for wipe (recorded in DB audit log)"
+              />
+            </div>
+
+            <div>
+              <label className="block mb-1 text-slate-700">Password entry 1</label>
+              <Input
+                type="password"
+                value={wipePasswordOne}
+                onChange={(e) => setWipePasswordOne(e.target.value)}
+                placeholder="Enter your superadmin password"
+              />
+            </div>
+
+            <div>
+              <label className="block mb-1 text-slate-700">Password entry 2</label>
+              <Input
+                type="password"
+                value={wipePasswordTwo}
+                onChange={(e) => setWipePasswordTwo(e.target.value)}
+                placeholder="Re-enter your superadmin password"
+              />
+            </div>
+
+            <div>
+              <label className="block mb-1 text-slate-700">Password entry 3</label>
+              <Input
+                type="password"
+                value={wipePasswordThree}
+                onChange={(e) => setWipePasswordThree(e.target.value)}
+                placeholder="Re-enter your superadmin password again"
+              />
+            </div>
+
+            <label className="flex items-center gap-2 text-slate-700">
+              <input
+                type="checkbox"
+                checked={wipeKeepAdmins}
+                onChange={(e) => setWipeKeepAdmins(e.target.checked)}
+              />
+              Keep admin users
+            </label>
+
+            <label className="flex items-center gap-2 text-slate-700">
+              <input
+                type="checkbox"
+                checked={wipeFiles}
+                onChange={(e) => setWipeFiles(e.target.checked)}
+              />
+              Delete uploaded files from storage
+            </label>
+
+            <div>
+              <label className="block mb-1 text-slate-700">Type <strong>WIPE</strong> to confirm</label>
+              <Input
+                value={wipeConfirmText}
+                onChange={(e) => setWipeConfirmText(e.target.value)}
+                placeholder="WIPE"
+              />
+            </div>
+          </div>
+
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel disabled={wipeMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 hover:bg-rose-700 focus:ring-rose-600"
+              disabled={wipeMutation.isPending || !isWipeReady}
+              onClick={() => wipeMutation.mutate()}
+            >
+              {wipeMutation.isPending ? 'Wiping...' : 'Confirm Wipe'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

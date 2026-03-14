@@ -22,6 +22,7 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|---------|
+| 2.5 | 2026-03-14 | Patch | Members list now loads all pages (fixes 100-record cap); added superadmin-only destructive wipe control (backend API + frontend dialog with WIPE confirmation and optional admin/file retention) |
 | 2.4 | 2026-03-14 | Patch | Historical CSV compatibility: backend `/members/import` now supports `si_no/username/period/suggested_campaign_name` mapping with campaign auto-link/create; Members UI updated with import guidance + template links |
 | 2.3 | 2026-03-14 | Patch | Superadmin-only members onboarding UI + CSV/XLSX member import workflow (with optional donation-history import callbacks) |
 | 2.2 | 2026-03-08 | Patch | Documentation cleanup: removed merge/integration one-off summary files; policy updated to log future changes only in CHANGELOG/COMMUNICATION_LOG/API changelog files |
