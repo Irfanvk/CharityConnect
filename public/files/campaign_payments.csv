@@ -1,0 +1,4 @@
+campaign_payment_id,username,si_no,full_name,type,amount,period,status,payment_method,notes,suggested_campaign_name
+1,ismail_kinnaje_007,7,Ismail Kinnaje,campaign,10000,2024-2025,approved,cash,One-time/campaign donation above monthly (2024-2025 period),General Fund / One-Time Contribution 2024-2025
+2,salam_adakalakatte_023,23,Salam Adakalakatte,campaign,1000,2024-2025,approved,cash,One-time donation — no recurring monthly (non-paying member),General Fund / One-Time Contribution 2024-2025
+3,mansoor_vk_112,112,Mansoor VK Balipaguli,campaign,5000,2024-2025,approved,cash,One-time/campaign donation above monthly (2024-2025 period),General Fund / One-Time Contribution 2024-2025

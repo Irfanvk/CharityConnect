@@ -1,0 +1,3 @@
+member_code,full_name,phone,email,address,monthly_amount,join_date,status,donation_month,donation_amount,payment_method,donation_status
+MEM001,Ahmed Khan,+923001112233,ahmed@example.com,Lahore,2500,2025-01-15,active,2025-02,2500,bank transfer,approved
+MEM002,Sara Ali,+923004445566,sara@example.com,Karachi,1500,2025-02-01,active,,,,

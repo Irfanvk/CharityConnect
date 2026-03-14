@@ -213,9 +213,16 @@ export default function Members() {
       return;
     }
 
+    const looksLikeDonationFile =
+      lowerName.includes('challan') ||
+      lowerName.includes('campaign') ||
+      lowerName.includes('payment');
+
+    const effectiveIncludeDonations = looksLikeDonationFile ? true : includeDonations;
+
     await importMutation.mutateAsync({
       file,
-      includeDonationsFlag: includeDonations,
+      includeDonationsFlag: effectiveIncludeDonations,
     });
 
     event.target.value = '';
@@ -246,7 +253,19 @@ export default function Members() {
           <p className="text-slate-500">Manage your charity members</p>
         </div>
         {isSuperAdmin && (
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+          <div className="flex flex-col items-start gap-2">
+            <p className="text-xs text-slate-500 max-w-2xl">
+              Supported imports: member profile CSV/XLSX and historical donation CSVs (monthly challans/campaign payments).
+              For historical files, donation import is auto-enabled.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-3 text-xs">
+              <a href="/files/member_import.csv" target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline">Template: Members</a>
+              <a href="/files/challan_history_monthly.csv" target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline">Template: Monthly Challans</a>
+              <a href="/files/campaign_payments.csv" target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline">Template: Campaign Payments</a>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input
                 type="checkbox"
@@ -285,6 +304,7 @@ export default function Members() {
               <Plus className="w-4 h-4 mr-2" />
               Add Member
             </Button>
+            </div>
           </div>
         )}
       </div>

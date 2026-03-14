@@ -11,6 +11,8 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-03-14 | Backend `/members/import` expanded to accept historical CSV variants (`si_no`, `username`, `period`, campaign rows) | Backend | ✅ | Import now links by member_code/username/email/phone, supports campaign challans, and auto-creates campaign from `suggested_campaign_name` when missing |
+| 2026-03-14 | Members import UX now includes file guidance and static template links under superadmin import controls | Frontend | ✅ | Added links for members/monthly/campaign templates and auto-enable donation mode for challan/campaign file names |
 | 2026-03-14 | Members page actions aligned to superadmin-only creation policy | Frontend | ✅ | Non-superadmin users no longer see Add Member action; UI now mirrors backend authorization for member create/import |
 | 2026-03-14 | Added members import UI workflow for CSV/XLSX ingestion | Frontend | ✅ | Superadmin can upload `.csv/.xlsx`, toggle include donation history, and submit import to backend |
 | 2026-03-14 | Added member import API client integration and import summary callbacks | Frontend | ✅ | Added `API_PATHS.members.import` and `charityClient.members.importFromFile`; success/error toasts show created/linked/challan/skipped stats |
