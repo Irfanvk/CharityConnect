@@ -83,18 +83,23 @@ export default function ChallanForm({
       ? monthlyAmount * monthsToPay.length
       : Number(formData.amount);
     
-    await onSubmit({
-      ...formData,
-      challan_number: suggestedNumber,
-      member_name: member?.full_name,
-      campaign_name: campaign?.title,
-      amount: totalAmount,
-      member_monthly_amount: monthlyAmount,
-      selected_months: formData.type === 'monthly' ? monthsToPay : [],
-      months_covered: formData.type === 'monthly' ? monthsToPay : undefined,
-      months_count: formData.type === 'monthly' ? monthsToPay.length : 1,
-      month: formData.type === 'monthly' ? monthsToPay[0] : undefined
-    });
+await onSubmit({
+  ...formData,
+  // ✅ Parse to int or null — never send empty string for integer fields
+  member_id: formData.member_id !== '' ? parseInt(formData.member_id, 10) : null,
+  campaign_id: formData.campaign_id !== '' && formData.campaign_id !== '__no_campaign'
+    ? parseInt(formData.campaign_id, 10)
+    : null,
+  challan_number: suggestedNumber,
+  member_name: member?.full_name,
+  campaign_name: campaign?.title,
+  amount: totalAmount,
+  member_monthly_amount: monthlyAmount,
+  selected_months: formData.type === 'monthly' ? monthsToPay : [],
+  months_covered: formData.type === 'monthly' ? monthsToPay : undefined,
+  months_count: formData.type === 'monthly' ? monthsToPay.length : 1,
+  month: formData.type === 'monthly' ? monthsToPay[0] : undefined
+});
     setLoading(false);
     setSelectedMonths([]);
   };
