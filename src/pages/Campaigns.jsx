@@ -16,6 +16,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/components/ui/use-toast";
 import { differenceInDays } from "date-fns";
 import CampaignForm from "@/components/campaigns/CampaignForm";
 import CampaignAnalytics from "@/components/campaigns/CampaignAnalytics";
@@ -35,8 +46,10 @@ export default function Campaigns() {
   const [viewMode, setViewMode] = useState("campaigns"); // "campaigns" or "analytics"
   const [recurringFormOpen, setRecurringFormOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null); // { id, title }
   
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   useEffect(() => {
     charityClient.auth.me().then(setUser).catch(() => {});
@@ -132,7 +145,20 @@ export default function Campaigns() {
         target_name: title
       });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['campaigns'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      toast({
+        title: "Campaign deleted",
+        description: "Campaign was deleted successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Delete failed",
+        description: error?.message || "Unable to delete campaign.",
+        variant: "destructive",
+      });
+    },
   });
 
   const createRecurringMutation = useMutation({
@@ -299,7 +325,7 @@ export default function Campaigns() {
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem 
-                            onClick={() => deleteMutation.mutate({ id: campaign.id, title: campaign.title })}
+                            onClick={() => setDeleteTarget({ id: campaign.id, title: campaign.title })}
                             className="text-rose-600"
                           >
                             <Trash2 className="w-4 h-4 mr-2" />
@@ -356,6 +382,30 @@ export default function Campaigns() {
       )}
         </>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader className="space-y-2">
+            <AlertDialogTitle>Delete Campaign</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{deleteTarget?.title}</strong>? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 hover:bg-rose-700 focus:ring-rose-600"
+              onClick={() => {
+                deleteMutation.mutate(deleteTarget);
+                setDeleteTarget(null);
+              }}
+            >
+              Yes, Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Campaign Form */}
       <CampaignForm

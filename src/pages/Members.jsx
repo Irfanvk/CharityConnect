@@ -20,6 +20,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Plus, Search, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import MemberForm from "@/components/members/MemberForm";
@@ -32,10 +42,13 @@ const statusConfig = {
 
 export default function Members() {
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("name");
+  const [sortDirection, setSortDirection] = useState("asc");
   const [formOpen, setFormOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [user, setUser] = useState(null);
   const [includeDonations, setIncludeDonations] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState(null); // { id, name }
   const editFetchErrorShownForId = useRef(null);
   const importFileInputRef = useRef(null);
   const queryClient = useQueryClient();
@@ -145,7 +158,20 @@ export default function Members() {
         target_name: name
       });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['members'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      toast({
+        title: "Member deleted",
+        description: "Member was deleted successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Delete failed",
+        description: error?.message || "Unable to delete member. They may have related records.",
+        variant: "destructive",
+      });
+    },
   });
 
   const importMutation = useMutation({
@@ -243,6 +269,32 @@ export default function Members() {
     m.member_id?.toLowerCase().includes(search.toLowerCase()) ||
     m.phone?.includes(search)
   );
+
+  const sortedMembers = [...filteredMembers].sort((a, b) => {
+    let left = "";
+    let right = "";
+
+    if (sortBy === "id") {
+      // Compare on numeric member code segment when available (e.g. MEM-0012)
+      const leftMatch = String(a.member_id || "").match(/(\d+)/);
+      const rightMatch = String(b.member_id || "").match(/(\d+)/);
+      const leftNum = leftMatch ? Number(leftMatch[1]) : NaN;
+      const rightNum = rightMatch ? Number(rightMatch[1]) : NaN;
+
+      if (!Number.isNaN(leftNum) && !Number.isNaN(rightNum)) {
+        return sortDirection === "asc" ? leftNum - rightNum : rightNum - leftNum;
+      }
+
+      left = String(a.member_id || "").toLowerCase();
+      right = String(b.member_id || "").toLowerCase();
+    } else {
+      left = String(a.full_name || "").toLowerCase();
+      right = String(b.full_name || "").toLowerCase();
+    }
+
+    const comparison = left.localeCompare(right);
+    return sortDirection === "asc" ? comparison : -comparison;
+  });
 
   return (
     <div className="space-y-6">
@@ -343,15 +395,37 @@ export default function Members() {
         </Card>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <Input
-          placeholder="Search by name, ID, or phone..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
-        />
+      {/* Search + Sort */}
+      <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+        <div className="relative max-w-md w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input
+            placeholder="Search by name, ID, or phone..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-slate-600 whitespace-nowrap">Sort by</label>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
+          >
+            <option value="name">Member Name</option>
+            <option value="id">Member ID</option>
+          </select>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setSortDirection(prev => (prev === "asc" ? "desc" : "asc"))}
+          >
+            {sortDirection === "asc" ? "Asc" : "Desc"}
+          </Button>
+        </div>
       </div>
 
       {/* Members Table */}
@@ -375,14 +449,14 @@ export default function Members() {
                     Loading members...
                   </TableCell>
                 </TableRow>
-              ) : filteredMembers.length === 0 ? (
+              ) : sortedMembers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-slate-500">
                     No members found
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredMembers.map((member) => (
+                sortedMembers.map((member) => (
                   <TableRow key={member.id} className="hover:bg-slate-50/50">
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -465,7 +539,7 @@ export default function Members() {
                           {/* Delete only for super admins */}
                           {isSuperAdmin && (
                             <DropdownMenuItem 
-                              onClick={() => deleteMutation.mutate({ id: member.id, name: member.full_name })}
+                              onClick={() => setDeleteTarget({ id: member.id, name: member.full_name })}
                               className="text-rose-600"
                             >
                               <Trash2 className="w-4 h-4 mr-2" />
@@ -482,6 +556,30 @@ export default function Members() {
           </Table>
         </div>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader className="space-y-2">
+            <AlertDialogTitle>Delete Member</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? This will permanently remove the member and all their challan records. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 hover:bg-rose-700 focus:ring-rose-600"
+              onClick={() => {
+                deleteMutation.mutate(deleteTarget);
+                setDeleteTarget(null);
+              }}
+            >
+              Yes, Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Member Form */}
       <MemberForm

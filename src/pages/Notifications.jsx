@@ -21,6 +21,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   Plus, Bell, Info, CheckCircle, AlertTriangle, 
   Receipt, Heart, Trash2, Loader2 
@@ -51,6 +61,7 @@ export default function Notifications() {
     target_type: 'all',
   });
   const [loading, setLoading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -234,7 +245,7 @@ export default function Notifications() {
                           size="icon"
                           onClick={(e) => { 
                             e.stopPropagation(); 
-                            handleDeleteNotification(notification);
+                            setDeleteTarget(notification);
                           }}
                           className="text-slate-400 hover:text-rose-500"
                           title={isAdmin ? "Delete for everyone" : "Remove notification"}
@@ -250,6 +261,41 @@ export default function Notifications() {
           })}
         </div>
       )}
+
+      {/* Delete/Remove Confirmation Dialog */}
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader className="space-y-2">
+            <AlertDialogTitle>{isAdmin ? "Delete Notification" : "Remove Notification"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isAdmin ? (
+                <>
+                  Are you sure you want to delete <strong>{deleteTarget?.title}</strong> for everyone?
+                </>
+              ) : (
+                <>
+                  Remove <strong>{deleteTarget?.title}</strong> from your notification list?
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 hover:bg-rose-700 focus:ring-rose-600"
+              onClick={async () => {
+                const target = deleteTarget;
+                setDeleteTarget(null);
+                if (target) {
+                  await handleDeleteNotification(target);
+                }
+              }}
+            >
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Create Notification Dialog */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
