@@ -3,7 +3,7 @@
 **Project:** CharityConnect  
 **Purpose:** Decisions, meeting minutes, and action items  
 **Owner:** Integration Lead  
-**Last Updated:** 2026-03-08
+**Last Updated:** 2026-03-14
 
 ---
 
@@ -11,6 +11,10 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-03-14 | Members page actions aligned to superadmin-only creation policy | Frontend | ✅ | Non-superadmin users no longer see Add Member action; UI now mirrors backend authorization for member create/import |
+| 2026-03-14 | Added members import UI workflow for CSV/XLSX ingestion | Frontend | ✅ | Superadmin can upload `.csv/.xlsx`, toggle include donation history, and submit import to backend |
+| 2026-03-14 | Added member import API client integration and import summary callbacks | Frontend | ✅ | Added `API_PATHS.members.import` and `charityClient.members.importFromFile`; success/error toasts show created/linked/challan/skipped stats |
+| 2026-03-14 | Updated members delete visibility guard to role-based superadmin check | Frontend | ✅ | Consolidated UI checks to `user.role === "superadmin"` for consistency with backend policy |
 | 2026-03-08 | Standardized documentation policy: future updates go only to CHANGELOG/COMMUNICATION_LOG/API changelog files | Both | ✅ | Removed temporary merge/integration summary docs from root; avoid creating one-off summary markdown files going forward |
 | 2026-03-08 | Fixed audit logs 422 validation error (empty query param handling) | Both | ✅ | Frontend filters empty params; Backend normalizer maps user_id/action/entity_type to formatted fields; Audit Logs page now functional |
 | 2026-03-08 | Fixed admin bulk operations 500 error (auth context mismatch in dict-based JWT) | Backend | ✅ | Added _is_admin_role() helper for safe dict access in admin routes; All 4 endpoints now return 200 |

@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Search, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban } from "lucide-react";
+import { Plus, Search, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import MemberForm from "@/components/members/MemberForm";
 
@@ -35,7 +35,9 @@ export default function Members() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [user, setUser] = useState(null);
+  const [includeDonations, setIncludeDonations] = useState(true);
   const editFetchErrorShownForId = useRef(null);
+  const importFileInputRef = useRef(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isSuperAdmin = user?.role === 'superadmin';
@@ -84,7 +86,7 @@ export default function Members() {
   }, [formOpen, editingMember?.id, isEditingMemberError, editingMemberError, toast]);
 
   const createMutation = useMutation({
-    mutationFn: async (data) => {
+    mutationFn: async (/** @type {any} */ data) => {
       const member = await charityClient.members.create(data);
       // Log audit
       await charityClient.auditLogs.create({
@@ -92,7 +94,7 @@ export default function Members() {
         performed_by: user?.email,
         performed_by_name: user?.full_name,
         target_type: "Member",
-        target_id: member.id,
+        target_id: member?.['id'],
         target_name: data.full_name,
         details: { member_id: data.member_id }
       });
@@ -105,7 +107,8 @@ export default function Members() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data, logStatusChange = false, oldStatus = null }) => {
+    mutationFn: async (/** @type {any} */ payload) => {
+      const { id, data, logStatusChange = false, oldStatus = null } = payload || {};
       const member = await charityClient.members.update(id, data);
       // Log audit
       const actionType = logStatusChange ? "member_status_changed" : "member_updated";
@@ -116,7 +119,7 @@ export default function Members() {
         performed_by_name: user?.full_name,
         target_type: "Member",
         target_id: id,
-        target_name: member.full_name,
+        target_name: member?.['full_name'],
         details
       });
       return member;
@@ -129,7 +132,8 @@ export default function Members() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async ({ id, name }) => {
+    mutationFn: async (/** @type {any} */ payload) => {
+      const { id, name } = payload || {};
       await charityClient.members.delete(id);
       // Log audit
       await charityClient.auditLogs.create({
@@ -144,12 +148,77 @@ export default function Members() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['members'] }),
   });
 
+  const importMutation = useMutation({
+    mutationFn: async (/** @type {any} */ payload) => {
+      const { file, includeDonationsFlag } = payload || {};
+      return charityClient.members.importFromFile(file, {
+        includeDonations: includeDonationsFlag,
+      });
+    },
+    onSuccess: (summary) => {
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      const total = summary?.total_rows ?? 0;
+      const created = summary?.members_created ?? 0;
+      const linked = summary?.members_linked_existing ?? 0;
+      const challans = summary?.challans_created ?? 0;
+      const skipped = summary?.rows_skipped ?? 0;
+      toast({
+        title: "Member import completed",
+        description: `Rows: ${total}, Created: ${created}, Linked: ${linked}, Donations: ${challans}, Skipped: ${skipped}`,
+      });
+
+      const errorList = Array.isArray(summary?.errors) ? summary.errors : [];
+      if (errorList.length > 0) {
+        toast({
+          title: "Some rows were skipped",
+          description: errorList.slice(0, 3).join(" | "),
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Import failed",
+        description: error?.message || "Unable to import members file",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSubmit = async (data) => {
     if (editingMember) {
       await updateMutation.mutateAsync({ id: editingMember.id, data });
     } else {
       await createMutation.mutateAsync(data);
     }
+  };
+
+  const handleImportClick = () => {
+    if (!isSuperAdmin) return;
+    importFileInputRef.current?.click();
+  };
+
+  const handleImportFileSelected = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const lowerName = file.name.toLowerCase();
+    if (!lowerName.endsWith('.csv') && !lowerName.endsWith('.xlsx')) {
+      toast({
+        title: "Unsupported file type",
+        description: "Please upload a .csv or .xlsx file",
+        variant: "destructive",
+      });
+      event.target.value = '';
+      return;
+    }
+
+    await importMutation.mutateAsync({
+      file,
+      includeDonationsFlag: includeDonations,
+    });
+
+    event.target.value = '';
   };
 
   const getSuggestedId = () => {
@@ -177,13 +246,46 @@ export default function Members() {
           <p className="text-slate-500">Manage your charity members</p>
         </div>
         {isSuperAdmin && (
-          <Button 
-            onClick={() => { setEditingMember(null); setFormOpen(true); }}
-            className="bg-emerald-600 hover:bg-emerald-700"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Member
-          </Button>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={includeDonations}
+                onChange={(e) => setIncludeDonations(e.target.checked)}
+              />
+              Include donation history
+            </label>
+
+            <input
+              ref={importFileInputRef}
+              type="file"
+              accept=".csv,.xlsx"
+              className="hidden"
+              onChange={handleImportFileSelected}
+            />
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleImportClick}
+              disabled={importMutation.isPending}
+            >
+              {importMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4 mr-2" />
+              )}
+              Import Members
+            </Button>
+
+            <Button 
+              onClick={() => { setEditingMember(null); setFormOpen(true); }}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Member
+            </Button>
+          </div>
         )}
       </div>
 
@@ -294,7 +396,7 @@ export default function Members() {
                       <span className="font-medium">₹{member.monthly_amount || 100}</span>
                     </TableCell>
                     <TableCell>
-                      <Badge className={statusConfig[member.status]?.color || statusConfig.active.color}>
+                      <Badge variant="outline" className={statusConfig[member.status]?.color || statusConfig.active.color}>
                         {statusConfig[member.status]?.label || 'Active'}
                       </Badge>
                     </TableCell>
@@ -341,7 +443,7 @@ export default function Members() {
                           )}
                           
                           {/* Delete only for super admins */}
-                          {user?.is_super_admin && (
+                          {isSuperAdmin && (
                             <DropdownMenuItem 
                               onClick={() => deleteMutation.mutate({ id: member.id, name: member.full_name })}
                               className="text-rose-600"

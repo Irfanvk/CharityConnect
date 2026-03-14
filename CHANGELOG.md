@@ -22,6 +22,7 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|---------|
+| 2.3 | 2026-03-14 | Patch | Superadmin-only members onboarding UI + CSV/XLSX member import workflow (with optional donation-history import callbacks) |
 | 2.2 | 2026-03-08 | Patch | Documentation cleanup: removed merge/integration one-off summary files; policy updated to log future changes only in CHANGELOG/COMMUNICATION_LOG/API changelog files |
 | 2.1 | 2026-03-08 | Patch | Critical fixes: Audit logs 422 validation, admin bulk operations 500 error; Login username/email flexibility; Registration username validation with real-time feedback |
 | 2.0 | 2026-03-06 | Minor | PWA support: mobile-installable app, offline caching, install button UX, runtime caching for API/images |
@@ -35,6 +36,44 @@ This document records all technical changes, implementations, and decisions made
 | 1.2 | 2026-03-01 | Patch | Challan role-based visibility, proof re-upload flow, status filter alignment |
 | 1.1 | 2026-02-26 | Patch | Auth/login redirect stabilization, logout visibility, API client hardening |
 | 1.0 | 2026-02-24 | Release | Phase 1 MVP complete |
+
+---
+
+## 📅 March 14, 2026 - Superadmin Member Onboarding and Import UI (Version 2.3)
+
+### 🎯 Objectives Met
+- ✅ Aligned Members page permissions with backend superadmin-only creation/import policy
+- ✅ Added CSV/XLSX member import UI with optional legacy donation-history import
+- ✅ Wired frontend API client to backend `POST /members/import`
+- ✅ Added import completion/error callbacks with actionable summary feedback
+
+### Frontend Changes
+
+1. **Members API Path + Client Wiring**
+- Added `API_PATHS.members.import` in `src/config/apiPaths.js`.
+- Added `charityClient.members.importFromFile(file, { includeDonations })` in `src/api/charityClient.js`.
+- Uses `FormData` upload and `include_donations` query parameter.
+
+2. **Members Page Import Controls**
+- Added superadmin-only controls in `src/pages/Members.jsx`:
+  - Hidden file input (`.csv,.xlsx`)
+  - "Include donation history" checkbox
+  - "Import Members" action button with loading state
+- Added file extension validation and error feedback.
+
+3. **Import Callbacks and Display Behavior**
+- On success: invalidates members query and shows summary toast with totals for created/linked/challans/skipped rows.
+- On partial failures: shows skipped-row error preview toast.
+- On hard failure: shows destructive import-failed toast.
+
+4. **Role-Based UI Alignment**
+- "Add Member" and "Import Members" actions visible only for `user.role === "superadmin"`.
+- Delete menu visibility updated to same role check for consistency.
+
+### Files Updated
+- `src/config/apiPaths.js`
+- `src/api/charityClient.js`
+- `src/pages/Members.jsx`
 
 ---
 

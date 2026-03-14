@@ -359,6 +359,21 @@ const charityClient = {
         method: 'POST',
         body: JSON.stringify(data),
       })),
+
+    importFromFile: async (file, { includeDonations = true } = {}) => {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      return apiFetch(
+        API_PATHS.members.import,
+        {
+          method: 'POST',
+          headers: {},
+          body: formData,
+        },
+        { include_donations: includeDonations }
+      );
+    },
     
     update: async (id, data) =>
       normalizeMember(await apiFetch(API_PATHS.members.byId(id), {

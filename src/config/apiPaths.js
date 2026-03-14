@@ -12,6 +12,7 @@ export const API_PATHS = {
   },
   members: {
     list: '/members/',
+    import: '/members/import',
     me: '/members/me',
     byId: (id) => `/members/${id}`,
     byCode: (code) => `/members/code/${code}`,
