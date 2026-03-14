@@ -11,6 +11,7 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-03-14 | Members panel pagination enabled with page-size options (20/50/100) | Frontend | ✅ | Added page navigation + range summary; pagination resets correctly on search/sort/page-size changes |
 | 2026-03-14 | Members page now fetches full member set via paginated batching (skip/limit loop) | Frontend | ✅ | Fixes issue where only first 100 members were visible after import |
 | 2026-03-14 | Added superadmin-only wipe action in Members page with typed confirmation (`WIPE`) and options to keep admins + wipe file storage | Both | ✅ | Frontend dialog calls backend `/admin/system/wipe`; backend preserves superadmins always |
 | 2026-03-14 | Backend `/members/import` expanded to accept historical CSV variants (`si_no`, `username`, `period`, campaign rows) | Backend | ✅ | Import now links by member_code/username/email/phone, supports campaign challans, and auto-creates campaign from `suggested_campaign_name` when missing |

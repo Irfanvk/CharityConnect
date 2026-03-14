@@ -44,6 +44,8 @@ export default function Members() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("name");
   const [sortDirection, setSortDirection] = useState("asc");
+  const [pageSize, setPageSize] = useState(20);
+  const [currentPage, setCurrentPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [user, setUser] = useState(null);
@@ -361,6 +363,23 @@ export default function Members() {
     return sortDirection === "asc" ? comparison : -comparison;
   });
 
+  const totalItems = sortedMembers.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedMembers = sortedMembers.slice(startIndex, endIndex);
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [search, sortBy, sortDirection, pageSize]);
+
+  React.useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   const isWipeReady =
     wipeConfirmText.trim().toUpperCase() === 'WIPE' &&
     wipePurpose.trim().length > 0 &&
@@ -506,6 +525,17 @@ export default function Members() {
           >
             {sortDirection === "asc" ? "Asc" : "Desc"}
           </Button>
+
+          <label className="text-sm text-slate-600 whitespace-nowrap ml-2">Per page</label>
+          <select
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
+          >
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
         </div>
       </div>
 
@@ -530,14 +560,14 @@ export default function Members() {
                     Loading members...
                   </TableCell>
                 </TableRow>
-              ) : sortedMembers.length === 0 ? (
+              ) : paginatedMembers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-slate-500">
                     No members found
                   </TableCell>
                 </TableRow>
               ) : (
-                sortedMembers.map((member) => (
+                paginatedMembers.map((member) => (
                   <TableRow key={member.id} className="hover:bg-slate-50/50">
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -637,6 +667,38 @@ export default function Members() {
           </Table>
         </div>
       </Card>
+
+      {!isLoading && totalItems > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <p className="text-sm text-slate-600">
+            Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of {totalItems} members
+          </p>
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={safePage <= 1}
+            >
+              Previous
+            </Button>
+
+            <span className="text-sm text-slate-600 px-2">
+              Page {safePage} of {totalPages}
+            </span>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safePage >= totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
