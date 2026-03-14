@@ -38,6 +38,7 @@ export default function Members() {
   const editFetchErrorShownForId = useRef(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const isSuperAdmin = user?.role === 'superadmin';
 
   const handleFormOpenChange = (open) => {
     setFormOpen(open);
@@ -175,13 +176,15 @@ export default function Members() {
           <h1 className="text-2xl font-bold text-slate-900">Members</h1>
           <p className="text-slate-500">Manage your charity members</p>
         </div>
-        <Button 
-          onClick={() => { setEditingMember(null); setFormOpen(true); }}
-          className="bg-emerald-600 hover:bg-emerald-700"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Member
-        </Button>
+        {isSuperAdmin && (
+          <Button 
+            onClick={() => { setEditingMember(null); setFormOpen(true); }}
+            className="bg-emerald-600 hover:bg-emerald-700"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Member
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
