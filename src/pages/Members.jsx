@@ -76,30 +76,24 @@ export default function Members() {
     charityClient.auth.me().then(setUser).catch(() => {});
   }, []);
 
-  const { data: members = [], isLoading } = useQuery({
-    queryKey: ['members'],
-    queryFn: async () => {
-      const pageSize = 200;
-      let skip = 0;
-      const allMembers = [];
+const { data: members = [], isLoading } = useQuery({
+  queryKey: ["members", search, sortBy, sortDirection, currentPage, pageSize],
+  queryFn: () =>
+    charityClient.members.list({
+      skip: (currentPage - 1) * pageSize,
+      limit: pageSize,
+      search,
+      sort_by: sortBy,
+      sort_order: sortDirection,
+    }),
+  keepPreviousData: true,
+});
 
-      while (true) {
-        const batch = await charityClient.members.list({
-          order: '-created_date',
-          skip,
-          limit: pageSize,
-        });
+React.useEffect(() => {
+  setCurrentPage(1);
+}, [search, sortBy, sortDirection, pageSize]);
 
-        allMembers.push(...batch);
-        if (batch.length < pageSize) break;
-
-        skip += pageSize;
-        if (skip > 10000) break;
-      }
-
-      return allMembers;
-    },
-  });
+const paginatedMembers = members;
 
   const {
     data: editingMemberDetails,
@@ -331,54 +325,54 @@ export default function Members() {
     return `MEM-${String(maxId + 1).padStart(3, '0')}`;
   };
 
-  const filteredMembers = members.filter(m =>
-    m.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-    m.member_id?.toLowerCase().includes(search.toLowerCase()) ||
-    m.phone?.includes(search)
-  );
+  // const filteredMembers = members.filter(m =>
+  //   m.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+  //   m.member_id?.toLowerCase().includes(search.toLowerCase()) ||
+  //   m.phone?.includes(search)
+  // );
 
-  const sortedMembers = [...filteredMembers].sort((a, b) => {
-    let left = "";
-    let right = "";
+  // const sortedMembers = [...filteredMembers].sort((a, b) => {
+  //   let left = "";
+  //   let right = "";
 
-    if (sortBy === "id") {
-      // Compare on numeric member code segment when available (e.g. MEM-0012)
-      const leftMatch = String(a.member_id || "").match(/(\d+)/);
-      const rightMatch = String(b.member_id || "").match(/(\d+)/);
-      const leftNum = leftMatch ? Number(leftMatch[1]) : NaN;
-      const rightNum = rightMatch ? Number(rightMatch[1]) : NaN;
+  //   if (sortBy === "id") {
+  //     // Compare on numeric member code segment when available (e.g. MEM-0012)
+  //     const leftMatch = String(a.member_id || "").match(/(\d+)/);
+  //     const rightMatch = String(b.member_id || "").match(/(\d+)/);
+  //     const leftNum = leftMatch ? Number(leftMatch[1]) : NaN;
+  //     const rightNum = rightMatch ? Number(rightMatch[1]) : NaN;
 
-      if (!Number.isNaN(leftNum) && !Number.isNaN(rightNum)) {
-        return sortDirection === "asc" ? leftNum - rightNum : rightNum - leftNum;
-      }
+  //     if (!Number.isNaN(leftNum) && !Number.isNaN(rightNum)) {
+  //       return sortDirection === "asc" ? leftNum - rightNum : rightNum - leftNum;
+  //     }
 
-      left = String(a.member_id || "").toLowerCase();
-      right = String(b.member_id || "").toLowerCase();
-    } else {
-      left = String(a.full_name || "").toLowerCase();
-      right = String(b.full_name || "").toLowerCase();
-    }
+  //     left = String(a.member_id || "").toLowerCase();
+  //     right = String(b.member_id || "").toLowerCase();
+  //   } else {
+  //     left = String(a.full_name || "").toLowerCase();
+  //     right = String(b.full_name || "").toLowerCase();
+  //   }
 
-    const comparison = left.localeCompare(right);
-    return sortDirection === "asc" ? comparison : -comparison;
-  });
+  //   const comparison = left.localeCompare(right);
+  //   return sortDirection === "asc" ? comparison : -comparison;
+  // });
 
-  const totalItems = sortedMembers.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  const safePage = Math.min(currentPage, totalPages);
-  const startIndex = (safePage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedMembers = sortedMembers.slice(startIndex, endIndex);
+  // const totalItems = sortedMembers.length;
+  // const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  // const safePage = Math.min(currentPage, totalPages);
+  // const startIndex = (safePage - 1) * pageSize;
+  // const endIndex = startIndex + pageSize;
+  // const paginatedMembers = sortedMembers.slice(startIndex, endIndex);
 
   React.useEffect(() => {
     setCurrentPage(1);
   }, [search, sortBy, sortDirection, pageSize]);
 
-  React.useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
+  // React.useEffect(() => {
+  //   if (currentPage > totalPages) {
+  //     setCurrentPage(totalPages);
+  //   }
+  // }, [currentPage, totalPages]);
 
   const isWipeReady =
     wipeConfirmText.trim().toUpperCase() === 'WIPE' &&
@@ -668,10 +662,10 @@ export default function Members() {
         </div>
       </Card>
 
-      {!isLoading && totalItems > 0 && (
+      {!isLoading && members.length > 0 && (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <p className="text-sm text-slate-600">
-            Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of {totalItems} members
+            Showing page {currentPage}
           </p>
 
           <div className="flex items-center gap-2">
@@ -679,20 +673,20 @@ export default function Members() {
               type="button"
               variant="outline"
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={safePage <= 1}
+              disabled={currentPage === 1}
             >
               Previous
             </Button>
 
             <span className="text-sm text-slate-600 px-2">
-              Page {safePage} of {totalPages}
+              Page {currentPage}
             </span>
 
             <Button
               type="button"
               variant="outline"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={safePage >= totalPages}
+              onClick={() => setCurrentPage((p) => p + 1)}
+              disabled={members.length < pageSize}
             >
               Next
             </Button>
