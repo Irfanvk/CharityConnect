@@ -18,6 +18,19 @@ const { Pages, PUBLIC_PAGES, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
 const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
 
+const ADMIN_PAGES = new Set(['Members', 'Reports', 'AuditLogs', 'Settings']);
+const SUPERADMIN_PAGES = new Set(['SuperadminPanel']);
+
+const canAccessPage = (pageKey, role) => {
+  if (SUPERADMIN_PAGES.has(pageKey)) {
+    return role === 'superadmin';
+  }
+  if (ADMIN_PAGES.has(pageKey)) {
+    return role === 'admin' || role === 'superadmin';
+  }
+  return true;
+};
+
 const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   <Layout currentPageName={currentPageName}>{children}</Layout>
   : <>{children}</>;
@@ -50,7 +63,7 @@ const SessionExpiredToastBridge = () => {
 };
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, isAuthenticated, authError, navigateToLogin, checkAppState } = useAuth();
+  const { user: authUser, isLoadingAuth, isLoadingPublicSettings, isAuthenticated, authError, navigateToLogin, checkAppState } = useAuth();
   const location = useLocation();
   const isOnLoginPage = isLoginPath(location.pathname);
   const returnToParam = new URLSearchParams(location.search).get('returnTo');
@@ -130,9 +143,13 @@ const AuthenticatedApp = () => {
           key={path}
           path={`/${path}`}
           element={
-            <LayoutWrapper currentPageName={path}>
-              <Page />
-            </LayoutWrapper>
+            canAccessPage(path, authUser?.role) ? (
+              <LayoutWrapper currentPageName={path}>
+                <Page />
+              </LayoutWrapper>
+            ) : (
+              <Navigate to={APP_PATHS.HOME} replace />
+            )
           }
         />
       ))}

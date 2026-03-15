@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { charityClient } from "@/api/charityClient";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,6 +61,7 @@ export default function Notifications() {
     target_type: 'all',
   });
   const [loading, setLoading] = useState(false);
+  const [isDeletingSentBatch, setIsDeletingSentBatch] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   
   const queryClient = useQueryClient();
@@ -75,39 +76,44 @@ export default function Notifications() {
     queryFn: () => charityClient.notifications.list({ order: '-created_date' }),
   });
 
-  const createMutation = useMutation({
-    mutationFn: (data) => charityClient.notifications.send(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      setFormOpen(false);
-      setFormData({ title: '', message: '', type: 'info', target_type: 'all' });
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => charityClient.notifications.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async ({ id, title, isAdmin }) => {
-      await charityClient.notifications.delete(id);
-      // Log audit for admin deletion action
-      if (isAdmin) {
-        await charityClient.auditLogs.create({
-          action_type: "notification_deleted_record",
-          performed_by: user?.email,
-          performed_by_name: user?.full_name,
-          target_type: "Notification",
-          target_id: id,
-          target_name: title
-        });
-      }
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
-  });
-
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+
+  const { data: sentBatches = [], isLoading: isLoadingSentBatches } = useQuery({
+    queryKey: ['notifications', 'sent-batches'],
+    queryFn: () => charityClient.notifications.listSentBatches({ minutes: 10080, limit: 25 }),
+    enabled: isAdmin,
+  });
+
+  const handleCreateNotification = async (payload) => {
+    await charityClient.notifications.send(payload);
+    await queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    setFormOpen(false);
+    setFormData({ title: '', message: '', type: 'info', target_type: 'all' });
+  };
+
+  const handleDeleteSentBatch = async (payload) => {
+    try {
+      setIsDeletingSentBatch(true);
+      await charityClient.notifications.deleteSentBatch(payload);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['notifications', 'sent-batches'] }),
+        queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+      ]);
+      emitNotificationsChanged('deleted');
+      toast({
+        title: 'Sent batch deleted',
+        description: 'Selected sent notification batch has been removed.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Batch delete failed',
+        description: error?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeletingSentBatch(false);
+    }
+  };
 
   // Filter notifications for current user
   const userNotifications = notifications.filter(n => {
@@ -135,11 +141,16 @@ export default function Notifications() {
   const handleDeleteNotification = async (notification) => {
     try {
       if (isAdmin) {
-        await deleteMutation.mutateAsync({
-          id: notification.id,
-          title: notification.title,
-          isAdmin,
+        await charityClient.notifications.delete(notification.id);
+        await charityClient.auditLogs.create({
+          action_type: "notification_deleted_record",
+          performed_by: user?.email,
+          performed_by_name: user?.full_name,
+          target_type: "Notification",
+          target_id: notification.id,
+          target_name: notification.title,
         });
+        await queryClient.invalidateQueries({ queryKey: ['notifications'] });
         emitNotificationsChanged('deleted');
         toast({
           title: 'Notification deleted',
@@ -171,8 +182,11 @@ export default function Notifications() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    await createMutation.mutateAsync({ ...formData });
-    setLoading(false);
+    try {
+      await handleCreateNotification({ ...formData });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -195,6 +209,55 @@ export default function Notifications() {
       </div>
 
       {/* Notifications List */}
+      {isAdmin && (
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">Sent Batches</h2>
+              <p className="text-xs text-slate-500">Last 7 days</p>
+            </div>
+
+            {isLoadingSentBatches ? (
+              <div className="text-sm text-slate-500">Loading sent batches...</div>
+            ) : sentBatches.length === 0 ? (
+              <div className="text-sm text-slate-500">No sent batches found.</div>
+            ) : (
+              <div className="space-y-3">
+                {sentBatches.map((batch) => {
+                  const key = `${batch.batch_created_at}|${batch.title}|${batch.message}`;
+                  return (
+                    <div key={key} className="rounded-lg border border-slate-200 p-3 bg-slate-50">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1 min-w-0">
+                          <p className="font-medium text-slate-900 truncate">{batch.title}</p>
+                          <p className="text-sm text-slate-600 line-clamp-2">{batch.message}</p>
+                          <p className="text-xs text-slate-500">
+                            {format(new Date(batch.batch_created_at), "MMM d, yyyy 'at' h:mm a")} · {batch.audience_label} · {batch.total_recipients} recipients
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isDeletingSentBatch}
+                          onClick={() => handleDeleteSentBatch({
+                            batch_created_at: batch.batch_created_at,
+                            title: batch.title,
+                            message: batch.message,
+                            recipient_scope: 'all',
+                          })}
+                        >
+                          {isDeletingSentBatch ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete Batch'}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {isLoading ? (
         <div className="text-center py-12 text-slate-500">Loading notifications...</div>
       ) : userNotifications.length === 0 ? (
