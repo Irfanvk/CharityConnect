@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -125,6 +125,8 @@ export default function Challans() {
   // ── UI state ──────────────────────────────────────────────────────────────
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [pageSize, setPageSize] = useState(20);
+  const [currentPage, setCurrentPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [selectedChallan, setSelectedChallan] = useState(null);
@@ -242,6 +244,25 @@ export default function Challans() {
       amount: parseAmount(challan.amount),
     };
   });
+
+  const totalItems = normalisedChallans.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  const paginatedChallans = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * pageSize;
+    return normalisedChallans.slice(startIndex, startIndex + pageSize);
+  }, [normalisedChallans, safeCurrentPage, pageSize]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, debouncedSearch, pageSize]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   // ── Shared invalidation helpers ───────────────────────────────────────────
   const invalidateAll = useCallback(async () => {
@@ -488,7 +509,7 @@ export default function Challans() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  normalisedChallans.map((challan) => {
+                  paginatedChallans.map((challan) => {
                     const status = getDisplayStatus(challan);
                     const isApprovingThis = approvingId === challan.id;
                     return (
@@ -678,6 +699,56 @@ export default function Challans() {
             </Table>
           </div>
         </Card>
+
+        {!isLoading && totalItems > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p className="text-sm text-slate-500">
+              Showing {(safeCurrentPage - 1) * pageSize + 1}
+              -{Math.min(safeCurrentPage * pageSize, totalItems)} of {totalItems} challans
+            </p>
+
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-slate-500" htmlFor="challans-page-size">
+                Rows:
+              </label>
+              <select
+                id="challans-page-size"
+                className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm"
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safeCurrentPage === 1}
+              >
+                Previous
+              </Button>
+
+              <span className="text-sm text-slate-600 min-w-[92px] text-center">
+                Page {safeCurrentPage} of {totalPages}
+              </span>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={safeCurrentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Challan Form */}
         <ChallanForm

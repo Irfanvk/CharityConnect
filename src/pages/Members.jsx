@@ -30,7 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2, X } from "lucide-react";
+import { Plus, Search, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2, X, Download, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import MemberForm from "@/components/members/MemberForm";
 
@@ -62,6 +62,7 @@ export default function Members() {
   const [wipeKeepAdmins, setWipeKeepAdmins] = useState(true);
   const [wipeFiles, setWipeFiles] = useState(true);
   const [wipeNotice, setWipeNotice] = useState(null);
+    const [showSetupGuide, setShowSetupGuide] = useState(false);
   const editFetchErrorShownForId = useRef(null);
   const importFileInputRef = useRef(null);
   const challanImportFileInputRef = useRef(null);
@@ -557,114 +558,110 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
           <h1 className="text-2xl font-bold text-slate-900">Members</h1>
           <p className="text-slate-500">Manage your charity members</p>
         </div>
-        {isSuperAdmin && (
-          <div className="flex flex-col items-start gap-2">
-            <p className="text-xs text-slate-500 max-w-2xl">
-              Supported imports: member profile CSV/XLSX and historical donation CSVs (monthly challans/campaign payments).
-              For historical files, donation import is auto-enabled.
-            </p>
+          {isSuperAdmin && (
+            <div className="flex flex-col items-start gap-3">
 
-            <div className="flex flex-wrap items-center gap-3 text-xs">
-              <a href="/files/member_import.csv" target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline">Template: Members</a>
-              <a href="/files/challan_history_monthly.csv" target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline">Template: Monthly Challans</a>
-              <a href="/files/campaign_payments.csv" target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline">Template: Campaign Payments</a>
+              {/* First-time setup guide toggle */}
+              <button
+                type="button"
+                onClick={() => setShowSetupGuide((v) => !v)}
+                className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-900 transition-colors"
+              >
+                {showSetupGuide ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                First-time data setup guide
+              </button>
+
+              {showSetupGuide && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 space-y-3 max-w-2xl">
+                  <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wide">Initial Dataset Import — Required Order</p>
+                  <ol className="space-y-2 text-xs text-slate-700">
+                    <li className="flex gap-2">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">1</span>
+                      <span><strong>Create campaigns</strong> on the Campaigns page before importing campaign payments. The CSV column <code className="bg-white px-1 rounded text-[10px]">suggested_campaign_name</code> must exactly match an existing campaign title.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">2</span>
+                      <span><strong>Import Members</strong> using <code className="bg-white px-1 rounded text-[10px]">member_import.csv</code>. This creates user accounts and member profiles.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">3</span>
+                      <span><strong>Import Challan History</strong> using <code className="bg-white px-1 rounded text-[10px]">challan_history_monthly.csv</code>. One row per member per month. Use <code className="bg-white px-1 rounded text-[10px]">status=approved</code> for paid and <code className="bg-white px-1 rounded text-[10px]">status=pending</code> for unpaid months. Members must exist first.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">4</span>
+                      <span><strong>Import Campaign Payments</strong> using <code className="bg-white px-1 rounded text-[10px]">campaign_payments.csv</code>. Requires both members and campaigns to exist first.</span>
+                    </li>
+                  </ol>
+                  <div className="pt-2 border-t border-emerald-200 flex flex-wrap gap-3 text-xs">
+                    <a href="/files/member_import.csv" download className="flex items-center gap-1 text-emerald-700 hover:text-emerald-900 font-medium">
+                      <Download className="w-3 h-3" /> member_import.csv
+                    </a>
+                    <a href="/files/challan_history_monthly.csv" download className="flex items-center gap-1 text-emerald-700 hover:text-emerald-900 font-medium">
+                      <Download className="w-3 h-3" /> challan_history_monthly.csv
+                    </a>
+                    <a href="/files/campaign_payments.csv" download className="flex items-center gap-1 text-emerald-700 hover:text-emerald-900 font-medium">
+                      <Download className="w-3 h-3" /> campaign_payments.csv
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* Hidden file inputs */}
+              <input ref={importFileInputRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={handleImportFileSelected} />
+              <input ref={challanImportFileInputRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={handleChallanImportFileSelected} />
+              <input ref={campaignImportFileInputRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={handleCampaignImportFileSelected} />
+
+              {/* Action buttons */}
+              <div className="flex flex-wrap items-end gap-3">
+
+                {/* Step 2 */}
+                <div className="flex flex-col items-start gap-0.5">
+                  <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Step 2</span>
+                  <Button type="button" variant="outline" size="sm" onClick={handleImportClick} disabled={importMutation.isPending}>
+                    {importMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
+                    Import Members
+                  </Button>
+                  <label className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                    <input type="checkbox" className="w-3 h-3" checked={includeDonations} onChange={(e) => setIncludeDonations(e.target.checked)} />
+                    Include donations from file
+                  </label>
+                </div>
+
+                {/* Step 3 */}
+                <div className="flex flex-col items-start gap-0.5">
+                  <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Step 3</span>
+                  <Button type="button" variant="outline" size="sm" onClick={handleChallanImportClick} disabled={challanImportMutation.isPending}>
+                    {challanImportMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
+                    Import Challan History
+                  </Button>
+                  <span className="text-[10px] text-slate-400">Requires members first</span>
+                </div>
+
+                {/* Step 4 */}
+                <div className="flex flex-col items-start gap-0.5">
+                  <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Step 4</span>
+                  <Button type="button" variant="outline" size="sm" onClick={handleCampaignImportClick} disabled={campaignImportMutation.isPending}>
+                    {campaignImportMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
+                    Import Campaign Payments
+                  </Button>
+                  <span className="text-[10px] text-amber-600 flex items-center gap-0.5">
+                    <AlertTriangle className="w-3 h-3" /> Create campaigns first (Step 1)
+                  </span>
+                </div>
+
+                <div className="border-l border-slate-200 self-stretch hidden sm:block" />
+
+                <Button onClick={() => { setEditingMember(null); setFormOpen(true); }} size="sm" className="bg-emerald-600 hover:bg-emerald-700">
+                  <Plus className="w-4 h-4 mr-1.5" />
+                  Add Member
+                </Button>
+
+                <Button type="button" variant="outline" size="sm" onClick={() => setWipeOpen(true)} className="border-rose-200 text-rose-700 hover:bg-rose-50">
+                  Wipe Data
+                </Button>
+              </div>
             </div>
-
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-            <label className="flex items-center gap-2 text-sm text-slate-600">
-              <input
-                type="checkbox"
-                checked={includeDonations}
-                onChange={(e) => setIncludeDonations(e.target.checked)}
-              />
-              Include donation history
-            </label>
-
-            <input
-              ref={importFileInputRef}
-              type="file"
-              accept=".csv,.xlsx"
-              className="hidden"
-              onChange={handleImportFileSelected}
-            />
-
-            <input
-              ref={challanImportFileInputRef}
-              type="file"
-              accept=".csv,.xlsx"
-              className="hidden"
-              onChange={handleChallanImportFileSelected}
-            />
-
-            <input
-              ref={campaignImportFileInputRef}
-              type="file"
-              accept=".csv,.xlsx"
-              className="hidden"
-              onChange={handleCampaignImportFileSelected}
-            />
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleImportClick}
-              disabled={importMutation.isPending}
-            >
-              {importMutation.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Upload className="w-4 h-4 mr-2" />
-              )}
-              Import Members
-            </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleChallanImportClick}
-              disabled={challanImportMutation.isPending}
-            >
-              {challanImportMutation.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Upload className="w-4 h-4 mr-2" />
-              )}
-              Import Challan History
-            </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCampaignImportClick}
-              disabled={campaignImportMutation.isPending}
-            >
-              {campaignImportMutation.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Upload className="w-4 h-4 mr-2" />
-              )}
-              Import Campaign Payments
-            </Button>
-
-            <Button 
-              onClick={() => { setEditingMember(null); setFormOpen(true); }}
-              className="bg-emerald-600 hover:bg-emerald-700"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Member
-            </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setWipeOpen(true)}
-              className="border-rose-200 text-rose-700 hover:bg-rose-50"
-            >
-              Wipe Data
-            </Button>
-            </div>
-          </div>
-        )}
+          )}
       </div>
 
       {wipeNotice && (
