@@ -16,6 +16,10 @@ import { APP_IMAGES } from "@/config/appPaths";
 import BulkOperationsPanel from "@/components/dashboard/BulkOperationsPanel";
 import { getMemberSetup, isMemberSetupCompleted, saveMemberSetup } from "@/lib/memberSetup";
 
+const MEMBER_LIST_BATCH_SIZE = 200;
+const CHALLAN_LIST_BATCH_SIZE = 200;
+const CAMPAIGN_LIST_BATCH_SIZE = 200;
+
 export default function Dashboard() {
   const { user: authUser } = useAuth();
   const [user, setUser] = useState(authUser || null);
@@ -59,7 +63,27 @@ export default function Dashboard() {
 
   const { data: members = [] } = useQuery({
     queryKey: ['members'],
-    queryFn: () => charityClient.members.list(),
+    queryFn: async () => {
+      let allMembers = [];
+      let skip = 0;
+
+      while (true) {
+        const chunk = await charityClient.members.list({
+          skip,
+          limit: MEMBER_LIST_BATCH_SIZE,
+        });
+
+        allMembers = allMembers.concat(chunk);
+
+        if (chunk.length < MEMBER_LIST_BATCH_SIZE) {
+          break;
+        }
+
+        skip += MEMBER_LIST_BATCH_SIZE;
+      }
+
+      return allMembers;
+    },
   });
 
   const membersArray = Array.isArray(members) ? members : [];
@@ -70,17 +94,92 @@ export default function Dashboard() {
 
   const { data: challans } = useQuery({
     queryKey: ['challans'],
-    queryFn: () => charityClient.challans.list({ order: '-created_date', limit: 100 }),
+    queryFn: async () => {
+      let allChallans = [];
+      let skip = 0;
+
+      while (true) {
+        const chunk = await charityClient.challans.list({
+          order: '-created_date',
+          skip,
+          limit: CHALLAN_LIST_BATCH_SIZE,
+        });
+
+        allChallans = allChallans.concat(chunk);
+
+        if (chunk.length < CHALLAN_LIST_BATCH_SIZE) {
+          break;
+        }
+
+        skip += CHALLAN_LIST_BATCH_SIZE;
+      }
+
+      return allChallans;
+    },
   });
 
   const challansArray = Array.isArray(challans) ? challans : [];
 
   const { data: campaigns } = useQuery({
     queryKey: ['campaigns'],
-    queryFn: () => charityClient.campaigns.list(),
+    queryFn: async () => {
+      let allCampaigns = [];
+      let skip = 0;
+
+      while (true) {
+        const chunk = await charityClient.campaigns.list({
+          skip,
+          limit: CAMPAIGN_LIST_BATCH_SIZE,
+        });
+
+        allCampaigns = allCampaigns.concat(chunk);
+
+        if (chunk.length < CAMPAIGN_LIST_BATCH_SIZE) {
+          break;
+        }
+
+        skip += CAMPAIGN_LIST_BATCH_SIZE;
+      }
+
+      return allCampaigns;
+    },
   });
 
   const campaignsArray = Array.isArray(campaigns) ? campaigns : [];
+
+  const campaignStatsById = challansArray.reduce((acc, challan) => {
+    const challanType = challan?.backend_type || challan?.type;
+    if (challanType !== 'campaign' || !challan?.campaign_id || challan?.status !== 'approved') {
+      return acc;
+    }
+
+    const campaignId = challan.campaign_id;
+    if (!acc[campaignId]) {
+      acc[campaignId] = {
+        collected_amount: 0,
+        donorIds: new Set(),
+      };
+    }
+
+    acc[campaignId].collected_amount += Number(challan.amount || 0);
+    if (challan.member_id) {
+      acc[campaignId].donorIds.add(challan.member_id);
+    }
+
+    return acc;
+  }, {});
+
+  const campaignsWithStats = campaignsArray.map((campaign) => {
+    const stats = campaignStatsById[campaign.id];
+    const computedCollected = stats?.collected_amount ?? 0;
+    const computedDonors = stats?.donorIds?.size ?? 0;
+
+    return {
+      ...campaign,
+      collected_amount: campaign.collected_amount ?? computedCollected,
+      participants_count: campaign.participants_count ?? computedDonors,
+    };
+  });
 
   const handleRefresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ['members'] });
@@ -124,7 +223,7 @@ export default function Dashboard() {
     .filter(c => c.status === 'approved')
     .reduce((sum, c) => sum + (c.amount || 0), 0);
   const pendingApprovals = challansArray.filter(c => c.status === 'pending' || c.status === 'proof_uploaded').length;
-  const activeCampaigns = campaignsArray.filter(c => c.status === 'active').length;
+  const activeCampaigns = campaignsWithStats.filter(c => c.status === 'active').length;
 
   // Monthly collection
   const currentMonth = new Date();
@@ -179,7 +278,7 @@ export default function Dashboard() {
           <SuperAdminDashboard 
           members={membersArray}
           challans={challansArray}
-          campaigns={campaignsArray}
+          campaigns={campaignsWithStats}
           auditLogs={auditLogsArray}
           recurringDonations={recurringDonationsArray}
         />
@@ -319,7 +418,7 @@ export default function Dashboard() {
             <StatsCard
               title="Active Campaigns"
               value={activeCampaigns}
-              subtitle={`${campaignsArray.length} total campaigns`}
+              subtitle={`${campaignsWithStats.length} total campaigns`}
               icon={Heart}
               trend={0}
               color="rose"
@@ -366,7 +465,7 @@ export default function Dashboard() {
       {/* Activity & Campaigns */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <RecentActivity challans={isAdmin ? challansArray : userChallans} />
-        <CampaignProgress campaigns={campaignsArray} />
+        <CampaignProgress campaigns={campaignsWithStats} />
       </div>
       </>
       )}
