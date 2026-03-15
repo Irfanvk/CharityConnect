@@ -19,6 +19,7 @@ export const API_PATHS = {
   },
   challans: {
     list: '/challans/',
+    importHistory: '/challans/import/history',
     byId: (id) => `/challans/${id}`,
     byMember: (memberId) => `/challans/member/${memberId}`,
     uploadProof: (id) => `/challans/${id}/upload-proof`,
@@ -37,6 +38,7 @@ export const API_PATHS = {
   },
   campaigns: {
     list: '/campaigns/',
+    importPayments: '/campaigns/import/payments',
     byId: (id) => `/campaigns/${id}`,
   },
   notifications: {

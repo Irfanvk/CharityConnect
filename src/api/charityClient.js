@@ -498,6 +498,17 @@ const charityClient = {
 
       return normalizeBulkOperation(result);
     },
+
+    importHistoryFromFile: async (file) => {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      return apiFetch(API_PATHS.challans.importHistory, {
+        method: 'POST',
+        headers: {},
+        body: formData,
+      });
+    },
   },
 
   bulkOperations: {
@@ -564,6 +575,17 @@ const charityClient = {
     
     delete: (id) =>
       apiFetch(API_PATHS.campaigns.byId(id), { method: 'DELETE' }),
+
+    importPaymentsFromFile: async (file) => {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      return apiFetch(API_PATHS.campaigns.importPayments, {
+        method: 'POST',
+        headers: {},
+        body: formData,
+      });
+    },
   },
 
   notifications: {

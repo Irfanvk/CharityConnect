@@ -61,6 +61,8 @@ export default function Members() {
   const [wipeFiles, setWipeFiles] = useState(true);
   const editFetchErrorShownForId = useRef(null);
   const importFileInputRef = useRef(null);
+  const challanImportFileInputRef = useRef(null);
+  const campaignImportFileInputRef = useRef(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isSuperAdmin = user?.role === 'superadmin';
@@ -235,6 +237,70 @@ const paginatedMembers = members;
     },
   });
 
+  const challanImportMutation = useMutation({
+    mutationFn: async (file) => charityClient.challans.importHistoryFromFile(file),
+    onSuccess: (summary) => {
+      queryClient.invalidateQueries({ queryKey: ['challans'] });
+      const total = summary?.total_rows ?? 0;
+      const created = summary?.challans_created ?? 0;
+      const linked = summary?.members_linked_existing ?? 0;
+      const skipped = summary?.rows_skipped ?? 0;
+      toast({
+        title: "Challan history import completed",
+        description: `Rows: ${total}, Challans: ${created}, Linked: ${linked}, Skipped: ${skipped}`,
+      });
+
+      const errorList = Array.isArray(summary?.errors) ? summary.errors : [];
+      if (errorList.length > 0) {
+        toast({
+          title: "Some rows were skipped",
+          description: errorList.slice(0, 3).join(" | "),
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Challan import failed",
+        description: error?.message || "Unable to import challan history file",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const campaignImportMutation = useMutation({
+    mutationFn: async (file) => charityClient.campaigns.importPaymentsFromFile(file),
+    onSuccess: (summary) => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['challans'] });
+      const total = summary?.total_rows ?? 0;
+      const campaigns = summary?.campaigns_created ?? 0;
+      const challans = summary?.challans_created ?? 0;
+      const linked = summary?.members_linked_existing ?? 0;
+      const skipped = summary?.rows_skipped ?? 0;
+      toast({
+        title: "Campaign payments import completed",
+        description: `Rows: ${total}, Campaigns: ${campaigns}, Challans: ${challans}, Linked: ${linked}, Skipped: ${skipped}`,
+      });
+
+      const errorList = Array.isArray(summary?.errors) ? summary.errors : [];
+      if (errorList.length > 0) {
+        toast({
+          title: "Some rows were skipped",
+          description: errorList.slice(0, 3).join(" | "),
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Campaign import failed",
+        description: error?.message || "Unable to import campaign payments file",
+        variant: "destructive",
+      });
+    },
+  });
+
   const wipeMutation = useMutation({
     mutationFn: async () => {
       return charityClient.admin.wipeData({
@@ -285,12 +351,16 @@ const paginatedMembers = members;
     importFileInputRef.current?.click();
   };
 
+  const hasValidImportExtension = (filename = "") => {
+    const lowerName = filename.toLowerCase();
+    return lowerName.endsWith('.csv') || lowerName.endsWith('.xlsx');
+  };
+
   const handleImportFileSelected = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const lowerName = file.name.toLowerCase();
-    if (!lowerName.endsWith('.csv') && !lowerName.endsWith('.xlsx')) {
+    if (!hasValidImportExtension(file.name)) {
       toast({
         title: "Unsupported file type",
         description: "Please upload a .csv or .xlsx file",
@@ -299,6 +369,8 @@ const paginatedMembers = members;
       event.target.value = '';
       return;
     }
+
+    const lowerName = file.name.toLowerCase();
 
     const looksLikeDonationFile =
       lowerName.includes('challan') ||
@@ -312,6 +384,52 @@ const paginatedMembers = members;
       includeDonationsFlag: effectiveIncludeDonations,
     });
 
+    event.target.value = '';
+  };
+
+  const handleChallanImportClick = () => {
+    if (!isSuperAdmin) return;
+    challanImportFileInputRef.current?.click();
+  };
+
+  const handleCampaignImportClick = () => {
+    if (!isSuperAdmin) return;
+    campaignImportFileInputRef.current?.click();
+  };
+
+  const handleChallanImportFileSelected = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!hasValidImportExtension(file.name)) {
+      toast({
+        title: "Unsupported file type",
+        description: "Please upload a .csv or .xlsx file",
+        variant: "destructive",
+      });
+      event.target.value = '';
+      return;
+    }
+
+    await challanImportMutation.mutateAsync(file);
+    event.target.value = '';
+  };
+
+  const handleCampaignImportFileSelected = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!hasValidImportExtension(file.name)) {
+      toast({
+        title: "Unsupported file type",
+        description: "Please upload a .csv or .xlsx file",
+        variant: "destructive",
+      });
+      event.target.value = '';
+      return;
+    }
+
+    await campaignImportMutation.mutateAsync(file);
     event.target.value = '';
   };
 
@@ -420,6 +538,22 @@ const paginatedMembers = members;
               onChange={handleImportFileSelected}
             />
 
+            <input
+              ref={challanImportFileInputRef}
+              type="file"
+              accept=".csv,.xlsx"
+              className="hidden"
+              onChange={handleChallanImportFileSelected}
+            />
+
+            <input
+              ref={campaignImportFileInputRef}
+              type="file"
+              accept=".csv,.xlsx"
+              className="hidden"
+              onChange={handleCampaignImportFileSelected}
+            />
+
             <Button
               type="button"
               variant="outline"
@@ -432,6 +566,34 @@ const paginatedMembers = members;
                 <Upload className="w-4 h-4 mr-2" />
               )}
               Import Members
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleChallanImportClick}
+              disabled={challanImportMutation.isPending}
+            >
+              {challanImportMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4 mr-2" />
+              )}
+              Import Challan History
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCampaignImportClick}
+              disabled={campaignImportMutation.isPending}
+            >
+              {campaignImportMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4 mr-2" />
+              )}
+              Import Campaign Payments
             </Button>
 
             <Button 
