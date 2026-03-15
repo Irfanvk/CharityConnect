@@ -357,6 +357,14 @@ const charityClient = {
       const data = await apiFetch(API_PATHS.members.list, { method: 'GET' }, query);
       return extractArray(data).map(normalizeMember);
     },
+
+    summary: async () => {
+      const data = await apiFetch(API_PATHS.members.summary, { method: 'GET' });
+      return {
+        total_members: Number(data?.total_members || 0),
+        active_members: Number(data?.active_members || 0),
+      };
+    },
     
     me: async () => normalizeMember(await apiFetch(API_PATHS.members.me, { method: 'GET' })),
     
@@ -400,6 +408,17 @@ const charityClient = {
     list: async (query = {}) => {
       const data = await apiFetch(API_PATHS.challans.list, { method: 'GET' }, query);
       return extractArray(data).map(normalizeChallan);
+    },
+
+    summary: async (query = {}) => {
+      const data = await apiFetch(API_PATHS.challans.summary, { method: 'GET' }, query);
+      return {
+        total_challans: Number(data?.total_challans || 0),
+        approved_count: Number(data?.approved_count || 0),
+        pending_count: Number(data?.pending_count || 0),
+        total_collected: Number(data?.total_collected || 0),
+        monthly_collection: Number(data?.monthly_collection || 0),
+      };
     },
     
     get: async (id) => normalizeChallan(await apiFetch(API_PATHS.challans.byId(id), { method: 'GET' })),

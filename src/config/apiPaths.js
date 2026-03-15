@@ -12,6 +12,7 @@ export const API_PATHS = {
   },
   members: {
     list: '/members/',
+    summary: '/members/summary',
     import: '/members/import',
     me: '/members/me',
     byId: (id) => `/members/${id}`,
@@ -19,6 +20,7 @@ export const API_PATHS = {
   },
   challans: {
     list: '/challans/',
+    summary: '/challans/summary',
     importHistory: '/challans/import/history',
     byId: (id) => `/challans/${id}`,
     byMember: (memberId) => `/challans/member/${memberId}`,

@@ -16,9 +16,9 @@ import { APP_IMAGES } from "@/config/appPaths";
 import BulkOperationsPanel from "@/components/dashboard/BulkOperationsPanel";
 import { getMemberSetup, isMemberSetupCompleted, saveMemberSetup } from "@/lib/memberSetup";
 
-const MEMBER_LIST_BATCH_SIZE = 200;
-const CHALLAN_LIST_BATCH_SIZE = 200;
-const CAMPAIGN_LIST_BATCH_SIZE = 200;
+const DASHBOARD_RECENT_CHALLAN_LIMIT = 200;
+const DASHBOARD_CAMPAIGN_LIMIT = 200;
+const DASHBOARD_MEMBER_SAMPLE_LIMIT = 300;
 
 export default function Dashboard() {
   const { user: authUser } = useAuth();
@@ -27,6 +27,7 @@ export default function Dashboard() {
   const [memberSetupData, setMemberSetupData] = useState(null);
   const [adminTab, setAdminTab] = useState("overview");
   const queryClient = useQueryClient();
+  const currentMonth = format(new Date(), 'yyyy-MM');
 
   useEffect(() => {
     loadUserData();
@@ -61,129 +62,76 @@ export default function Dashboard() {
     }
   };
 
+  const isSuperAdmin = user?.is_superadmin === true || user?.role === 'superadmin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  const isMember = !!user && !isAdmin && !isSuperAdmin;
+
   const { data: members = [] } = useQuery({
-    queryKey: ['members'],
+    queryKey: ['members', 'dashboard', user?.role],
     queryFn: async () => {
-      let allMembers = [];
-      let skip = 0;
-
-      while (true) {
-        const chunk = await charityClient.members.list({
-          skip,
-          limit: MEMBER_LIST_BATCH_SIZE,
-        });
-
-        allMembers = allMembers.concat(chunk);
-
-        if (chunk.length < MEMBER_LIST_BATCH_SIZE) {
-          break;
-        }
-
-        skip += MEMBER_LIST_BATCH_SIZE;
+      if (!isAdmin) {
+        return [];
       }
 
-      return allMembers;
+      return charityClient.members.list({
+        skip: 0,
+        limit: DASHBOARD_MEMBER_SAMPLE_LIMIT,
+      });
     },
+    enabled: isAdmin,
+  });
+
+  const { data: memberSummary } = useQuery({
+    queryKey: ['members', 'summary'],
+    queryFn: () => charityClient.members.summary(),
+    enabled: isAdmin,
   });
 
   const membersArray = Array.isArray(members) ? members : [];
 
-  const memberProfile = membersArray.find(m => 
-    m.email === user?.email || m.phone === user?.phone
-  );
+  const { data: memberProfile } = useQuery({
+    queryKey: ['members', 'me'],
+    queryFn: () => charityClient.members.me(),
+    enabled: !!user && !isAdmin,
+  });
 
   const { data: challans } = useQuery({
-    queryKey: ['challans'],
-    queryFn: async () => {
-      let allChallans = [];
-      let skip = 0;
-
-      while (true) {
-        const chunk = await charityClient.challans.list({
-          order: '-created_date',
-          skip,
-          limit: CHALLAN_LIST_BATCH_SIZE,
-        });
-
-        allChallans = allChallans.concat(chunk);
-
-        if (chunk.length < CHALLAN_LIST_BATCH_SIZE) {
-          break;
-        }
-
-        skip += CHALLAN_LIST_BATCH_SIZE;
-      }
-
-      return allChallans;
-    },
+    queryKey: ['challans', 'dashboard', user?.role],
+    queryFn: () =>
+      charityClient.challans.list({
+        order: '-created_date',
+        skip: 0,
+        limit: DASHBOARD_RECENT_CHALLAN_LIMIT,
+      }),
+    enabled: !!user,
   });
 
   const challansArray = Array.isArray(challans) ? challans : [];
 
+  const { data: challanSummary } = useQuery({
+    queryKey: ['challans', 'summary', currentMonth, user?.role],
+    queryFn: () => charityClient.challans.summary({ month: currentMonth }),
+    enabled: !!user,
+  });
+
   const { data: campaigns } = useQuery({
-    queryKey: ['campaigns'],
-    queryFn: async () => {
-      let allCampaigns = [];
-      let skip = 0;
-
-      while (true) {
-        const chunk = await charityClient.campaigns.list({
-          skip,
-          limit: CAMPAIGN_LIST_BATCH_SIZE,
-        });
-
-        allCampaigns = allCampaigns.concat(chunk);
-
-        if (chunk.length < CAMPAIGN_LIST_BATCH_SIZE) {
-          break;
-        }
-
-        skip += CAMPAIGN_LIST_BATCH_SIZE;
-      }
-
-      return allCampaigns;
-    },
+    queryKey: ['campaigns', 'dashboard'],
+    queryFn: () =>
+      charityClient.campaigns.list({
+        skip: 0,
+        limit: DASHBOARD_CAMPAIGN_LIMIT,
+      }),
+    enabled: !!user,
   });
 
   const campaignsArray = Array.isArray(campaigns) ? campaigns : [];
-
-  const campaignStatsById = challansArray.reduce((acc, challan) => {
-    const challanType = challan?.backend_type || challan?.type;
-    if (challanType !== 'campaign' || !challan?.campaign_id || challan?.status !== 'approved') {
-      return acc;
-    }
-
-    const campaignId = challan.campaign_id;
-    if (!acc[campaignId]) {
-      acc[campaignId] = {
-        collected_amount: 0,
-        donorIds: new Set(),
-      };
-    }
-
-    acc[campaignId].collected_amount += Number(challan.amount || 0);
-    if (challan.member_id) {
-      acc[campaignId].donorIds.add(challan.member_id);
-    }
-
-    return acc;
-  }, {});
-
-  const campaignsWithStats = campaignsArray.map((campaign) => {
-    const stats = campaignStatsById[campaign.id];
-    const computedCollected = stats?.collected_amount ?? 0;
-    const computedDonors = stats?.donorIds?.size ?? 0;
-
-    return {
-      ...campaign,
-      collected_amount: campaign.collected_amount ?? computedCollected,
-      participants_count: campaign.participants_count ?? computedDonors,
-    };
-  });
+  const campaignsWithStats = campaignsArray;
 
   const handleRefresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ['members'] });
+    await queryClient.invalidateQueries({ queryKey: ['members', 'summary'] });
     await queryClient.invalidateQueries({ queryKey: ['challans'] });
+    await queryClient.invalidateQueries({ queryKey: ['challans', 'summary'] });
     await queryClient.invalidateQueries({ queryKey: ['campaigns'] });
     if (user?.is_superadmin) {
       await queryClient.invalidateQueries({ queryKey: ['auditLogs'] });
@@ -207,10 +155,6 @@ export default function Dashboard() {
   });
 
   const recurringDonationsArray = [];
-
-  const isSuperAdmin = user?.is_superadmin === true || user?.role === 'superadmin';
-  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
-  const isMember = !!user && !isAdmin && !isSuperAdmin;
   const displayName =
     user?.full_name?.trim() ||
     user?.username?.trim() ||
@@ -218,23 +162,16 @@ export default function Dashboard() {
     (isSuperAdmin ? "Superadmin" : isMember ? "Member" : "User");
 
   // Calculate stats
-  const activeMembers = membersArray.filter(m => m.status === 'active').length;
-  const totalCollected = challansArray
-    .filter(c => c.status === 'approved')
-    .reduce((sum, c) => sum + (c.amount || 0), 0);
-  const pendingApprovals = challansArray.filter(c => c.status === 'pending' || c.status === 'proof_uploaded').length;
+  const activeMembers = memberSummary?.active_members ?? membersArray.filter(m => m.status === 'active').length;
+  const totalMembers = memberSummary?.total_members ?? membersArray.length;
+  const totalCollected = challanSummary?.total_collected ?? 0;
+  const pendingApprovals = challanSummary?.pending_count ?? 0;
   const activeCampaigns = campaignsWithStats.filter(c => c.status === 'active').length;
-
-  // Monthly collection
-  const currentMonth = new Date();
-  const monthlyCollection = challansArray
-    .filter(c => c.status === 'approved' && c.month === format(currentMonth, 'yyyy-MM'))
-    .reduce((sum, c) => sum + (c.amount || 0), 0);
 
   // User-specific data for members
   const userChallans = challansArray.filter(c => c.created_by === user?.email);
-  const userPending = userChallans.filter(c => c.status !== 'approved' && c.status !== 'rejected').length;
-  const userApproved = userChallans.filter(c => c.status === 'approved').length;
+  const userPending = challanSummary?.pending_count ?? userChallans.filter(c => c.status !== 'approved' && c.status !== 'rejected').length;
+  const userApproved = challanSummary?.approved_count ?? userChallans.filter(c => c.status === 'approved').length;
 
   // Show superadmin dashboard if user is superadmin
   if (isSuperAdmin) {
@@ -394,7 +331,7 @@ export default function Dashboard() {
             <StatsCard
               title="Active Members"
               value={activeMembers}
-              subtitle={`${membersArray.length} total members`}
+              subtitle={`${totalMembers} total members`}
               icon={Users}
               trend={0}
               color="emerald"
@@ -428,7 +365,7 @@ export default function Dashboard() {
           <>
             <StatsCard
               title="Total Contributed"
-              value={`₹${userChallans.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0).toLocaleString()}`}
+              value={`₹${(challanSummary?.total_collected ?? userChallans.filter(c => c.status === 'approved').reduce((sum, c) => sum + (c.amount || 0), 0)).toLocaleString()}`}
               subtitle="Your total donations"
               icon={TrendingUp}
               trend={0}
