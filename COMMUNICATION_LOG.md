@@ -3,7 +3,7 @@
 **Project:** CharityConnect  
 **Purpose:** Decisions, meeting minutes, and action items  
 **Owner:** Integration Lead  
-**Last Updated:** 2026-03-14
+**Last Updated:** 2026-03-15
 
 ---
 
@@ -11,6 +11,10 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-03-15 | Dashboard and Campaign screens now load full paginated datasets for reliable totals | Frontend | ✅ | Replaced single-page fetch behavior with skip/limit batching for members, campaigns, and challans to avoid default limit caps (ex: active members showing 20) |
+| 2026-03-15 | Campaign payment import visibility fixed by backend aggregate fields on campaign responses | Both | ✅ | Backend now returns `collected_amount` + `participants_count` per campaign from approved campaign challans; frontend still includes safe fallback aggregation from challans |
+| 2026-03-15 | Wipe operation now shows dismissible 10-second result notification | Frontend | ✅ | Members page displays in-page wipe result banner with close icon and auto-dismiss timer after success/failure |
+| 2026-03-15 | Superadmin wipe password confirmation validated server-side against stored hash for all 3 entries | Backend | ✅ | `/admin/system/wipe` verifies each confirmation attempt via `verify_password` against `actor.password_hash`; no plaintext password persistence |
 | 2026-03-15 | Added dedicated CSV imports for monthly challan history and campaign payments | Both | ✅ | Superadmin can import files from Members page; backend creates challan rows and auto-resolves/creates campaign records for campaign payment imports |
 | 2026-03-14 | Members panel pagination enabled with page-size options (20/50/100) | Frontend | ✅ | Added page navigation + range summary; pagination resets correctly on search/sort/page-size changes |
 | 2026-03-14 | Members page now fetches full member set via paginated batching (skip/limit loop) | Frontend | ✅ | Fixes issue where only first 100 members were visible after import |

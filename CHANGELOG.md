@@ -22,6 +22,7 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|---------|
+| 2.8 | 2026-03-15 | Patch | Fixed dashboard member count truncation and campaign donor/collection visibility after payment imports; added backend campaign aggregate fields; improved wipe result UX (dismissible 10-second notification) |
 | 2.7 | 2026-03-15 | Minor | Added dedicated superadmin CSV/XLSX imports for challan history and campaign payments (new backend endpoints + Members UI actions + API client wiring) |
 | 2.6 | 2026-03-14 | Patch | Members list pagination added with page-size selector (20/50/100), page navigation, and visible range summary integrated with search and sorting |
 | 2.5 | 2026-03-14 | Patch | Members list now loads all pages (fixes 100-record cap); added superadmin-only destructive wipe control (backend API + frontend dialog with WIPE confirmation and optional admin/file retention) |
@@ -40,6 +41,49 @@ This document records all technical changes, implementations, and decisions made
 | 1.2 | 2026-03-01 | Patch | Challan role-based visibility, proof re-upload flow, status filter alignment |
 | 1.1 | 2026-02-26 | Patch | Auth/login redirect stabilization, logout visibility, API client hardening |
 | 1.0 | 2026-02-24 | Release | Phase 1 MVP complete |
+
+---
+
+## 📅 March 15, 2026 - Dashboard/Campaign Data Accuracy + Wipe Result UX (Version 2.8)
+
+### 🎯 Objectives Met
+- ✅ Fixed active member count being limited by backend default pagination (20 records)
+- ✅ Fixed campaign cards showing missing donor/payment totals after campaign payment import
+- ✅ Added backend campaign aggregate response fields for consistent totals across screens
+- ✅ Added wipe result notification with manual close and 10-second auto-dismiss
+
+### Frontend Changes
+
+1. **Dashboard full-data batching for accurate totals**
+- `src/pages/Dashboard.jsx` now fetches all members, campaigns, and challans using skip/limit loops.
+- Prevents first-page-only totals from showing in admin/superadmin cards.
+
+2. **Campaign totals/donor counts derived from approved challans**
+- `src/pages/Campaigns.jsx` and `src/pages/Dashboard.jsx` compute campaign `collected_amount` and donor counts from approved campaign challans.
+- Ensures imported campaign payments are reflected immediately even if aggregate fields are absent in older API payloads.
+
+3. **Wipe result notification UX**
+- `src/pages/Members.jsx` now shows an in-page result notification after wipe success/failure.
+- Notification includes close icon for optional early dismissal and auto-closes after 10 seconds.
+
+### Backend Changes
+
+1. **Campaign response aggregates exposed**
+- `app/schemas/schemas.py`: `CampaignResponse` now includes:
+  - `collected_amount: float`
+  - `participants_count: int`
+- `app/services/campaign_service.py` now computes these values from approved campaign challans for list/get/create/update responses.
+
+2. **Wipe confirmation security behavior verified**
+- `app/routes/admin_router.py` wipe flow validates all 3 password confirmation entries using `verify_password` against `actor.password_hash`.
+
+### Files Updated
+- `src/pages/Dashboard.jsx`
+- `src/pages/Campaigns.jsx`
+- `src/pages/Members.jsx`
+- `app/schemas/schemas.py`
+- `app/services/campaign_service.py`
+- `app/routes/admin_router.py` (verification path confirmed)
 
 ---
 
