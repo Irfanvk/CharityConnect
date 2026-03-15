@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -185,7 +185,11 @@ export default function Challans() {
    *   created_by → WHERE created_by = ?  (email fallback)
    */
   const buildQueryParams = useCallback(() => {
-    const params = { order: "-created_date" };
+    const params = {
+      order: "-created_date",
+      skip: (currentPage - 1) * pageSize,
+      limit: pageSize,
+    };
 
     // Status
     if (statusFilter !== "all") {
@@ -216,12 +220,22 @@ export default function Challans() {
     }
 
     return params;
-  }, [statusFilter, debouncedSearch, isAdmin, myMember?.id, user?.email]);
+  }, [statusFilter, debouncedSearch, isAdmin, myMember?.id, user?.email, currentPage, pageSize]);
 
   // ── Main challans query ───────────────────────────────────────────────────
-  const { data: challans = [], isLoading } = useQuery({
-    queryKey: ["challans", statusFilter, debouncedSearch, myMember?.id],
-    queryFn: () => charityClient.challans.list(buildQueryParams()),
+  const {
+    data: challanPage = { items: [], total: 0, skip: 0, limit: pageSize },
+    isLoading,
+  } = useQuery({
+    queryKey: [
+      "challans",
+      statusFilter,
+      debouncedSearch,
+      myMember?.id,
+      currentPage,
+      pageSize,
+    ],
+    queryFn: () => charityClient.challans.listPaginated(buildQueryParams()),
     // Wait until we know the user's role so we don't fire an unscoped request
     // that gets immediately replaced once isAdmin resolves.
     enabled: user !== null,
@@ -230,7 +244,7 @@ export default function Challans() {
   // ── Display normalisation ─────────────────────────────────────────────────
   // Server now handles status & search filtering.
   // This pass only fills in display-level fallbacks.
-  const normalisedChallans = challans.map((challan) => {
+  const normalisedChallans = challanPage.items.map((challan) => {
     const linkedMember = members.find(
       (m) => normalizeId(m.id) === normalizeId(challan.member_id)
     );
@@ -245,14 +259,9 @@ export default function Challans() {
     };
   });
 
-  const totalItems = normalisedChallans.length;
+  const totalItems = Number(challanPage.total || 0);
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
-
-  const paginatedChallans = useMemo(() => {
-    const startIndex = (safeCurrentPage - 1) * pageSize;
-    return normalisedChallans.slice(startIndex, startIndex + pageSize);
-  }, [normalisedChallans, safeCurrentPage, pageSize]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -414,7 +423,7 @@ export default function Challans() {
   const getSuggestedNumber = () => {
     const prefix = "CHN";
     const year = format(new Date(), "yy");
-    const count = challans.length + 1;
+    const count = totalItems + 1;
     return `${prefix}${year}-${String(count).padStart(4, "0")}`;
   };
 
@@ -509,7 +518,7 @@ export default function Challans() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedChallans.map((challan) => {
+                  normalisedChallans.map((challan) => {
                     const status = getDisplayStatus(challan);
                     const isApprovingThis = approvingId === challan.id;
                     return (
@@ -703,7 +712,7 @@ export default function Challans() {
         {!isLoading && totalItems > 0 && (
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <p className="text-sm text-slate-500">
-              Showing {(safeCurrentPage - 1) * pageSize + 1}
+              Showing {totalItems === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1}
               -{Math.min(safeCurrentPage * pageSize, totalItems)} of {totalItems} challans
             </p>
 
@@ -757,7 +766,7 @@ export default function Challans() {
           onSubmit={createMutation.mutateAsync}
           members={members}
           campaigns={campaigns}
-          existingChallans={challans}
+          existingChallans={normalisedChallans}
           suggestedNumber={getSuggestedNumber()}
           currentUser={user}
         />

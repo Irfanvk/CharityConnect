@@ -301,6 +301,27 @@ function extractArray(data) {
   return [];
 }
 
+function extractTotal(data, fallback = 0) {
+  if (!data || typeof data !== 'object') return fallback;
+
+  const candidates = [
+    data.total,
+    data.total_count,
+    data.count,
+    data.pagination?.total,
+    data.meta?.total,
+  ];
+
+  for (const value of candidates) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return parsed;
+    }
+  }
+
+  return fallback;
+}
+
 const charityClient = {
   auth: {
     me: async () => {
@@ -405,9 +426,20 @@ const charityClient = {
   },
 
   challans: {
-    list: async (query = {}) => {
+    listPaginated: async (query = {}) => {
       const data = await apiFetch(API_PATHS.challans.list, { method: 'GET' }, query);
-      return extractArray(data).map(normalizeChallan);
+      const items = extractArray(data).map(normalizeChallan);
+      return {
+        items,
+        total: extractTotal(data, items.length),
+        skip: Number(data?.skip || query?.skip || 0),
+        limit: Number(data?.limit || query?.limit || items.length || 0),
+      };
+    },
+
+    list: async (query = {}) => {
+      const result = await charityClient.challans.listPaginated(query);
+      return result.items;
     },
 
     summary: async (query = {}) => {
