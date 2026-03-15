@@ -3,7 +3,8 @@ import { APP_PATHS } from '@/config/appPaths';
 import { API_PATHS } from '@/config/apiPaths';
 
 const BASE_URL = import.meta.env.VITE_CHARITY_APP_BASE_URL || '';
-const DEFAULT_TIMEOUT = 15000; // 15 seconds
+const DEFAULT_TIMEOUT = 20000; // 20 seconds
+const IMPORT_TIMEOUT = 300000; // 5 minutes for large import files
 
 function shouldSkipUnauthorizedRedirect(path = '') {
   const normalizedPath = String(path || '').split('?')[0];
@@ -211,15 +212,24 @@ function normalizeBulkOperation(item) {
 }
 
 async function apiFetch(path, options = {}, query = {}) {
+  const rawOptions = options || {};
+  const timeoutMs = rawOptions?.timeoutMs;
+  const requestOptions = /** @type {any} */ ({ ...rawOptions });
+  delete requestOptions.timeoutMs;
+  const parsedTimeout = Number(timeoutMs);
+  const requestTimeout = Number.isFinite(parsedTimeout) && parsedTimeout > 0
+    ? parsedTimeout
+    : DEFAULT_TIMEOUT;
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
+  const timeoutId = setTimeout(() => controller.abort(), requestTimeout);
 
   const token = getAuthToken();
 
-  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  const isFormData = typeof FormData !== 'undefined' && requestOptions.body instanceof FormData;
   const headers = {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-    ...(options.headers || {}),
+    ...(requestOptions.headers || {}),
   };
 
   if (headers['Content-Type'] === undefined || headers['Content-Type'] === null) {
@@ -231,7 +241,7 @@ async function apiFetch(path, options = {}, query = {}) {
   }
 
   const finalOptions = {
-    ...options,
+    ...requestOptions,
     headers,
     signal: controller.signal,
   };
@@ -271,7 +281,7 @@ async function apiFetch(path, options = {}, query = {}) {
     if (error.name === 'AbortError') {
       throw {
         status: 408,
-        message: 'Request timeout. Please try again.',
+        message: `Request timeout after ${Math.round(requestTimeout / 1000)} seconds. Please try again.`,
       };
     }
 
@@ -370,6 +380,7 @@ const charityClient = {
           method: 'POST',
           headers: {},
           body: formData,
+          timeoutMs: IMPORT_TIMEOUT,
         },
         { include_donations: includeDonations }
       );

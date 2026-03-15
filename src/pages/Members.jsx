@@ -40,6 +40,8 @@ const statusConfig = {
   suspended: { label: "Suspended", color: "bg-rose-100 text-rose-700" },
 };
 
+const MEMBER_SUMMARY_BATCH_SIZE = 200;
+
 export default function Members() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("name");
@@ -91,11 +93,38 @@ const { data: members = [], isLoading } = useQuery({
   keepPreviousData: true,
 });
 
+const { data: allMembersForSummary = [] } = useQuery({
+  queryKey: ["members", "summary-counts"],
+  queryFn: async () => {
+    let allMembers = [];
+    let skip = 0;
+
+    while (true) {
+      const chunk = await charityClient.members.list({
+        skip,
+        limit: MEMBER_SUMMARY_BATCH_SIZE,
+      });
+
+      allMembers = allMembers.concat(chunk);
+
+      if (chunk.length < MEMBER_SUMMARY_BATCH_SIZE) {
+        break;
+      }
+
+      skip += MEMBER_SUMMARY_BATCH_SIZE;
+    }
+
+    return allMembers;
+  },
+});
+
 React.useEffect(() => {
   setCurrentPage(1);
 }, [search, sortBy, sortDirection, pageSize]);
 
 const paginatedMembers = members;
+const activeMembersCount = allMembersForSummary.filter((m) => m.status === "active").length;
+const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "active").length;
 
   const {
     data: editingMemberDetails,
@@ -627,7 +656,7 @@ const paginatedMembers = members;
               </div>
               <div>
                 <p className="text-2xl font-bold text-slate-900">
-                  {members.filter(m => m.status === 'active').length}
+                  {activeMembersCount}
                 </p>
                 <p className="text-sm text-slate-500">Active</p>
               </div>
@@ -642,7 +671,7 @@ const paginatedMembers = members;
               </div>
               <div>
                 <p className="text-2xl font-bold text-slate-900">
-                  {members.filter(m => m.status !== 'active').length}
+                  {inactiveMembersCount}
                 </p>
                 <p className="text-sm text-slate-500">Inactive</p>
               </div>
