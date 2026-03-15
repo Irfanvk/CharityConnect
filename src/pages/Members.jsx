@@ -30,7 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2 } from "lucide-react";
+import { Plus, Search, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2, X } from "lucide-react";
 import { format } from "date-fns";
 import MemberForm from "@/components/members/MemberForm";
 
@@ -61,6 +61,7 @@ export default function Members() {
   const [wipePasswordThree, setWipePasswordThree] = useState("");
   const [wipeKeepAdmins, setWipeKeepAdmins] = useState(true);
   const [wipeFiles, setWipeFiles] = useState(true);
+  const [wipeNotice, setWipeNotice] = useState(null);
   const editFetchErrorShownForId = useRef(null);
   const importFileInputRef = useRef(null);
   const challanImportFileInputRef = useRef(null);
@@ -353,16 +354,26 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
       setWipePasswordTwo("");
       setWipePasswordThree("");
 
-      toast({
+      const wipeDetails = [
+        `Members: ${result?.members_deleted ?? 0}`,
+        `Challans: ${result?.challans_deleted ?? 0}`,
+        `Campaigns: ${result?.campaigns_deleted ?? 0}`,
+        `Files: ${result?.files_deleted ?? 0}`,
+      ].join(" | ");
+
+      setWipeNotice({
+        id: Date.now(),
+        type: "success",
         title: "System wipe completed",
-        description: `Members deleted: ${result?.members_deleted ?? 0}, Challans deleted: ${result?.challans_deleted ?? 0}, Files deleted: ${result?.files_deleted ?? 0}`,
+        description: wipeDetails,
       });
     },
     onError: (error) => {
-      toast({
+      setWipeNotice({
+        id: Date.now(),
+        type: "error",
         title: "Wipe failed",
         description: error?.message || "Unable to complete wipe operation.",
-        variant: "destructive",
       });
     },
   });
@@ -515,6 +526,16 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
     setCurrentPage(1);
   }, [search, sortBy, sortDirection, pageSize]);
 
+  React.useEffect(() => {
+    if (!wipeNotice?.id) return undefined;
+
+    const timeoutId = setTimeout(() => {
+      setWipeNotice((current) => (current?.id === wipeNotice.id ? null : current));
+    }, 10000);
+
+    return () => clearTimeout(timeoutId);
+  }, [wipeNotice?.id]);
+
   // React.useEffect(() => {
   //   if (currentPage > totalPages) {
   //     setCurrentPage(totalPages);
@@ -645,6 +666,27 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
           </div>
         )}
       </div>
+
+      {wipeNotice && (
+        <div
+          className={`rounded-lg border px-4 py-3 pr-12 relative ${
+            wipeNotice.type === "error"
+              ? "border-rose-200 bg-rose-50 text-rose-900"
+              : "border-emerald-200 bg-emerald-50 text-emerald-900"
+          }`}
+        >
+          <p className="font-semibold text-sm">{wipeNotice.title}</p>
+          <p className="text-sm mt-1 opacity-90">{wipeNotice.description}</p>
+          <button
+            type="button"
+            aria-label="Close wipe result notification"
+            onClick={() => setWipeNotice(null)}
+            className="absolute right-2 top-2 inline-flex items-center justify-center rounded-md p-1 text-current/70 hover:text-current hover:bg-white/50"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
