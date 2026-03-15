@@ -27,10 +27,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { differenceInDays } from "date-fns";
 import CampaignForm from "@/components/campaigns/CampaignForm";
 import CampaignAnalytics from "@/components/campaigns/CampaignAnalytics";
 import RecurringDonationForm from "@/components/campaigns/RecurringDonationForm";
+import {
+  formatCampaignTargetText,
+  getCampaignProgress,
+  getCampaignRelativeEndLabel,
+  isUnlimitedTarget,
+} from "@/lib/campaigns";
 
 const CAMPAIGN_LIST_BATCH_SIZE = 200;
 const CHALLAN_LIST_BATCH_SIZE = 200;
@@ -265,7 +270,7 @@ export default function Campaigns() {
 
   // Stats
   const activeCampaigns = campaignsWithStats.filter(c => c.status === 'active');
-  const totalTarget = activeCampaigns.reduce((sum, c) => sum + (c.target_amount || 0), 0);
+  const totalTarget = activeCampaigns.reduce((sum, c) => sum + (isUnlimitedTarget(c) ? 0 : (c.target_amount || 0)), 0);
   const totalCollected = activeCampaigns.reduce((sum, c) => sum + (c.collected_amount || 0), 0);
 
   return (
@@ -342,7 +347,7 @@ export default function Campaigns() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-slate-900">₹{totalTarget.toLocaleString()}</p>
-                <p className="text-sm text-slate-500">Total Target</p>
+                <p className="text-sm text-slate-500">Total Targeted</p>
               </div>
             </div>
           </CardContent>
@@ -372,10 +377,7 @@ export default function Campaigns() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCampaigns.map((campaign) => {
-            const progress = campaign.target_amount > 0 
-              ? Math.min((campaign.collected_amount / campaign.target_amount) * 100, 100)
-              : 0;
-            const daysLeft = differenceInDays(new Date(campaign.end_date), new Date());
+            const progress = getCampaignProgress(campaign);
             const status = statusConfig[campaign.status];
 
             return (
@@ -420,14 +422,18 @@ export default function Campaigns() {
                     <p className="text-sm text-slate-500 mb-4 line-clamp-2">{campaign.description}</p>
                   )}
 
-                  <Progress value={progress} className="h-2 mb-3" />
+                  {progress !== null ? (
+                    <Progress value={progress} className="h-2 mb-3" />
+                  ) : (
+                    <div className="h-2 mb-3 rounded-full border border-dashed border-slate-200 bg-slate-50" />
+                  )}
                   
                   <div className="flex items-center justify-between text-sm mb-4">
                     <span className="text-emerald-600 font-medium">
                       ₹{(campaign.collected_amount || 0).toLocaleString()}
                     </span>
                     <span className="text-slate-500">
-                      of ₹{campaign.target_amount.toLocaleString()}
+                      of {formatCampaignTargetText(campaign)}
                     </span>
                   </div>
 
@@ -438,7 +444,7 @@ export default function Campaigns() {
                     </div>
                     <div className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
-                      {daysLeft > 0 ? `${daysLeft} days left` : 'Ended'}
+                      {getCampaignRelativeEndLabel(campaign)}
                     </div>
                   </div>
 

@@ -642,9 +642,26 @@ GET /members/?skip=0&limit=50
 {
   "title": "Ramadan Food Drive 2026",
   "description": "Providing food packages for families in need during Ramadan",
+  "target_mode": "targeted",
   "target_amount": 50000.0,
+  "min_amount": 100.0,
   "start_date": "2026-03-10T00:00:00",
+  "end_date_mode": "fixed",
   "end_date": "2026-04-10T23:59:59"
+}
+```
+
+**Unlimited / Open-Ended Example:**
+```json
+{
+  "title": "Community Relief Fund",
+  "description": "Long-running emergency support campaign",
+  "target_mode": "unlimited",
+  "target_amount": null,
+  "min_amount": 100.0,
+  "start_date": "2026-03-10T00:00:00",
+  "end_date_mode": "open",
+  "end_date": null
 }
 ```
 
@@ -654,8 +671,11 @@ GET /members/?skip=0&limit=50
   "id": 3,
   "title": "Ramadan Food Drive 2026",
   "description": "Providing food packages for families in need during Ramadan",
+  "target_mode": "targeted",
   "target_amount": 50000.0,
+  "min_amount": 100.0,
   "start_date": "2026-03-10T00:00:00",
+  "end_date_mode": "fixed",
   "end_date": "2026-04-10T23:59:59",
   "is_active": true,
   "created_at": "2026-03-03T10:00:00",
@@ -682,6 +702,13 @@ GET /members/?skip=0&limit=50
 - `limit` (integer, default: 100, min: 1, max: 500): Max records
 - `active_only` (boolean, default: false): Show only active campaigns
 
+**Response fields note:**
+- `target_mode`: `targeted` or `unlimited`
+- `target_amount`: nullable when campaign is unlimited
+- `end_date_mode`: `fixed` or `open`
+- `end_date`: nullable when campaign has no end date
+- `min_amount`: minimum allowed donation amount
+
 **Example Request:**
 ```
 GET /campaigns/?skip=0&limit=20&active_only=true
@@ -694,8 +721,11 @@ GET /campaigns/?skip=0&limit=20&active_only=true
     "id": 3,
     "title": "Ramadan Food Drive 2026",
     "description": "Providing food packages for families in need during Ramadan",
+    "target_mode": "targeted",
     "target_amount": 50000.0,
+    "min_amount": 100.0,
     "start_date": "2026-03-10T00:00:00",
+    "end_date_mode": "fixed",
     "end_date": "2026-04-10T23:59:59",
     "is_active": true,
     "created_at": "2026-03-03T10:00:00",
@@ -722,8 +752,11 @@ GET /campaigns/?skip=0&limit=20&active_only=true
   "id": 3,
   "title": "Ramadan Food Drive 2026",
   "description": "Providing food packages for families in need during Ramadan",
+  "target_mode": "targeted",
   "target_amount": 50000.0,
+  "min_amount": 100.0,
   "start_date": "2026-03-10T00:00:00",
+  "end_date_mode": "fixed",
   "end_date": "2026-04-10T23:59:59",
   "is_active": true,
   "created_at": "2026-03-03T10:00:00",
@@ -751,13 +784,16 @@ GET /campaigns/?skip=0&limit=20&active_only=true
 {
   "title": "Updated Campaign Title (optional)",
   "description": "Updated description (optional)",
+  "target_mode": "targeted",
   "target_amount": 60000.0,
+  "min_amount": 100.0,
   "start_date": "2026-03-15T00:00:00 (optional)",
+  "end_date_mode": "fixed",
   "end_date": "2026-04-15T23:59:59 (optional)",
   "is_active": false
 }
 ```
-*Note: All fields are optional. Send only fields to update.*
+*Note: All fields are optional. Send only fields to update. For unlimited/open campaigns send `target_mode: "unlimited"`, `target_amount: null`, `end_date_mode: "open"`, and `end_date: null`.*
 
 **Response (200 OK):**
 ```json
@@ -776,8 +812,11 @@ GET /campaigns/?skip=0&limit=20&active_only=true
 
 **Error Responses:**
 - **400 Bad Request:** Invalid data
-- **404 Not Found:** Campaign not found
+  "target_mode": "targeted",
+  "target_amount": 60000.0,
+  "min_amount": 100.0,
 
+  "end_date_mode": "fixed",
 ---
 
 ### 5. Delete Campaign

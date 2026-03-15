@@ -13,6 +13,12 @@ import {
   LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from "recharts";
+import {
+  formatCampaignTargetText,
+  getCampaignProgress,
+  getCampaignTargetAmount,
+  isUnlimitedTarget,
+} from "@/lib/campaigns";
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -37,7 +43,8 @@ export default function SuperAdminDashboard({
 
   // Campaign metrics
   const activeCampaigns = campaigns.filter(c => c.status === 'active');
-  const totalCampaignTarget = activeCampaigns.reduce((sum, c) => sum + c.target_amount, 0);
+  const targetedActiveCampaigns = activeCampaigns.filter((c) => !isUnlimitedTarget(c));
+  const totalCampaignTarget = targetedActiveCampaigns.reduce((sum, c) => sum + getCampaignTargetAmount(c), 0);
   const totalCampaignRaised = activeCampaigns.reduce((sum, c) => sum + (c.collected_amount || 0), 0);
   const campaignProgress = totalCampaignTarget > 0 ? (totalCampaignRaised / totalCampaignTarget * 100) : 0;
 
@@ -141,7 +148,7 @@ export default function SuperAdminDashboard({
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
               <Heart className="w-8 h-8 opacity-80" />
-              <Badge className="bg-white/20 text-white">{campaignProgress.toFixed(0)}%</Badge>
+              <Badge className="bg-white/20 text-white">{targetedActiveCampaigns.length > 0 ? `${campaignProgress.toFixed(0)}%` : 'Open'}</Badge>
             </div>
             <p className="text-3xl font-bold mb-1">{activeCampaigns.length}</p>
             <p className="text-rose-100 text-sm">Active Campaigns</p>
@@ -321,26 +328,24 @@ export default function SuperAdminDashboard({
                 <p className="text-center text-slate-500 py-4">No active campaigns</p>
               ) : (
                 activeCampaigns.slice(0, 5).map((campaign) => {
-                  const progress = campaign.target_amount > 0 
-                    ? ((campaign.collected_amount || 0) / campaign.target_amount * 100) 
-                    : 0;
+                  const progress = getCampaignProgress(campaign);
                   return (
                     <div key={campaign.id} className="p-3 rounded-lg bg-gradient-to-r from-rose-50 to-pink-50">
                       <div className="flex items-start justify-between mb-2">
                         <p className="font-medium text-slate-900 text-sm">{campaign.title}</p>
                         <Badge className="bg-emerald-100 text-emerald-700 text-xs">
-                          {progress.toFixed(0)}%
+                          {progress === null ? 'Open' : `${progress.toFixed(0)}%`}
                         </Badge>
                       </div>
                       <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                         <div 
                           className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full" 
-                          style={{ width: `${Math.min(progress, 100)}%` }}
+                          style={{ width: `${Math.min(progress ?? 100, 100)}%` }}
                         />
                       </div>
                       <div className="flex items-center justify-between mt-2 text-xs text-slate-600">
                         <span>₹{(campaign.collected_amount || 0).toLocaleString()}</span>
-                        <span>of ₹{campaign.target_amount.toLocaleString()}</span>
+                        <span>of {formatCampaignTargetText(campaign)}</span>
                       </div>
                     </div>
                   );

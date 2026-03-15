@@ -299,9 +299,14 @@ interface InviteValidate {
 interface CampaignCreate {
   title: string;
   description?: string;
-  target_amount: number;
+  target_mode: 'targeted' | 'unlimited';
+  target_amount?: number | null;
+  min_amount?: number;
   start_date: string;     // ISO 8601 datetime
-  end_date: string;       // ISO 8601 datetime
+  end_date_mode: 'fixed' | 'open';
+  end_date?: string | null; // ISO 8601 datetime
+  status?: 'active' | 'completed' | 'cancelled';
+  image_url?: string | null;
 }
 ```
 
@@ -310,9 +315,27 @@ interface CampaignCreate {
 {
   "title": "Ramadan Food Drive 2026",
   "description": "Providing food packages for families in need during Ramadan",
+  "target_mode": "targeted",
   "target_amount": 50000.0,
+  "min_amount": 100.0,
   "start_date": "2026-03-10T00:00:00",
+  "end_date_mode": "fixed",
   "end_date": "2026-04-10T23:59:59"
+}
+```
+
+**Unlimited / Open-Ended Example:**
+```json
+{
+  "title": "Community Relief Fund",
+  "description": "Long-running emergency support campaign",
+  "target_mode": "unlimited",
+  "target_amount": null,
+  "min_amount": 100.0,
+  "start_date": "2026-03-10T00:00:00",
+  "end_date_mode": "open",
+  "end_date": null,
+  "status": "active"
 }
 ```
 
@@ -323,10 +346,15 @@ interface CampaignCreate {
 interface CampaignUpdate {
   title?: string;
   description?: string;
-  target_amount?: number;
+  target_mode?: 'targeted' | 'unlimited';
+  target_amount?: number | null;
+  min_amount?: number;
   start_date?: string;    // ISO 8601 datetime
-  end_date?: string;      // ISO 8601 datetime
+  end_date_mode?: 'fixed' | 'open';
+  end_date?: string | null;      // ISO 8601 datetime
   is_active?: boolean;
+  status?: 'active' | 'completed' | 'cancelled';
+  image_url?: string | null;
 }
 ```
 
@@ -334,7 +362,10 @@ interface CampaignUpdate {
 ```json
 {
   "title": "Updated Campaign Title",
-  "target_amount": 60000.0,
+  "target_mode": "unlimited",
+  "target_amount": null,
+  "end_date_mode": "open",
+  "end_date": null,
   "is_active": false
 }
 ```
@@ -851,9 +882,12 @@ export interface CampaignResponse {
   id: number;
   title: string;
   description: string | null;
-  target_amount: number;
+  target_mode: 'targeted' | 'unlimited';
+  target_amount: number | null;
+  min_amount: number;
   start_date: string;
-  end_date: string;
+  end_date_mode: 'fixed' | 'open';
+  end_date: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

@@ -11,6 +11,12 @@ import {
   Award, Calendar, Activity 
 } from "lucide-react";
 import CampaignReports from "./CampaignReports";
+import {
+  formatCampaignTargetText,
+  getCampaignProgress,
+  getCampaignTargetAmount,
+  isUnlimitedTarget,
+} from "@/lib/campaigns";
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -22,15 +28,16 @@ export default function CampaignAnalytics({ campaigns, challans, showReports = f
   const totalRaised = campaigns.reduce((sum, c) => sum + (c.collected_amount || 0), 0);
   const totalParticipants = campaigns.reduce((sum, c) => sum + (c.participants_count || 0), 0);
   const avgDonation = totalParticipants > 0 ? totalRaised / totalParticipants : 0;
-  const totalTarget = activeCampaigns.reduce((sum, c) => sum + (c.target_amount || 0), 0);
+  const targetedActiveCampaigns = activeCampaigns.filter((c) => !isUnlimitedTarget(c));
+  const totalTarget = targetedActiveCampaigns.reduce((sum, c) => sum + getCampaignTargetAmount(c), 0);
   const overallProgress = totalTarget > 0 ? (totalRaised / totalTarget) * 100 : 0;
 
   // Campaign performance data
   const campaignPerformance = campaigns.map(c => ({
     name: c.title.length > 20 ? c.title.substring(0, 20) + '...' : c.title,
     collected: c.collected_amount || 0,
-    target: c.target_amount || 0,
-    progress: c.target_amount > 0 ? ((c.collected_amount || 0) / c.target_amount * 100).toFixed(1) : 0,
+    target: getCampaignTargetAmount(c),
+    progress: getCampaignProgress(c) ?? 0,
     participants: c.participants_count || 0
   })).slice(0, 5);
 
@@ -146,7 +153,7 @@ export default function CampaignAnalytics({ campaigns, challans, showReports = f
             </div>
             <div className="flex items-center gap-1 text-xs text-rose-600">
               <Calendar className="w-3 h-3" />
-              <span>{activeCampaigns.length} active campaigns</span>
+              <span>{targetedActiveCampaigns.length} targeted active campaigns</span>
             </div>
           </CardContent>
         </Card>
@@ -267,9 +274,7 @@ export default function CampaignAnalytics({ campaigns, challans, showReports = f
         <CardContent>
           <div className="space-y-3">
             {topCampaigns.map((campaign, index) => {
-              const progress = campaign.target_amount > 0 
-                ? ((campaign.collected_amount || 0) / campaign.target_amount * 100).toFixed(1)
-                : 0;
+              const progress = getCampaignProgress(campaign);
               
               return (
                 <div key={campaign.id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-slate-50 transition-colors">
@@ -286,7 +291,7 @@ export default function CampaignAnalytics({ campaigns, challans, showReports = f
                     <div className="flex items-center gap-4 text-xs text-slate-500">
                       <span className="flex items-center gap-1">
                         <DollarSign className="w-3 h-3" />
-                        ₹{(campaign.collected_amount || 0).toLocaleString()} / ₹{campaign.target_amount.toLocaleString()}
+                        ₹{(campaign.collected_amount || 0).toLocaleString()} / {formatCampaignTargetText(campaign)}
                       </span>
                       <span className="flex items-center gap-1">
                         <Users className="w-3 h-3" />
@@ -294,7 +299,7 @@ export default function CampaignAnalytics({ campaigns, challans, showReports = f
                       </span>
                       <span className="flex items-center gap-1">
                         <Target className="w-3 h-3" />
-                        {progress}% achieved
+                        {progress === null ? 'Open goal' : `${progress.toFixed(1)}% achieved`}
                       </span>
                     </div>
                   </div>

@@ -3,7 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Heart, Calendar, Users } from "lucide-react";
-import { format } from "date-fns";
+import {
+  formatCampaignTargetText,
+  getCampaignAbsoluteEndLabel,
+  getCampaignProgress,
+} from "@/lib/campaigns";
 
 export default function CampaignProgress({ campaigns }) {
   const activeCampaigns = campaigns.filter(c => c.status === 'active');
@@ -18,11 +22,8 @@ export default function CampaignProgress({ campaigns }) {
           <p className="text-slate-500 text-center py-8">No active campaigns</p>
         ) : (
           activeCampaigns.slice(0, 3).map((campaign) => {
-            const targetAmount = Number(campaign.target_amount) || 0;
             const collectedAmount = Number(campaign.collected_amount) || 0;
-            const progress = targetAmount > 0 
-              ? Math.min((collectedAmount / targetAmount) * 100, 100)
-              : 0;
+            const progress = getCampaignProgress(campaign);
             
             return (
               <div key={campaign.id} className="p-4 rounded-xl border border-slate-100 hover:border-emerald-200 transition-colors">
@@ -35,23 +36,23 @@ export default function CampaignProgress({ campaigns }) {
                       <h4 className="font-semibold text-slate-800">{campaign.title}</h4>
                       <div className="flex items-center gap-2 text-xs text-slate-500">
                         <Calendar className="w-3 h-3" />
-                        Ends {format(new Date(campaign.end_date), "MMM d, yyyy")}
+                        {getCampaignAbsoluteEndLabel(campaign)}
                       </div>
                     </div>
                   </div>
                   <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-                    {progress.toFixed(0)}%
+                    {progress === null ? 'Open' : `${progress.toFixed(0)}%`}
                   </Badge>
                 </div>
                 
-                <Progress value={progress} className="h-2 mb-2" />
+                <Progress value={progress ?? 100} className="h-2 mb-2" />
                 
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-600">
                     ₹{collectedAmount.toLocaleString()} raised
                   </span>
                   <span className="font-medium text-slate-800">
-                    Goal: ₹{targetAmount.toLocaleString()}
+                    Goal: {formatCampaignTargetText(campaign)}
                   </span>
                 </div>
                 

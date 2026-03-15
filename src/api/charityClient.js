@@ -123,10 +123,24 @@ function normalizeCampaign(campaign) {
   const isActive = typeof normalized.is_active === 'boolean'
     ? normalized.is_active
     : normalized.status === 'active';
+  const targetMode =
+    normalized.target_mode ||
+    normalized.goal_type ||
+    (normalized.target_amount === null || normalized.target_amount === undefined ? 'unlimited' : 'targeted');
+  const endDateMode =
+    normalized.end_date_mode ||
+    normalized.timeline_type ||
+    (normalized.end_date ? 'fixed' : 'open');
+
   return {
     ...normalized,
     is_active: isActive,
     status: normalized.status || (isActive ? 'active' : 'completed'),
+    target_mode: targetMode,
+    end_date_mode: endDateMode,
+    min_amount: normalizeAmount(normalized.min_amount ?? normalized.minimum_amount ?? 100),
+    target_amount: targetMode === 'unlimited' ? null : normalizeAmount(normalized.target_amount),
+    end_date: endDateMode === 'open' ? null : (normalized.end_date || null),
   };
 }
 

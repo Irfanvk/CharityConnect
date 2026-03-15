@@ -11,6 +11,7 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-03-15 | Campaigns now support goal mode (`targeted`/`unlimited`) and duration mode (`fixed`/`open`) in frontend and API contract docs | Frontend | ✅ | Form submits `target_mode`, `end_date_mode`, nullable `target_amount`, nullable `end_date`; campaign cards/reports/dashboard now render unlimited and open-ended campaigns safely |
 | 2026-03-15 | Dashboard and Campaign screens now load full paginated datasets for reliable totals | Frontend | ✅ | Replaced single-page fetch behavior with skip/limit batching for members, campaigns, and challans to avoid default limit caps (ex: active members showing 20) |
 | 2026-03-15 | Campaign payment import visibility fixed by backend aggregate fields on campaign responses | Both | ✅ | Backend now returns `collected_amount` + `participants_count` per campaign from approved campaign challans; frontend still includes safe fallback aggregation from challans |
 | 2026-03-15 | Wipe operation now shows dismissible 10-second result notification | Frontend | ✅ | Members page displays in-page wipe result banner with close icon and auto-dismiss timer after success/failure |

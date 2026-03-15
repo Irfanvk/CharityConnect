@@ -22,6 +22,7 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|---------|
+| 2.9 | 2026-03-15 | Minor | Campaign create/edit now supports targeted vs unlimited goals and fixed vs open-ended duration; frontend rendering and API docs updated for nullable `target_amount` / `end_date` plus `target_mode` / `end_date_mode` |
 | 2.8 | 2026-03-15 | Patch | Fixed dashboard member count truncation and campaign donor/collection visibility after payment imports; added backend campaign aggregate fields; improved wipe result UX (dismissible 10-second notification) |
 | 2.7 | 2026-03-15 | Minor | Added dedicated superadmin CSV/XLSX imports for challan history and campaign payments (new backend endpoints + Members UI actions + API client wiring) |
 | 2.6 | 2026-03-14 | Patch | Members list pagination added with page-size selector (20/50/100), page navigation, and visible range summary integrated with search and sorting |
@@ -45,6 +46,45 @@ This document records all technical changes, implementations, and decisions made
 ---
 
 ## 📅 March 15, 2026 - Dashboard/Campaign Data Accuracy + Wipe Result UX (Version 2.8)
+
+## 📅 March 15, 2026 - Campaign Goal/Duration Modes (Version 2.9)
+
+### 🎯 Objectives Met
+- ✅ Added campaign goal mode selection: `targeted` or `unlimited`
+- ✅ Added campaign duration mode selection: fixed end date or open-ended
+- ✅ Updated campaign cards, analytics, reports, and dashboards to render unlimited/open campaigns safely
+- ✅ Documented new backend API payload fields for nullable `target_amount` / `end_date`
+
+### Frontend Changes
+
+1. **Campaign form modes**
+- `src/components/campaigns/CampaignForm.jsx` now offers two goal options and two duration options.
+- `target_amount` is optional/disabled for unlimited campaigns.
+- `end_date` is optional/disabled for open-ended campaigns.
+
+2. **Shared campaign helpers**
+- Added `src/lib/campaigns.js` for target-mode/end-date-mode normalization, progress calculation, and display labels.
+- Reused across campaign cards, analytics, reports, and dashboard widgets.
+
+3. **Campaign rendering safeguards**
+- `src/pages/Campaigns.jsx`, `src/components/campaigns/CampaignAnalytics.jsx`, `src/components/campaigns/CampaignReports.jsx`, `src/components/dashboard/SuperAdminDashboard.jsx`, and `src/components/dashboard/CampaignProgress.jsx` now handle:
+  - unlimited campaigns without dividing by zero
+  - open-ended campaigns without invalid end-date formatting
+  - targeted totals excluding unlimited goals where appropriate
+
+### API / Contract Updates
+
+1. **Campaign payload shape**
+- `src/api/charityClient.js` now normalizes:
+  - `target_mode`
+  - `end_date_mode`
+  - nullable `target_amount`
+  - nullable `end_date`
+  - normalized `min_amount`
+
+2. **Backend guidance docs**
+- Updated `Backend-Guidance/API_TYPESCRIPT_SCHEMAS.md` and `Backend-Guidance/API_QUICK_REFERENCE.md` with the new request/response shape.
+- Actual backend handler/model changes still need to be applied in the backend repository.
 
 ### 🎯 Objectives Met
 - ✅ Fixed active member count being limited by backend default pagination (20 records)

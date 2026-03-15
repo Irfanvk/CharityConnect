@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { getCampaignEndDateMode, getCampaignTargetMode } from "@/lib/campaigns";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
 
@@ -33,9 +35,11 @@ const getInitialFormData = (campaign) => {
     return {
       title: '',
       description: '',
+      target_mode: 'targeted',
       target_amount: '',
       min_amount: 100,
       start_date: format(new Date(), 'yyyy-MM-dd'),
+      end_date_mode: 'fixed',
       end_date: '',
       status: 'active',
       image_url: ''
@@ -45,9 +49,11 @@ const getInitialFormData = (campaign) => {
   return {
     title: campaign.title || '',
     description: campaign.description || '',
+    target_mode: getCampaignTargetMode(campaign),
     target_amount: campaign.target_amount ?? '',
     min_amount: campaign.min_amount ?? 100,
     start_date: toDateInputValue(campaign.start_date),
+    end_date_mode: getCampaignEndDateMode(campaign),
     end_date: toDateInputValue(campaign.end_date),
     status: campaign.status || 'active',
     image_url: campaign.image_url || ''
@@ -68,13 +74,19 @@ export default function CampaignForm({ open, onOpenChange, campaign, onSubmit })
     setLoading(true);
     await onSubmit({
       ...formData,
-      target_amount: Number(formData.target_amount) || 0,
+      target_amount: formData.target_mode === 'unlimited'
+        ? null
+        : (Number(formData.target_amount) || 0),
       min_amount: parseFloat(formData.min_amount) || 100,
+      end_date: formData.end_date_mode === 'open' ? null : (formData.end_date || null),
       collected_amount: campaign?.collected_amount || 0,
       participants_count: campaign?.participants_count || 0
     });
     setLoading(false);
   };
+
+  const isTargeted = formData.target_mode === 'targeted';
+  const hasFixedEndDate = formData.end_date_mode === 'fixed';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -108,17 +120,45 @@ export default function CampaignForm({ open, onOpenChange, campaign, onSubmit })
             />
           </div>
 
+          <div className="space-y-3">
+            <Label>Campaign Goal</Label>
+            <RadioGroup
+              value={formData.target_mode}
+              onValueChange={(value) => setFormData({ ...formData, target_mode: value })}
+              className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+            >
+              <label className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer">
+                <RadioGroupItem value="targeted" id="targeted-goal" className="mt-1" />
+                <div>
+                  <p className="font-medium text-slate-900">Targeted amount</p>
+                  <p className="text-xs text-slate-500">Set a campaign goal and track progress against it.</p>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer">
+                <RadioGroupItem value="unlimited" id="unlimited-goal" className="mt-1" />
+                <div>
+                  <p className="font-medium text-slate-900">Unlimited amount</p>
+                  <p className="text-xs text-slate-500">Keep collecting without a fixed funding cap.</p>
+                </div>
+              </label>
+            </RadioGroup>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="target_amount">Target Amount (₹) *</Label>
+              <Label htmlFor="target_amount">Target Amount (₹){isTargeted ? ' *' : ''}</Label>
               <Input
                 id="target_amount"
                 type="number"
                 value={formData.target_amount}
                 onChange={(e) => setFormData({...formData, target_amount: e.target.value})}
-                placeholder="50000"
-                required
+                placeholder={isTargeted ? '50000' : 'Unlimited'}
+                required={isTargeted}
+                disabled={!isTargeted}
               />
+              {!isTargeted && (
+                <p className="text-xs text-slate-500">Unlimited campaigns do not require a goal amount.</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -131,6 +171,30 @@ export default function CampaignForm({ open, onOpenChange, campaign, onSubmit })
                 placeholder="100"
               />
             </div>
+          </div>
+
+          <div className="space-y-3">
+            <Label>Campaign Duration</Label>
+            <RadioGroup
+              value={formData.end_date_mode}
+              onValueChange={(value) => setFormData({ ...formData, end_date_mode: value, end_date: value === 'open' ? '' : formData.end_date })}
+              className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+            >
+              <label className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer">
+                <RadioGroupItem value="fixed" id="fixed-end-date" className="mt-1" />
+                <div>
+                  <p className="font-medium text-slate-900">Fixed end date</p>
+                  <p className="text-xs text-slate-500">Campaign closes on a specific date.</p>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer">
+                <RadioGroupItem value="open" id="open-end-date" className="mt-1" />
+                <div>
+                  <p className="font-medium text-slate-900">No end date</p>
+                  <p className="text-xs text-slate-500">Campaign stays open until you manually change it.</p>
+                </div>
+              </label>
+            </RadioGroup>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -156,14 +220,14 @@ export default function CampaignForm({ open, onOpenChange, campaign, onSubmit })
             </div>
 
             <div className="space-y-2">
-              <Label>End Date *</Label>
+              <Label>End Date{hasFixedEndDate ? ' *' : ''}</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                  <Button variant="outline" className="w-full justify-start text-left font-normal" disabled={!hasFixedEndDate}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.end_date 
+                    {hasFixedEndDate && formData.end_date 
                       ? format(new Date(formData.end_date), "PPP")
-                      : "Pick date"}
+                      : (hasFixedEndDate ? "Pick date" : "No end date")}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -171,9 +235,13 @@ export default function CampaignForm({ open, onOpenChange, campaign, onSubmit })
                     mode="single"
                     selected={formData.end_date ? new Date(formData.end_date) : undefined}
                     onSelect={(date) => setFormData({...formData, end_date: date ? format(date, 'yyyy-MM-dd') : ''})}
+                    disabled={!hasFixedEndDate}
                   />
                 </PopoverContent>
               </Popover>
+              {!hasFixedEndDate && (
+                <p className="text-xs text-slate-500">This campaign will remain open until you update its status or duration.</p>
+              )}
             </div>
           </div>
 
@@ -210,7 +278,7 @@ export default function CampaignForm({ open, onOpenChange, campaign, onSubmit })
             </Button>
             <Button 
               type="submit" 
-              disabled={loading || !formData.title || !formData.target_amount || !formData.end_date}
+              disabled={loading || !formData.title || (isTargeted && !formData.target_amount) || (hasFixedEndDate && !formData.end_date)}
               className="bg-emerald-600 hover:bg-emerald-700"
             >
               {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

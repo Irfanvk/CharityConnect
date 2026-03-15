@@ -126,9 +126,27 @@ Authorization: Bearer <access_token>
 {
   "title": "Campaign Name",
   "description": "Description",
+  "target_mode": "targeted",
   "target_amount": 50000.0,
+  "min_amount": 100.0,
   "start_date": "2026-03-10T00:00:00",
+  "end_date_mode": "fixed",
   "end_date": "2026-04-10T23:59:59"
+}
+```
+
+### Create Unlimited Campaign
+```json
+{
+  "title": "Community Relief Fund",
+  "description": "No cap, no end date",
+  "target_mode": "unlimited",
+  "target_amount": null,
+  "min_amount": 100.0,
+  "start_date": "2026-03-10T00:00:00",
+  "end_date_mode": "open",
+  "end_date": null,
+  "status": "active"
 }
 ```
 

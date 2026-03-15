@@ -20,6 +20,11 @@ import {
 } from "@/components/ui/table";
 import { Download, FileText, Calendar, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
+import {
+  formatCampaignTargetText,
+  getCampaignAbsoluteEndLabel,
+  getCampaignProgress,
+} from "@/lib/campaigns";
 
 export default function CampaignReports({ campaigns, challans }) {
   const [selectedCampaign, setSelectedCampaign] = useState("all");
@@ -53,7 +58,7 @@ export default function CampaignReports({ campaigns, challans }) {
           donorCount: new Set(campaignDonations.map(ch => ch.member_email || ch.member_id)).size,
           avgDonation: campaignDonations.length > 0 ? campaignDonations.reduce((sum, ch) => sum + ch.amount, 0) / campaignDonations.length : 0,
           donationCount: campaignDonations.length,
-          progress: c.target_amount > 0 ? ((c.collected_amount || 0) / c.target_amount * 100).toFixed(1) : 0
+          progress: getCampaignProgress(c)
         };
       });
     } else {
@@ -65,7 +70,7 @@ export default function CampaignReports({ campaigns, challans }) {
         donorCount: new Set(campaignDonations.map(ch => ch.member_email || ch.member_id)).size,
         avgDonation: campaignDonations.length > 0 ? campaignDonations.reduce((sum, ch) => sum + ch.amount, 0) / campaignDonations.length : 0,
         donationCount: campaignDonations.length,
-        progress: campaign?.target_amount > 0 ? ((campaign.collected_amount || 0) / campaign.target_amount * 100).toFixed(1) : 0
+        progress: getCampaignProgress(campaign)
       }];
     }
   };
@@ -82,15 +87,15 @@ export default function CampaignReports({ campaigns, challans }) {
     
     const rows = metrics.map(m => [
       m.campaign?.title || 'N/A',
-      m.campaign?.target_amount || 0,
+      formatCampaignTargetText(m.campaign),
       m.totalRaised,
-      m.progress,
+      m.progress === null ? 'Open goal' : Number(m.progress).toFixed(1),
       m.donorCount,
       m.donationCount,
       m.avgDonation.toFixed(2),
       m.campaign?.status || 'N/A',
       m.campaign?.start_date ? format(new Date(m.campaign.start_date), 'yyyy-MM-dd') : '',
-      m.campaign?.end_date ? format(new Date(m.campaign.end_date), 'yyyy-MM-dd') : ''
+      getCampaignAbsoluteEndLabel(m.campaign)
     ]);
 
     const csvContent = [
