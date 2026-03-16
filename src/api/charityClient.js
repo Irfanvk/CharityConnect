@@ -113,10 +113,18 @@ function withDateAliases(entity = {}) {
 function normalizeMember(member) {
   const normalized = withDateAliases(member || {});
   const memberCode = normalized.member_code || normalized.member_id || null;
+  const rawStatus =
+    normalized.status ??
+    (typeof normalized.is_active === 'boolean'
+      ? (normalized.is_active ? 'active' : 'inactive')
+      : 'active');
+  const status = String(rawStatus || 'active').toLowerCase();
+
   return {
     ...normalized,
     member_code: memberCode,
     member_id: normalized.member_id || memberCode,
+    status,
   };
 }
 
@@ -313,7 +321,10 @@ async function apiFetch(path, options = {}, query = {}) {
   }
 }
 
-function apiUploadFormData(path, formData, { query = {}, timeoutMs = IMPORT_TIMEOUT, onUploadProgress } = {}) {
+function apiUploadFormData(path, formData, options = {}) {
+  const query = options?.query || {};
+  const timeoutMs = options?.timeoutMs ?? IMPORT_TIMEOUT;
+  const onUploadProgress = options?.onUploadProgress;
   const token = getAuthToken();
   const parsedTimeout = Number(timeoutMs);
   const requestTimeout = Number.isFinite(parsedTimeout) && parsedTimeout > 0
@@ -402,7 +413,7 @@ async function uploadAndPollImportJob({
   createPath,
   statusPathBuilder,
   formData,
-  query,
+  query = {},
   onUploadProgress,
   timeoutMs = IMPORT_JOB_TIMEOUT,
 }) {
@@ -565,7 +576,9 @@ const charityClient = {
         body: JSON.stringify(data),
       })),
 
-    importFromFile: async (file, { includeDonations = true, onUploadProgress } = {}) => {
+    importFromFile: async (file, options = {}) => {
+      const includeDonations = options?.includeDonations ?? true;
+      const onUploadProgress = options?.onUploadProgress;
       const formData = new FormData();
       formData.append('file', file);
 
@@ -724,7 +737,8 @@ const charityClient = {
       return normalizeBulkOperation(result);
     },
 
-    importHistoryFromFile: async (file, { onUploadProgress } = {}) => {
+    importHistoryFromFile: async (file, options = {}) => {
+      const onUploadProgress = options?.onUploadProgress;
       const formData = new FormData();
       formData.append('file', file);
 
@@ -732,6 +746,7 @@ const charityClient = {
         createPath: API_PATHS.challans.importHistoryJob,
         statusPathBuilder: API_PATHS.challans.importHistoryJobStatus,
         formData,
+        query: {},
         onUploadProgress,
       });
     },
@@ -802,7 +817,8 @@ const charityClient = {
     delete: (id) =>
       apiFetch(API_PATHS.campaigns.byId(id), { method: 'DELETE' }),
 
-    importPaymentsFromFile: async (file, { onUploadProgress } = {}) => {
+    importPaymentsFromFile: async (file, options = {}) => {
+      const onUploadProgress = options?.onUploadProgress;
       const formData = new FormData();
       formData.append('file', file);
 
@@ -810,6 +826,7 @@ const charityClient = {
         createPath: API_PATHS.campaigns.importPaymentsJob,
         statusPathBuilder: API_PATHS.campaigns.importPaymentsJobStatus,
         formData,
+        query: {},
         onUploadProgress,
       });
     },

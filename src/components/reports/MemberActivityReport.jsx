@@ -31,9 +31,12 @@ export function exportMemberCSV(members, period, value) {
   return { headers, rows, filename: `member-report-${period === "all" ? "all-time" : value}` };
 }
 
-export default function MemberActivityReport({ members, period, value }) {
+export default function MemberActivityReport({ members, period, value, totals }) {
   const allActive = members.filter((m) => m.status === "active");
   const allInactive = members.filter((m) => m.status !== "active");
+  const totalMembers = Number(totals?.total_members ?? members.length);
+  const activeMembers = Number(totals?.active_members ?? allActive.length);
+  const inactiveMembers = Math.max(0, totalMembers - activeMembers);
   const newMembers = filterMembersByPeriod(members, period, value);
 
   return (
@@ -45,7 +48,7 @@ export default function MemberActivityReport({ members, period, value }) {
               <Users className="w-8 h-8 text-emerald-600" />
               <div>
                 <p className="text-xs text-slate-500">Total Members</p>
-                <p className="text-2xl font-bold text-slate-900">{members.length}</p>
+                <p className="text-2xl font-bold text-slate-900">{totalMembers}</p>
               </div>
             </div>
           </CardContent>
@@ -56,7 +59,7 @@ export default function MemberActivityReport({ members, period, value }) {
               <UserCheck className="w-8 h-8 text-blue-600" />
               <div>
                 <p className="text-xs text-slate-500">Active</p>
-                <p className="text-2xl font-bold text-slate-900">{allActive.length}</p>
+                <p className="text-2xl font-bold text-slate-900">{activeMembers}</p>
               </div>
             </div>
           </CardContent>
@@ -67,7 +70,7 @@ export default function MemberActivityReport({ members, period, value }) {
               <UserX className="w-8 h-8 text-slate-500" />
               <div>
                 <p className="text-xs text-slate-500">Inactive</p>
-                <p className="text-2xl font-bold text-slate-900">{allInactive.length}</p>
+                <p className="text-2xl font-bold text-slate-900">{inactiveMembers}</p>
               </div>
             </div>
           </CardContent>

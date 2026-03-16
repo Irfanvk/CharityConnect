@@ -11,6 +11,10 @@ import MemberActivityReport, { exportMemberCSV } from "@/components/reports/Memb
 import DonationSummaryReport, { exportDonationCSV } from "@/components/reports/DonationSummaryReport";
 import ChallanStatusReport, { exportChallanCSV } from "@/components/reports/ChallanStatusReport";
 
+const MEMBERS_REPORT_BATCH_SIZE = 200;
+const CHALLANS_REPORT_BATCH_SIZE = 200;
+const CAMPAIGNS_REPORT_BATCH_SIZE = 200;
+
 function downloadCSV({ headers, rows, filename }) {
   const csvContent = [
     headers.join(","),
@@ -42,17 +46,84 @@ export default function Reports() {
 
   const { data: members = [] } = useQuery({
     queryKey: ["members"],
-    queryFn: () => charityClient.members.list(),
+    queryFn: async () => {
+      let allMembers = [];
+      let skip = 0;
+
+      while (true) {
+        const chunk = await charityClient.members.list({
+          skip,
+          limit: MEMBERS_REPORT_BATCH_SIZE,
+        });
+
+        allMembers = allMembers.concat(chunk);
+
+        if (chunk.length < MEMBERS_REPORT_BATCH_SIZE) {
+          break;
+        }
+
+        skip += MEMBERS_REPORT_BATCH_SIZE;
+      }
+
+      return allMembers;
+    },
+  });
+
+  const { data: memberSummary } = useQuery({
+    queryKey: ["members", "summary", "reports"],
+    queryFn: () => charityClient.members.summary(),
   });
 
   const { data: challans = [] } = useQuery({
     queryKey: ["challans"],
-    queryFn: () => charityClient.challans.list({ order: "-created_date" }),
+    queryFn: async () => {
+      let allChallans = [];
+      let skip = 0;
+
+      while (true) {
+        const chunk = await charityClient.challans.list({
+          order: "-created_date",
+          skip,
+          limit: CHALLANS_REPORT_BATCH_SIZE,
+        });
+
+        allChallans = allChallans.concat(chunk);
+
+        if (chunk.length < CHALLANS_REPORT_BATCH_SIZE) {
+          break;
+        }
+
+        skip += CHALLANS_REPORT_BATCH_SIZE;
+      }
+
+      return allChallans;
+    },
   });
 
   const { data: campaigns = [] } = useQuery({
     queryKey: ["campaigns"],
-    queryFn: () => charityClient.campaigns.list({ order: "-created_date" }),
+    queryFn: async () => {
+      let allCampaigns = [];
+      let skip = 0;
+
+      while (true) {
+        const chunk = await charityClient.campaigns.list({
+          order: "-created_date",
+          skip,
+          limit: CAMPAIGNS_REPORT_BATCH_SIZE,
+        });
+
+        allCampaigns = allCampaigns.concat(chunk);
+
+        if (chunk.length < CAMPAIGNS_REPORT_BATCH_SIZE) {
+          break;
+        }
+
+        skip += CAMPAIGNS_REPORT_BATCH_SIZE;
+      }
+
+      return allCampaigns;
+    },
   });
 
   const isAdmin = useMemo(
@@ -133,7 +204,12 @@ export default function Reports() {
             value={memberValue}
             onValueChange={setMemberValue}
           />
-          <MemberActivityReport members={members} period={memberPeriod} value={memberValue} />
+          <MemberActivityReport
+            members={members}
+            period={memberPeriod}
+            value={memberValue}
+            totals={memberSummary}
+          />
         </TabsContent>
 
         <TabsContent value="donations" className="space-y-4">

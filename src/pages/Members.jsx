@@ -41,8 +41,6 @@ const statusConfig = {
   suspended: { label: "Suspended", color: "bg-rose-100 text-rose-700" },
 };
 
-const MEMBER_SUMMARY_BATCH_SIZE = 200;
-
 export default function Members() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("name");
@@ -74,6 +72,11 @@ export default function Members() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isSuperAdmin = user?.role === 'superadmin';
+
+  const refreshMemberData = () => {
+    queryClient.invalidateQueries({ queryKey: ['members'] });
+    queryClient.invalidateQueries({ queryKey: ['members', 'summary-counts'] });
+  };
 
   const updateImportProgress = (setter) => (progressInfo = {}) => {
     const nextPercent = Number(progressInfo?.percent);
@@ -120,7 +123,7 @@ export default function Members() {
     charityClient.auth.me().then(setUser).catch(() => {});
   }, []);
 
-const { data: members = [], isLoading } = useQuery({
+const { data: members = [], isLoading, isFetching, isError, error } = useQuery({
   queryKey: ["members", search, sortBy, sortDirection, currentPage, pageSize],
   queryFn: () =>
     charityClient.members.list({
@@ -130,32 +133,11 @@ const { data: members = [], isLoading } = useQuery({
       sort_by: sortBy,
       sort_order: sortDirection,
     }),
-  keepPreviousData: true,
 });
 
-const { data: allMembersForSummary = [] } = useQuery({
+const { data: memberSummary } = useQuery({
   queryKey: ["members", "summary-counts"],
-  queryFn: async () => {
-    let allMembers = [];
-    let skip = 0;
-
-    while (true) {
-      const chunk = await charityClient.members.list({
-        skip,
-        limit: MEMBER_SUMMARY_BATCH_SIZE,
-      });
-
-      allMembers = allMembers.concat(chunk);
-
-      if (chunk.length < MEMBER_SUMMARY_BATCH_SIZE) {
-        break;
-      }
-
-      skip += MEMBER_SUMMARY_BATCH_SIZE;
-    }
-
-    return allMembers;
-  },
+  queryFn: () => charityClient.members.summary(),
 });
 
 React.useEffect(() => {
@@ -163,8 +145,8 @@ React.useEffect(() => {
 }, [search, sortBy, sortDirection, pageSize]);
 
 const paginatedMembers = members;
-const activeMembersCount = allMembersForSummary.filter((m) => m.status === "active").length;
-const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "active").length;
+const activeMembersCount = Number(memberSummary?.active_members ?? 0);
+const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 0) - activeMembersCount);
 
   const {
     data: editingMemberDetails,
@@ -209,7 +191,7 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
       return member;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['members'] });
+      refreshMemberData();
       setFormOpen(false);
     },
   });
@@ -233,7 +215,7 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
       return member;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['members'] });
+      refreshMemberData();
       setFormOpen(false);
       setEditingMember(null);
     },
@@ -254,7 +236,7 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['members'] });
+      refreshMemberData();
       toast({
         title: "Member deleted",
         description: "Member was deleted successfully.",
@@ -279,7 +261,7 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
     },
     onSuccess: (summary) => {
       finalizeImportProgress(setMemberImportProgress, "success");
-      queryClient.invalidateQueries({ queryKey: ['members'] });
+      refreshMemberData();
       const total = summary?.total_rows ?? 0;
       const created = summary?.members_created ?? 0;
       const linked = summary?.members_linked_existing ?? 0;
@@ -310,7 +292,7 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
   });
 
   const challanImportMutation = useMutation({
-    mutationFn: async (payload) => {
+    mutationFn: async (/** @type {any} */ payload) => {
       const { file, onUploadProgress } = payload || {};
       return charityClient.challans.importHistoryFromFile(file, { onUploadProgress });
     },
@@ -346,7 +328,7 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
   });
 
   const campaignImportMutation = useMutation({
-    mutationFn: async (payload) => {
+    mutationFn: async (/** @type {any} */ payload) => {
       const { file, onUploadProgress } = payload || {};
       return charityClient.campaigns.importPaymentsFromFile(file, { onUploadProgress });
     },
@@ -394,7 +376,7 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
       });
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['members'] });
+      refreshMemberData();
       queryClient.invalidateQueries({ queryKey: ['challans'] });
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
@@ -884,10 +866,19 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {isLoading || isFetching ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-slate-500">
-                    Loading members...
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading members...
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ) : isError ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-rose-600">
+                    {error?.message || "Unable to load members"}
                   </TableCell>
                 </TableRow>
               ) : paginatedMembers.length === 0 ? (
