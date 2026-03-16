@@ -30,7 +30,7 @@ CharityConnect is a full-featured web application for managing donations, campai
 3. **Create `.env.local` file:**
    ```bash
    # Copy the example file
-   cp .env.local.example .env.local
+  cp .env.example .env.local
    
    # Edit .env.local with your values:
    VITE_CHARITY_APP_ID=your_app_id
@@ -251,6 +251,40 @@ Then open http://localhost:4173 to test the production build locally.
 1. Run `npm run build` to generate `dist/`
 2. Deploy `dist/` folder to your hosting (Vercel, Netlify, AWS S3, etc.)
 3. **Important:** Set `VITE_CHARITY_APP_BASE_URL` to your production backend URL in your host's environment
+
+### Vercel Production Setup
+
+This repository now includes [vercel.json](vercel.json) with:
+- Vite build/output settings
+- SPA rewrite fallback for React Router refresh/deep-links
+- Production security headers
+- Long-term caching for hashed `/assets/*` files
+
+#### 1. Import Project in Vercel
+- Framework preset: `Vite`
+- Build command: `npm run build`
+- Output directory: `dist`
+
+#### 2. Configure Environment Variables (Vercel)
+Set these in Vercel Project Settings -> Environment Variables:
+
+- `VITE_CHARITY_APP_BASE_URL`
+- `VITE_CHARITY_APP_ID` (optional)
+- `VITE_CHARITY_FUNCTIONS_VERSION` (optional)
+
+Use your real backend URL, for example:
+`https://api.your-charity-domain.com`
+
+#### 3. Configure Backend CORS for Vercel Domain
+In backend environment (`charity-connect-backend`), set `CORS_ORIGINS` to include your deployed frontend URL.
+
+Example:
+`CORS_ORIGINS=https://your-app.vercel.app,https://www.yourdomain.com`
+
+#### 4. Deploy and Verify
+- Open your deployed URL
+- Hard refresh a nested route (for example `/campaigns`) to verify rewrite fallback works
+- Login and perform one API action to confirm backend CORS + auth flow works in production
 
 ---
 

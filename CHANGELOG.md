@@ -22,6 +22,7 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|---------|
+| 2.10 | 2026-03-16 | Patch | Added Vercel production deployment setup (`vercel.json` with SPA rewrites/security headers/cache policy), standardized `.env.example`, and documented backend CORS/env requirements for production frontend hosting |
 | 2.9 | 2026-03-15 | Minor | Campaign create/edit now supports targeted vs unlimited goals and fixed vs open-ended duration; frontend rendering and API docs updated for nullable `target_amount` / `end_date` plus `target_mode` / `end_date_mode` |
 | 2.8 | 2026-03-15 | Patch | Fixed dashboard member count truncation and campaign donor/collection visibility after payment imports; added backend campaign aggregate fields; improved wipe result UX (dismissible 10-second notification) |
 | 2.7 | 2026-03-15 | Minor | Added dedicated superadmin CSV/XLSX imports for challan history and campaign payments (new backend endpoints + Members UI actions + API client wiring) |
@@ -45,6 +46,34 @@ This document records all technical changes, implementations, and decisions made
 
 ---
 
+
+## 📅 March 16, 2026 - Vercel Production Deployment Prep (Version 2.10)
+
+### 🎯 Objectives Met
+- ✅ Added Vercel deployment configuration for Vite output + SPA deep-link fallback rewrites
+- ✅ Added baseline security headers and immutable cache policy for bundled assets
+- ✅ Aligned environment-variable onboarding docs for Vercel and local development
+- ✅ Added explicit backend CORS guidance for deployed frontend origins
+
+### Frontend Changes
+
+1. **Vercel deployment config**
+- Added `vercel.json` with:
+  - `framework: vite`
+  - `buildCommand: npm run build`
+  - `outputDirectory: dist`
+  - SPA rewrite fallback for extensionless routes
+  - response security headers + asset caching policy
+
+2. **Environment configuration guidance**
+- Updated `.env.example` to document local-vs-Vercel usage clearly.
+
+3. **Deployment documentation**
+- Updated `README.md` with a dedicated Vercel production setup section:
+  - project import settings
+  - required environment variables
+  - backend `CORS_ORIGINS` requirements
+  - deployment verification checklist
 ## 📅 March 15, 2026 - Dashboard/Campaign Data Accuracy + Wipe Result UX (Version 2.8)
 
 ## 📅 March 15, 2026 - Campaign Goal/Duration Modes (Version 2.9)
