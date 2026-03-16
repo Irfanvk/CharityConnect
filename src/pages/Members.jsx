@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/use-toast";
 import {
   Table,
@@ -62,7 +63,10 @@ export default function Members() {
   const [wipeKeepAdmins, setWipeKeepAdmins] = useState(true);
   const [wipeFiles, setWipeFiles] = useState(true);
   const [wipeNotice, setWipeNotice] = useState(null);
-    const [showSetupGuide, setShowSetupGuide] = useState(false);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
+  const [memberImportProgress, setMemberImportProgress] = useState(null);
+  const [challanImportProgress, setChallanImportProgress] = useState(null);
+  const [campaignImportProgress, setCampaignImportProgress] = useState(null);
   const editFetchErrorShownForId = useRef(null);
   const importFileInputRef = useRef(null);
   const challanImportFileInputRef = useRef(null);
@@ -70,6 +74,40 @@ export default function Members() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isSuperAdmin = user?.role === 'superadmin';
+
+  const updateImportProgress = (setter) => (progressInfo = {}) => {
+    const nextPercent = Number(progressInfo?.percent);
+    setter((current) => {
+      if (!current) return current;
+      if (!Number.isFinite(nextPercent)) return current;
+      const mappedPercent = Math.max(5, Math.min(95, nextPercent));
+      return {
+        ...current,
+        percent: mappedPercent,
+        status: mappedPercent >= 95 ? "Processing imported rows..." : "Uploading file...",
+      };
+    });
+  };
+
+  const finalizeImportProgress = (setter, status, keepVisibleMs = 2500) => {
+    setter((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        percent: status === "failed" ? Math.max(5, current.percent || 5) : 100,
+        status: status === "failed" ? "Import failed" : "Import completed",
+      };
+    });
+
+    setTimeout(() => {
+      setter((current) => {
+        if (!current) return null;
+        if (status === "failed" && current.status !== "Import failed") return current;
+        if (status === "success" && current.status !== "Import completed") return current;
+        return null;
+      });
+    }, keepVisibleMs);
+  };
 
   const handleFormOpenChange = (open) => {
     setFormOpen(open);
@@ -233,12 +271,14 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
 
   const importMutation = useMutation({
     mutationFn: async (/** @type {any} */ payload) => {
-      const { file, includeDonationsFlag } = payload || {};
+      const { file, includeDonationsFlag, onUploadProgress } = payload || {};
       return charityClient.members.importFromFile(file, {
         includeDonations: includeDonationsFlag,
+        onUploadProgress,
       });
     },
     onSuccess: (summary) => {
+      finalizeImportProgress(setMemberImportProgress, "success");
       queryClient.invalidateQueries({ queryKey: ['members'] });
       const total = summary?.total_rows ?? 0;
       const created = summary?.members_created ?? 0;
@@ -260,6 +300,7 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
       }
     },
     onError: (error) => {
+      finalizeImportProgress(setMemberImportProgress, "failed", 4000);
       toast({
         title: "Import failed",
         description: error?.message || "Unable to import members file",
@@ -269,8 +310,12 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
   });
 
   const challanImportMutation = useMutation({
-    mutationFn: async (file) => charityClient.challans.importHistoryFromFile(file),
+    mutationFn: async (payload) => {
+      const { file, onUploadProgress } = payload || {};
+      return charityClient.challans.importHistoryFromFile(file, { onUploadProgress });
+    },
     onSuccess: (summary) => {
+      finalizeImportProgress(setChallanImportProgress, "success");
       queryClient.invalidateQueries({ queryKey: ['challans'] });
       const total = summary?.total_rows ?? 0;
       const created = summary?.challans_created ?? 0;
@@ -291,6 +336,7 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
       }
     },
     onError: (error) => {
+      finalizeImportProgress(setChallanImportProgress, "failed", 4000);
       toast({
         title: "Challan import failed",
         description: error?.message || "Unable to import challan history file",
@@ -300,8 +346,12 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
   });
 
   const campaignImportMutation = useMutation({
-    mutationFn: async (file) => charityClient.campaigns.importPaymentsFromFile(file),
+    mutationFn: async (payload) => {
+      const { file, onUploadProgress } = payload || {};
+      return charityClient.campaigns.importPaymentsFromFile(file, { onUploadProgress });
+    },
     onSuccess: (summary) => {
+      finalizeImportProgress(setCampaignImportProgress, "success");
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       queryClient.invalidateQueries({ queryKey: ['challans'] });
       const total = summary?.total_rows ?? 0;
@@ -324,6 +374,7 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
       }
     },
     onError: (error) => {
+      finalizeImportProgress(setCampaignImportProgress, "failed", 4000);
       toast({
         title: "Campaign import failed",
         description: error?.message || "Unable to import campaign payments file",
@@ -420,9 +471,16 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
 
     const effectiveIncludeDonations = looksLikeDonationFile ? true : includeDonations;
 
+    setMemberImportProgress({
+      fileName: file.name,
+      percent: 5,
+      status: "Uploading file...",
+    });
+
     await importMutation.mutateAsync({
       file,
       includeDonationsFlag: effectiveIncludeDonations,
+      onUploadProgress: updateImportProgress(setMemberImportProgress),
     });
 
     event.target.value = '';
@@ -452,7 +510,16 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
       return;
     }
 
-    await challanImportMutation.mutateAsync(file);
+    setChallanImportProgress({
+      fileName: file.name,
+      percent: 5,
+      status: "Uploading file...",
+    });
+
+    await challanImportMutation.mutateAsync({
+      file,
+      onUploadProgress: updateImportProgress(setChallanImportProgress),
+    });
     event.target.value = '';
   };
 
@@ -470,7 +537,16 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
       return;
     }
 
-    await campaignImportMutation.mutateAsync(file);
+    setCampaignImportProgress({
+      fileName: file.name,
+      percent: 5,
+      status: "Uploading file...",
+    });
+
+    await campaignImportMutation.mutateAsync({
+      file,
+      onUploadProgress: updateImportProgress(setCampaignImportProgress),
+    });
     event.target.value = '';
   };
 
@@ -621,6 +697,16 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
                     {importMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
                     Import Members
                   </Button>
+                  {memberImportProgress && (
+                    <div className="w-full max-w-[260px] space-y-1 pt-1">
+                      <div className="flex items-center justify-between text-[10px] text-slate-500">
+                        <span className="truncate pr-2">{memberImportProgress.fileName}</span>
+                        <span>{memberImportProgress.percent}%</span>
+                      </div>
+                      <Progress value={memberImportProgress.percent} className="h-1.5" />
+                      <p className="text-[10px] text-slate-500">{memberImportProgress.status}</p>
+                    </div>
+                  )}
                   <label className="flex items-center gap-1.5 text-[10px] text-slate-500">
                     <input type="checkbox" className="w-3 h-3" checked={includeDonations} onChange={(e) => setIncludeDonations(e.target.checked)} />
                     Include donations from file
@@ -634,6 +720,16 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
                     {challanImportMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
                     Import Challan History
                   </Button>
+                  {challanImportProgress && (
+                    <div className="w-full max-w-[260px] space-y-1 pt-1">
+                      <div className="flex items-center justify-between text-[10px] text-slate-500">
+                        <span className="truncate pr-2">{challanImportProgress.fileName}</span>
+                        <span>{challanImportProgress.percent}%</span>
+                      </div>
+                      <Progress value={challanImportProgress.percent} className="h-1.5" />
+                      <p className="text-[10px] text-slate-500">{challanImportProgress.status}</p>
+                    </div>
+                  )}
                   <span className="text-[10px] text-slate-400">Requires members first</span>
                 </div>
 
@@ -644,6 +740,16 @@ const inactiveMembersCount = allMembersForSummary.filter((m) => m.status !== "ac
                     {campaignImportMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
                     Import Campaign Payments
                   </Button>
+                  {campaignImportProgress && (
+                    <div className="w-full max-w-[260px] space-y-1 pt-1">
+                      <div className="flex items-center justify-between text-[10px] text-slate-500">
+                        <span className="truncate pr-2">{campaignImportProgress.fileName}</span>
+                        <span>{campaignImportProgress.percent}%</span>
+                      </div>
+                      <Progress value={campaignImportProgress.percent} className="h-1.5" />
+                      <p className="text-[10px] text-slate-500">{campaignImportProgress.status}</p>
+                    </div>
+                  )}
                   <span className="text-[10px] text-amber-600 flex items-center gap-0.5">
                     <AlertTriangle className="w-3 h-3" /> Create campaigns first (Step 1)
                   </span>

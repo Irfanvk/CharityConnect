@@ -14,6 +14,8 @@ export const API_PATHS = {
     list: '/members/',
     summary: '/members/summary',
     import: '/members/import',
+    importJob: '/members/import/jobs',
+    importJobStatus: (jobId) => `/members/import/jobs/${jobId}`,
     me: '/members/me',
     byId: (id) => `/members/${id}`,
     byCode: (code) => `/members/code/${code}`,
@@ -22,6 +24,8 @@ export const API_PATHS = {
     list: '/challans/',
     summary: '/challans/summary',
     importHistory: '/challans/import/history',
+    importHistoryJob: '/challans/import/history/jobs',
+    importHistoryJobStatus: (jobId) => `/challans/import/history/jobs/${jobId}`,
     byId: (id) => `/challans/${id}`,
     byMember: (memberId) => `/challans/member/${memberId}`,
     uploadProof: (id) => `/challans/${id}/upload-proof`,
@@ -41,6 +45,8 @@ export const API_PATHS = {
   campaigns: {
     list: '/campaigns/',
     importPayments: '/campaigns/import/payments',
+    importPaymentsJob: '/campaigns/import/payments/jobs',
+    importPaymentsJobStatus: (jobId) => `/campaigns/import/payments/jobs/${jobId}`,
     byId: (id) => `/campaigns/${id}`,
   },
   notifications: {

@@ -5,6 +5,8 @@ import { API_PATHS } from '@/config/apiPaths';
 const BASE_URL = import.meta.env.VITE_CHARITY_APP_BASE_URL || '';
 const DEFAULT_TIMEOUT = 20000; // 20 seconds
 const IMPORT_TIMEOUT = 300000; // 5 minutes for large import files
+const IMPORT_JOB_POLL_INTERVAL = 1200;
+const IMPORT_JOB_TIMEOUT = 30 * 60 * 1000;
 
 function shouldSkipUnauthorizedRedirect(path = '') {
   const normalizedPath = String(path || '').split('?')[0];
@@ -307,6 +309,152 @@ async function apiFetch(path, options = {}, query = {}) {
   }
 }
 
+function apiUploadFormData(path, formData, { query = {}, timeoutMs = IMPORT_TIMEOUT, onUploadProgress } = {}) {
+  const token = getAuthToken();
+  const parsedTimeout = Number(timeoutMs);
+  const requestTimeout = Number.isFinite(parsedTimeout) && parsedTimeout > 0
+    ? parsedTimeout
+    : IMPORT_TIMEOUT;
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', buildUrl(path, query), true);
+    xhr.timeout = requestTimeout;
+
+    if (token) {
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    }
+
+    if (typeof onUploadProgress === 'function' && xhr.upload) {
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) return;
+        const percent = Math.round((event.loaded / event.total) * 100);
+        onUploadProgress({
+          loaded: event.loaded,
+          total: event.total,
+          percent: Math.max(0, Math.min(100, percent)),
+        });
+      };
+    }
+
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState !== XMLHttpRequest.DONE) return;
+
+      const status = Number(xhr.status) || 0;
+      const text = xhr.responseText || '';
+      let data = null;
+
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = text;
+      }
+
+      if (status === 401) {
+        handleUnauthorized(path);
+        reject({
+          status: 401,
+          message: 'Unauthorized',
+          data: null,
+        });
+        return;
+      }
+
+      if (status < 200 || status >= 300) {
+        reject({
+          status: status || 500,
+          message: parseErrorMessage(data, xhr.statusText || 'Request failed'),
+          data,
+        });
+        return;
+      }
+
+      resolve(data);
+    };
+
+    xhr.ontimeout = () => {
+      reject({
+        status: 408,
+        message: `Request timeout after ${Math.round(requestTimeout / 1000)} seconds. Please try again.`,
+      });
+    };
+
+    xhr.onerror = () => {
+      reject({
+        status: 500,
+        message: 'Network error occurred while uploading. Please try again.',
+      });
+    };
+
+    xhr.send(formData);
+  });
+}
+
+async function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function uploadAndPollImportJob({
+  createPath,
+  statusPathBuilder,
+  formData,
+  query,
+  onUploadProgress,
+  timeoutMs = IMPORT_JOB_TIMEOUT,
+}) {
+  const created = await apiUploadFormData(createPath, formData, {
+    query,
+    timeoutMs,
+    onUploadProgress,
+  });
+
+  const jobId = created?.job_id;
+  if (!jobId) {
+    throw {
+      status: 500,
+      message: 'Import job was created without job_id',
+      data: created,
+    };
+  }
+
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const status = await apiFetch(statusPathBuilder(jobId), { method: 'GET', timeoutMs: DEFAULT_TIMEOUT });
+
+    if (typeof onUploadProgress === 'function') {
+      const percent = Number(status?.progress);
+      if (Number.isFinite(percent)) {
+        onUploadProgress({
+          loaded: percent,
+          total: 100,
+          percent,
+          message: status?.message,
+          status: status?.status,
+        });
+      }
+    }
+
+    if (status?.status === 'completed') {
+      return status?.result || {};
+    }
+
+    if (status?.status === 'failed') {
+      throw {
+        status: 500,
+        message: status?.error || status?.message || 'Import failed',
+        data: status,
+      };
+    }
+
+    await wait(IMPORT_JOB_POLL_INTERVAL);
+  }
+
+  throw {
+    status: 408,
+    message: 'Import job timeout. The import may still be running on server.',
+  };
+}
+
 // Helper for extracting arrays from API responses
 function extractArray(data) {
   if (Array.isArray(data)) return data;
@@ -413,20 +561,17 @@ const charityClient = {
         body: JSON.stringify(data),
       })),
 
-    importFromFile: async (file, { includeDonations = true } = {}) => {
+    importFromFile: async (file, { includeDonations = true, onUploadProgress } = {}) => {
       const formData = new FormData();
       formData.append('file', file);
 
-      return apiFetch(
-        API_PATHS.members.import,
-        {
-          method: 'POST',
-          headers: {},
-          body: formData,
-          timeoutMs: IMPORT_TIMEOUT,
-        },
-        { include_donations: includeDonations }
-      );
+      return uploadAndPollImportJob({
+        createPath: API_PATHS.members.importJob,
+        statusPathBuilder: API_PATHS.members.importJobStatus,
+        formData,
+        query: { include_donations: includeDonations },
+        onUploadProgress,
+      });
     },
     
     update: async (id, data) =>
@@ -575,14 +720,15 @@ const charityClient = {
       return normalizeBulkOperation(result);
     },
 
-    importHistoryFromFile: async (file) => {
+    importHistoryFromFile: async (file, { onUploadProgress } = {}) => {
       const formData = new FormData();
       formData.append('file', file);
 
-      return apiFetch(API_PATHS.challans.importHistory, {
-        method: 'POST',
-        headers: {},
-        body: formData,
+      return uploadAndPollImportJob({
+        createPath: API_PATHS.challans.importHistoryJob,
+        statusPathBuilder: API_PATHS.challans.importHistoryJobStatus,
+        formData,
+        onUploadProgress,
       });
     },
   },
@@ -652,14 +798,15 @@ const charityClient = {
     delete: (id) =>
       apiFetch(API_PATHS.campaigns.byId(id), { method: 'DELETE' }),
 
-    importPaymentsFromFile: async (file) => {
+    importPaymentsFromFile: async (file, { onUploadProgress } = {}) => {
       const formData = new FormData();
       formData.append('file', file);
 
-      return apiFetch(API_PATHS.campaigns.importPayments, {
-        method: 'POST',
-        headers: {},
-        body: formData,
+      return uploadAndPollImportJob({
+        createPath: API_PATHS.campaigns.importPaymentsJob,
+        statusPathBuilder: API_PATHS.campaigns.importPaymentsJobStatus,
+        formData,
+        onUploadProgress,
       });
     },
   },
