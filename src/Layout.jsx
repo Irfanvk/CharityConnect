@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import NotificationManager from "@/components/NotificationManager";
+import CorsWarningBanner from "@/components/CorsWarningBanner";
 import PWAInstallButton from "@/components/PWAInstallButton";
 import BottomNav from "@/components/mobile/BottomNav";
 import BackButton from "@/components/mobile/BackButton";
@@ -345,6 +346,9 @@ export default function Layout({ children, currentPageName }) {
             </div>
           </div>
         </header>
+
+        {/* CORS diagnostic banner — auto-detects misconfigured backend origin */}
+        <CorsWarningBanner />
 
         {/* Page content */}
         <main className="p-4 lg:p-8">

@@ -242,9 +242,13 @@ async function apiFetch(path, options = {}, query = {}) {
 
   const token = getAuthToken();
 
+  const method = String(requestOptions.method || 'GET').toUpperCase();
+  const hasBody = requestOptions.body !== undefined && requestOptions.body !== null;
   const isFormData = typeof FormData !== 'undefined' && requestOptions.body instanceof FormData;
+  const shouldSetJsonContentType = hasBody && !isFormData && method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
+
   const headers = {
-    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    ...(shouldSetJsonContentType ? { 'Content-Type': 'application/json' } : {}),
     ...(requestOptions.headers || {}),
   };
 
