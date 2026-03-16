@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import PhoneInput from "@/components/ui/phone-input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -114,12 +115,11 @@ export default function MemberForm({ open, onOpenChange, member, onSubmit, sugge
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number *</Label>
-              <Input
+              <PhoneInput
                 id="phone"
+                label="Phone Number"
                 value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                placeholder="+91 98765 43210"
+                onChange={(value) => setFormData({ ...formData, phone: value })}
                 required
               />
             </div>

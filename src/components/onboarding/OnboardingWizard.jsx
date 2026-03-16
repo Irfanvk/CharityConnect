@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import PhoneInput from "@/components/ui/phone-input";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { 
@@ -13,6 +14,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { APP_BRAND } from "@/config/appPaths";
 import { useToast } from "@/components/ui/use-toast";
+import { isValidInternationalPhone } from "@/lib/phone-utils";
 
 export default function OnboardingWizard({ open, onComplete, user, memberProfile }) {
   const [step, setStep] = useState(1);
@@ -60,10 +62,8 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
     try {
       const normalizedPhone = String(formData.phone || '').trim();
       const normalizedEmail = String(formData.email || '').trim().toLowerCase();
-      const phoneRegex = /^\+[1-9]\d{7,14}$/;
-
-      if (!phoneRegex.test(normalizedPhone)) {
-        throw new Error('Enter a valid phone number in international format, for example +923001234567.');
+      if (!isValidInternationalPhone(normalizedPhone)) {
+        throw new Error('Enter a valid phone number with country code.');
       }
 
       const registeredPhone = String(user?.phone || '').trim();
@@ -170,15 +170,13 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
 
             <div className="space-y-4 bg-slate-50 p-6 rounded-lg">
               <div>
-                <Label htmlFor="phone">Phone Number *</Label>
-                <Input
+                <PhoneInput
                   id="phone"
-                  type="tel"
+                  label="Phone Number"
                   value={formData.phone}
-                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                  placeholder="+91987654321"
+                  onChange={(value) => setFormData({ ...formData, phone: value })}
+                  required
                 />
-                <p className="text-xs text-slate-500 mt-1">Use country code format (E.164). Example: +91987654321</p>
               </div>
 
               <div>

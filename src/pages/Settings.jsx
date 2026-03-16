@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import PhoneInput from "@/components/ui/phone-input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -316,14 +317,11 @@ export default function Settings() {
             </p>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
+              <PhoneInput
                 id="phone"
+                label="Phone Number"
                 value={inviteData.phone}
-                onChange={(e) =>
-                  setInviteData({ ...inviteData, phone: e.target.value })
-                }
-                placeholder="+91 98765 43210"
+                onChange={(value) => setInviteData({ ...inviteData, phone: value })}
               />
             </div>
 

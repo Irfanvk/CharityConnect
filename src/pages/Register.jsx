@@ -3,6 +3,7 @@ import { charityClient } from "@/api/charityClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import PhoneInput from "@/components/ui/phone-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Heart, CheckCircle, XCircle, Loader2, MoonStar } from "lucide-react";
@@ -348,12 +349,11 @@ export default function Register() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone" className="text-slate-800 dark:text-slate-100">Phone Number *</Label>
-                <Input
+                <PhoneInput
                   id="phone"
+                  label="Phone Number"
                   value={formData.phone}
-                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                  autoComplete="tel"
+                  onChange={(value) => setFormData({ ...formData, phone: value })}
                   required
                 />
               </div>
