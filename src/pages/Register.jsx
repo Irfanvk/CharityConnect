@@ -162,7 +162,7 @@ export default function Register() {
             ].join(','),
           }}
         />
-        <div className="relative z-10 flex min-h-[calc(100vh-2rem)] items-center justify-center sm:min-h-[calc(100vh-3rem)]">
+        <div className="relative z-10 flex min-h-svh items-center justify-center pb-[env(safe-area-inset-bottom)]">
         <Card className="max-w-md w-full border-white/50 bg-white/95 text-slate-900 shadow-2xl backdrop-blur-sm dark:border-slate-500/40 dark:bg-slate-900/90 dark:text-slate-100">
           <CardContent className="p-8 text-center">
             <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center mx-auto mb-4">
@@ -218,7 +218,7 @@ export default function Register() {
       <div className="pointer-events-none absolute right-6 top-12 h-20 w-20 rounded-full border border-violet-300/70 bg-violet-100/40 dark:border-violet-200/50 dark:bg-violet-200/10" />
       <div className="pointer-events-none absolute bottom-14 right-10 h-32 w-32 rounded-full border border-emerald-300/60 bg-white/50 dark:border-emerald-200/40 dark:bg-white/10" />
 
-      <div className="relative z-10 flex min-h-[calc(100vh-2rem)] items-center justify-center sm:min-h-[calc(100vh-3rem)]">
+      <div className="relative z-10 flex min-h-svh items-center justify-center pb-[env(safe-area-inset-bottom)]">
       <Card className="max-w-md w-full border-white/50 bg-white/95 text-slate-900 shadow-2xl backdrop-blur-sm dark:border-slate-500/40 dark:bg-slate-900/90 dark:text-slate-100">
         <CardHeader className="text-center pb-6">
           <div className="w-14 h-14 rounded-xl bg-white/80 dark:bg-slate-800/80 p-2 mx-auto mb-3 shadow-md">

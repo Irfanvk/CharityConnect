@@ -91,7 +91,7 @@ export default function Login() {
       <div className="pointer-events-none absolute -left-8 top-20 h-32 w-32 rounded-full border border-amber-300/60 bg-transparent dark:border-amber-200/40" />
       <div className="pointer-events-none absolute bottom-16 right-8 h-36 w-36 rounded-full border border-emerald-300/60 bg-white/50 dark:border-emerald-200/40 dark:bg-white/10" />
 
-      <div className="relative z-10 flex min-h-[calc(100vh-2rem)] items-center justify-center sm:min-h-[calc(100vh-3rem)]">
+      <div className="relative z-10 flex min-h-svh items-center justify-center pb-[env(safe-area-inset-bottom)]">
       <Card className="w-full max-w-md border-white/50 bg-white/95 text-slate-900 shadow-2xl backdrop-blur-sm dark:border-slate-500/40 dark:bg-slate-900/90 dark:text-slate-100">
         <CardHeader className="space-y-1">
           <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-xl bg-white/80 p-2 shadow-md dark:bg-slate-800/80">

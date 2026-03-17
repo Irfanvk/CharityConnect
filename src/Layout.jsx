@@ -351,7 +351,7 @@ export default function Layout({ children, currentPageName }) {
         <CorsWarningBanner />
 
         {/* Page content */}
-        <main className="p-4 lg:p-8">
+        <main className="p-4 lg:p-8 pb-20 lg:pb-8" style={{ paddingBottom: 'max(5rem, calc(5rem + env(safe-area-inset-bottom)))' }}>
           <AnimatePresence mode="wait">
             <motion.div
               key={currentPageName}
