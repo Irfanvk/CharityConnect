@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from '@/App.jsx'
 import { APP_BRAND } from '@/config/appPaths'
 import '@/index.css'
-// import { registerSW } from 'virtual:pwa-register'
+import { registerSW } from 'virtual:pwa-register'
 
 const IOS_SW_RESET_KEY = 'ios_sw_reset_v2';
 
@@ -51,21 +51,21 @@ async function cleanupIOSServiceWorkers() {
   }
 }
 
-// function registerServiceWorker() {
-//   // iOS browsers are more prone to stale-cache blank screens in installed/PWA mode.
-//   // Skip fresh registration on iOS and rely on online-first network fetching.
-//   if (isIOSDevice()) {
-//     return;
-//   }
+function registerServiceWorker() {
+  // iOS browsers are more prone to stale-cache blank screens in installed/PWA mode.
+  // Skip registration on iOS entirely; the iOS cleanup above handles stale SWs.
+  if (isIOSDevice()) {
+    return;
+  }
 
-//   const updateSW = registerSW({
-//     immediate: true,
-//   });
+  const updateSW = registerSW({
+    immediate: true,
+  });
 
-//   window.addEventListener('online', () => {
-//     updateSW(true);
-//   });
-// }
+  window.addEventListener('online', () => {
+    updateSW(true);
+  });
+}
 
 document.title = APP_BRAND.TITLE;
 
@@ -79,7 +79,7 @@ window.addEventListener('unhandledrejection', () => {
 
 cleanupIOSServiceWorkers()
   .finally(() => {
-    // registerServiceWorker();
+    registerServiceWorker();
 
     try {
       ReactDOM.createRoot(document.getElementById('root')).render(
