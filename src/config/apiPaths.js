@@ -23,6 +23,7 @@ export const API_PATHS = {
   challans: {
     list: '/challans/',
     summary: '/challans/summary',
+    payableMonths: '/challans/payable-months',
     importHistory: '/challans/import/history',
     importHistoryJob: '/challans/import/history/jobs',
     importHistoryJobStatus: (jobId) => `/challans/import/history/jobs/${jobId}`,

@@ -628,6 +628,18 @@ const charityClient = {
         monthly_collection: Number(data?.monthly_collection || 0),
       };
     },
+
+    payableMonths: async (query = {}) => {
+      const data = await apiFetch(API_PATHS.challans.payableMonths, { method: 'GET' }, query);
+      return {
+        member_id: Number(data?.member_id || 0),
+        current_month: String(data?.current_month || ''),
+        pending_months: Array.isArray(data?.pending_months) ? data.pending_months : [],
+        current_month_payable: Boolean(data?.current_month_payable),
+        upcoming_months: Array.isArray(data?.upcoming_months) ? data.upcoming_months : [],
+        all_months: Array.isArray(data?.all_months) ? data.all_months : [],
+      };
+    },
     
     get: async (id) => normalizeChallan(await apiFetch(API_PATHS.challans.byId(id), { method: 'GET' })),
     

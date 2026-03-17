@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { charityClient } from "@/api/charityClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +51,7 @@ export default function ChallanForm({
     notes: ''
   });
   const [selectedMonths, setSelectedMonths] = useState([]);
+  const [includeUpcomingMonths, setIncludeUpcomingMonths] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Get unpaid months for selected member
@@ -69,6 +72,31 @@ export default function ChallanForm({
   };
 
   const unpaidMonths = getUnpaidMonths(formData.member_id);
+
+  const { data: payableMonthsData } = useQuery({
+    queryKey: [
+      "challans",
+      "payable-months",
+      formData.member_id,
+      includeUpcomingMonths,
+    ],
+    enabled: Boolean(formData.member_id) && formData.type === "monthly",
+    queryFn: () =>
+      charityClient.challans.payableMonths({
+        ...(isAdmin ? { member_id: Number(formData.member_id) } : {}),
+        include_upcoming: includeUpcomingMonths,
+        upcoming_count: 3,
+      }),
+  });
+
+  const selectableMonths =
+    payableMonthsData?.all_months?.length > 0
+      ? payableMonthsData.all_months
+      : unpaidMonths;
+
+  useEffect(() => {
+    setSelectedMonths((prev) => prev.filter((month) => selectableMonths.includes(month)));
+  }, [formData.member_id, formData.type, includeUpcomingMonths, selectableMonths.join("|")]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -114,6 +142,16 @@ await onSubmit({
 
   const activeCampaigns = campaigns.filter(c => c.status === 'active');
 
+  const getMonthTag = (month) => {
+    if (payableMonthsData?.upcoming_months?.includes(month)) {
+      return { label: "Upcoming", className: "bg-indigo-100 text-indigo-700" };
+    }
+    if (month === payableMonthsData?.current_month) {
+      return { label: "Current", className: "bg-emerald-100 text-emerald-700" };
+    }
+    return { label: "Pending", className: "bg-amber-100 text-amber-700" };
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
@@ -132,7 +170,11 @@ await onSubmit({
               <Label>Member *</Label>
               <Select
                 value={formData.member_id}
-                onValueChange={(value) => setFormData({...formData, member_id: value})}
+                onValueChange={(value) => {
+                  setFormData({...formData, member_id: value});
+                  setSelectedMonths([]);
+                  setIncludeUpcomingMonths(false);
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select member" />
@@ -179,6 +221,18 @@ await onSubmit({
 
           {formData.type === 'monthly' && (
             <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-lg border p-3 bg-slate-50 dark:bg-slate-800/40">
+                <div>
+                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Include upcoming months</p>
+                  <p className="text-xs text-slate-500">Allow next 3 months in addition to current and pending dues</p>
+                </div>
+                <Checkbox
+                  id="include-upcoming-months"
+                  checked={includeUpcomingMonths}
+                  onCheckedChange={(checked) => setIncludeUpcomingMonths(Boolean(checked))}
+                />
+              </div>
+
               <div className="flex items-center justify-between">
                 <Label>Select Months to Pay *</Label>
                 {selectedMonths.length > 0 && (
@@ -189,10 +243,10 @@ await onSubmit({
               </div>
               
               <div className="border rounded-lg p-4 max-h-64 overflow-y-auto space-y-2 bg-slate-50 dark:bg-slate-800/50">
-                {unpaidMonths.length === 0 ? (
+                {selectableMonths.length === 0 ? (
                   <p className="text-sm text-slate-500 text-center py-4">All months paid</p>
                 ) : (
-                  unpaidMonths.map(month => (
+                  selectableMonths.map(month => (
                     <div key={month} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-white dark:hover:bg-slate-800 transition-colors">
                       <Checkbox
                         id={`month-${month}`}
@@ -201,10 +255,13 @@ await onSubmit({
                       />
                       <label
                         htmlFor={`month-${month}`}
-                        className="flex-1 text-sm font-medium cursor-pointer select-none"
+                        className="flex-1 text-sm font-medium cursor-pointer select-none flex items-center justify-between gap-2"
                       >
-                        <Calendar className="w-3 h-3 inline mr-2 text-slate-400" />
-                        {format(new Date(month + '-01'), 'MMMM yyyy')}
+                        <span>
+                          <Calendar className="w-3 h-3 inline mr-2 text-slate-400" />
+                          {format(new Date(month + '-01'), 'MMMM yyyy')}
+                        </span>
+                        <Badge className={getMonthTag(month).className}>{getMonthTag(month).label}</Badge>
                       </label>
                     </div>
                   ))
