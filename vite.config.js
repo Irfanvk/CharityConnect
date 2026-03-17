@@ -1,23 +1,24 @@
 import react from '@vitejs/plugin-react'
 import legacy from '@vitejs/plugin-legacy'
 import { defineConfig, loadEnv } from 'vite'
-import { VitePWA } from 'vite-plugin-pwa'
+// import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'url'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const backendUrl = env.VITE_CHARITY_APP_BASE_URL;
-  let backendApiPattern = null;
-  try {
-    if (backendUrl) {
-      const backendOrigin = new URL(backendUrl).origin;
-      const escapedBackendOrigin = backendOrigin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      backendApiPattern = new RegExp(`^${escapedBackendOrigin}/api/.*`);
-    }
-  } catch {
-    backendApiPattern = null;
-  }
+  // let backendApiPattern = null;
+  // try {
+  //   if (backendUrl) {
+  //     const backendOrigin = new URL(backendUrl).origin;
+  //     const escapedBackendOrigin = backendOrigin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  //     backendApiPattern = new RegExp(`^${escapedBackendOrigin}/api/.*`);
+  //   }
+  // } catch {
+  //   backendApiPattern = null;
+  // }
+  
   const isProd = mode === 'production';
 
   return {
