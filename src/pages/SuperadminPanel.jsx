@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -22,11 +23,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Shield, UserCog, Loader2, Crown, Check } from "lucide-react";
+import { Shield, UserCog, Loader2, Crown, Check, Search } from "lucide-react";
 import { format } from "date-fns";
+
+const SUPERADMIN_USERS_BATCH_LIMIT = 200;
 
 export default function SuperadminPanel() {
   const [user, setUser] = useState(null);
+  const [search, setSearch] = useState("");
   const [confirmDialog, setConfirmDialog] = useState({ open: false, userId: null, targetRole: null, userName: null });
   
   const queryClient = useQueryClient();
@@ -37,8 +41,51 @@ export default function SuperadminPanel() {
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['users'],
-    queryFn: () => charityClient.users.list(),
+    queryFn: async () => {
+      let allUsers = [];
+      let skip = 0;
+
+      while (true) {
+        const chunk = await charityClient.users.list({
+          skip,
+          limit: SUPERADMIN_USERS_BATCH_LIMIT,
+        });
+
+        allUsers = allUsers.concat(chunk);
+
+        if (chunk.length === 0 || chunk.length < SUPERADMIN_USERS_BATCH_LIMIT) {
+          break;
+        }
+
+        skip += SUPERADMIN_USERS_BATCH_LIMIT;
+      }
+
+      return allUsers;
+    },
   });
+
+  const filteredUsers = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) {
+      return users;
+    }
+
+    return users.filter((u) => {
+      const fields = [
+        u.username,
+        u.full_name,
+        u.email,
+        u.phone,
+        u.member_code,
+        u.member_id,
+        u.role,
+      ]
+        .filter(Boolean)
+        .map((value) => String(value).toLowerCase());
+
+      return fields.some((value) => value.includes(query));
+    });
+  }, [users, search]);
 
   const updateRoleMutation = useMutation({
     mutationFn: ({ userId, role }) => charityClient.users.update(userId, { role }),
@@ -149,11 +196,26 @@ export default function SuperadminPanel() {
             <h2 className="text-lg font-semibold text-slate-800">Role Management</h2>
           </div>
 
+          <div className="mb-4 space-y-2">
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Find user by name, email, phone, role, or member ID"
+                className="pl-9"
+              />
+            </div>
+            <p className="text-xs text-slate-500">
+              Searching across complete users list: {users.length} total. Showing {filteredUsers.length} result(s).
+            </p>
+          </div>
+
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
             </div>
-          ) : users.length === 0 ? (
+          ) : filteredUsers.length === 0 ? (
             <div className="text-center py-12 text-slate-500">
               No users found
             </div>
@@ -171,7 +233,7 @@ export default function SuperadminPanel() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((u) => (
+                  {filteredUsers.map((u) => (
                     <TableRow key={u.id}>
                       <TableCell className="font-medium">{u.username || u.full_name}</TableCell>
                       <TableCell className="text-slate-600">{u.email || '—'}</TableCell>
