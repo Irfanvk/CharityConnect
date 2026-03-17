@@ -8,9 +8,16 @@ import { fileURLToPath, URL } from 'url'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const backendUrl = env.VITE_CHARITY_APP_BASE_URL;
-  const backendOrigin = new URL(backendUrl).origin;
-  const escapedBackendOrigin = backendOrigin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const backendApiPattern = new RegExp(`^${escapedBackendOrigin}/api/.*`);
+  let backendApiPattern = null;
+  try {
+    if (backendUrl) {
+      const backendOrigin = new URL(backendUrl).origin;
+      const escapedBackendOrigin = backendOrigin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      backendApiPattern = new RegExp(`^${escapedBackendOrigin}/api/.*`);
+    }
+  } catch {
+    backendApiPattern = null;
+  }
   const isProd = mode === 'production';
 
   return {
@@ -113,22 +120,24 @@ export default defineConfig(({ mode }) => {
                 },
               },
             },
-            {
-              // Cache remote backend API responses in production deployments.
-              urlPattern: backendApiPattern,
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'api-origin-runtime-cache',
-                networkTimeoutSeconds: 10,
-                expiration: {
-                  maxEntries: 100,
-                  maxAgeSeconds: 60 * 60 * 24,
-                },
-                cacheableResponse: {
-                  statuses: [0, 200],
-                },
-              },
-            },
+            ...(backendApiPattern
+              ? [{
+                  // Cache remote backend API responses in production deployments.
+                  urlPattern: backendApiPattern,
+                  handler: 'NetworkFirst',
+                  options: {
+                    cacheName: 'api-origin-runtime-cache',
+                    networkTimeoutSeconds: 10,
+                    expiration: {
+                      maxEntries: 100,
+                      maxAgeSeconds: 60 * 60 * 24,
+                    },
+                    cacheableResponse: {
+                      statuses: [0, 200],
+                    },
+                  },
+                }]
+              : []),
             {
               urlPattern: ({ request }) => request.destination === 'image',
               handler: 'StaleWhileRevalidate',
