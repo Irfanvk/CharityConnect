@@ -4,12 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import PhoneInput from "@/components/ui/phone-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Mail, Phone, MapPin, Calendar, Receipt, 
-  TrendingUp, CheckCircle, Clock, Loader2, UserCircle, Trash2, AlertTriangle
+  TrendingUp, CheckCircle, Clock, Loader2, UserCircle, Trash2, AlertTriangle, CreditCard
 } from "lucide-react";
 import { format } from "date-fns";
 import ContributionHistory from "@/components/profile/ContributionHistory";
@@ -26,6 +27,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const statusConfig = {
   generated: { label: "Generated", color: "bg-slate-100 text-slate-700" },
@@ -41,6 +48,10 @@ export default function Profile() {
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [paymentChangeOpen, setPaymentChangeOpen] = useState(false);
+  const [newMonthlyAmount, setNewMonthlyAmount] = useState("");
+  const [paymentChangeReason, setPaymentChangeReason] = useState("");
+  const [submittingPaymentChange, setSubmittingPaymentChange] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -156,6 +167,55 @@ export default function Profile() {
       description: "Please contact your administrator to delete your account.",
     });
     setDeleteDialogOpen(false);
+  };
+
+  const handleSubmitPaymentChange = async () => {
+    const amount = parseInt(newMonthlyAmount, 10);
+    
+    if (!amount || amount < 50 || amount > 10000) {
+      toast({
+        title: "Invalid amount",
+        description: "Monthly payment must be between ₹50 and ₹10,000.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!paymentChangeReason.trim()) {
+      toast({
+        title: "Reason required",
+        description: "Please provide a reason for the payment change.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSubmittingPaymentChange(true);
+    try {
+      await charityClient.requests.create({
+        request_type: 'payment_change',
+        subject: `Request to change monthly payment from ₹${memberProfile?.monthly_amount || 100} to ₹${amount}`,
+        message: `I would like to change my monthly payment amount to ₹${amount}.\n\nReason: ${paymentChangeReason}`,
+        priority: 'medium',
+      });
+
+      toast({
+        title: "Request submitted",
+        description: "Your payment change request has been submitted to the administrators for approval.",
+      });
+      
+      setPaymentChangeOpen(false);
+      setNewMonthlyAmount("");
+      setPaymentChangeReason("");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to submit payment change request.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmittingPaymentChange(false);
+    }
   };
 
   if (!user) {
@@ -323,6 +383,37 @@ export default function Profile() {
             </Card>
           </div>
 
+              {/* Monthly Payment Card */}
+              {memberProfile && (
+                <Card className="border-0 shadow-sm">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="w-5 h-5 text-amber-600" />
+                        <CardTitle className="text-lg">Monthly Fixed Payment</CardTitle>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setPaymentChangeOpen(true)}
+                        className="text-xs"
+                      >
+                        Request Change
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-3xl font-bold text-slate-900">₹{memberProfile.monthly_amount || 100}</p>
+                      <p className="text-slate-500">per month</p>
+                    </div>
+                    <p className="text-sm text-slate-500 mt-2">
+                      This amount will be deducted monthly. Changes require admin approval.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Recent Payment History */}
               <Card className="border-0 shadow-sm">
                 <CardHeader>
@@ -471,6 +562,79 @@ export default function Profile() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Payment Change Request Dialog */}
+      <Dialog open={paymentChangeOpen} onOpenChange={setPaymentChangeOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-amber-600" />
+              Request Payment Change
+            </DialogTitle>
+          </DialogHeader>
+
+          {memberProfile && (
+            <div className="space-y-5">
+              <div className="p-3 bg-slate-50 rounded-lg">
+                <p className="text-xs text-slate-500">Current monthly payment</p>
+                <p className="text-2xl font-bold text-slate-900">₹{memberProfile.monthly_amount || 100}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="newAmount">New Monthly Payment Amount (₹) *</Label>
+                <Input
+                  id="newAmount"
+                  type="number"
+                  value={newMonthlyAmount}
+                  onChange={(e) => setNewMonthlyAmount(e.target.value)}
+                  placeholder="Enter new amount (₹50 - ₹10,000)"
+                  min="50"
+                  max="10000"
+                />
+                <p className="text-xs text-slate-500">
+                  Must be between ₹50 and ₹10,000
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="reason">Reason for Change *</Label>
+                <Textarea
+                  id="reason"
+                  value={paymentChangeReason}
+                  onChange={(e) => setPaymentChangeReason(e.target.value)}
+                  placeholder="Why would you like to change your monthly payment?"
+                  rows={3}
+                />
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-xs text-amber-700">
+                  Your request will be sent to the administrators for approval. You will receive a notification once it's approved or rejected.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPaymentChangeOpen(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSubmitPaymentChange}
+                  disabled={submittingPaymentChange || !newMonthlyAmount || !paymentChangeReason}
+                  className="flex-1 bg-amber-600 hover:bg-amber-700"
+                >
+                  {submittingPaymentChange && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Submit Request
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

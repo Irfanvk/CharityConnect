@@ -22,7 +22,8 @@ export default function Register() {
     email: '',
     phone: '',
     address: '',
-    city: ''
+    city: '',
+    monthly_amount: 100
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -130,7 +131,7 @@ export default function Register() {
         full_name: formData.full_name,
         phone: formData.phone,
         address: formData.address || '',
-        monthly_amount: 100
+        monthly_amount: parseInt(formData.monthly_amount, 10) || 100
       });
 
       // Backend automatically:
@@ -356,6 +357,25 @@ export default function Register() {
                   onChange={(value) => setFormData({ ...formData, phone: value })}
                   required
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="monthly_amount" className="text-slate-800 dark:text-slate-100">
+                  Monthly Fixed Payment (₹) *
+                </Label>
+                <Input
+                  id="monthly_amount"
+                  type="number"
+                  value={formData.monthly_amount}
+                  onChange={(e) => setFormData({...formData, monthly_amount: e.target.value})}
+                  placeholder="Enter monthly payment amount (minimum ₹50)"
+                  min="50"
+                  max="10000"
+                  required
+                />
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  You can modify this amount later from your profile with admin approval.
+                </p>
               </div>
 
               <p className="text-xs text-slate-600 dark:text-slate-300">

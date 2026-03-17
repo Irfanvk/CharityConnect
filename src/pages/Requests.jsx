@@ -54,6 +54,7 @@ const typeConfig = {
   question: { label: "Question", color: "text-blue-600" },
   complaint: { label: "Complaint", color: "text-rose-600" },
   suggestion: { label: "Suggestion", color: "text-emerald-600" },
+  payment_change: { label: "Payment Change Request", color: "text-amber-600" },
   other: { label: "Other", color: "text-slate-600" },
 };
 
@@ -176,6 +177,83 @@ export default function Requests() {
       toast({
         title: "Failed to apply changes",
         description: error?.message || "An error occurred while updating member information.",
+        variant: "destructive",
+      });
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const parsePaymentChange = (message) => {
+    // Look for a number pattern like "123", "100", "50", etc. in the message
+    const amountMatch = message?.match(/(?:to|new|amount|₹|rs)?\s*(?:₹\s*)?(\d+)/i);
+    if (amountMatch) {
+      const amount = parseInt(amountMatch[1], 10);
+      if (amount >= 50 && amount <= 10000) {
+        return { monthly_amount: amount };
+      }
+    }
+    return null;
+  };
+
+  const handleApplyPaymentChange = async () => {
+    if (!selectedRequest) return;
+    
+    try {
+      setApplying(true);
+      
+      // Parse payment change from the request message
+      const changes = parsePaymentChange(selectedRequest.message);
+      
+      if (!changes) {
+        toast({
+          title: "Invalid payment amount",
+          description: "Could not find a valid payment amount (50-10000) in the request message.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Get the member data first
+      const members = await charityClient.members.list({ email: selectedRequest.created_by });
+      const member = members.find(m => m.email === selectedRequest.created_by);
+      
+      if (!member) {
+        toast({
+          title: "Member not found",
+          description: "Could not find the member who submitted this request.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Update the member with the new payment amount
+      await charityClient.members.update(member.id, changes);
+      
+      // Send notification to member
+      try {
+        await charityClient.notifications.create({
+          target_type: 'member',
+          target_email: member.email,
+          title: 'Payment Change Approved',
+          message: `Your request to change monthly payment to ₹${changes.monthly_amount} has been approved.`,
+          type: 'info',
+        });
+      } catch {
+        // Non-blocking notification failure
+      }
+      
+      toast({
+        title: "Payment change applied",
+        description: `Updated monthly payment to ₹${changes.monthly_amount} for ${member.full_name}.`,
+      });
+      
+      setResponseOpen(false);
+      setSelectedRequest(null);
+    } catch (error) {
+      toast({
+        title: "Failed to apply payment change",
+        description: error?.message || "An error occurred while updating the payment amount.",
         variant: "destructive",
       });
     } finally {
@@ -370,6 +448,7 @@ export default function Requests() {
                   <SelectItem value="approval">Approval Request</SelectItem>
                   <SelectItem value="question">Question</SelectItem>
                   <SelectItem value="complaint">Complaint</SelectItem>
+                  <SelectItem value="payment_change">Payment Change Request</SelectItem>
                   <SelectItem value="suggestion">Suggestion</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
@@ -547,6 +626,31 @@ export default function Requests() {
                       <>
                         <UserCheck className="w-4 h-4 mr-2" />
                         Apply Contact Changes
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {isAdmin && selectedRequest.status === 'resolved' && selectedRequest.request_type === 'payment_change' && (
+                <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                  <p className="text-sm text-slate-600 mb-3">
+                    This is a resolved payment change request. Click the button to apply the new payment amount.
+                  </p>
+                  <Button 
+                    onClick={handleApplyPaymentChange}
+                    disabled={applying}
+                    className="w-full bg-amber-600 hover:bg-amber-700"
+                  >
+                    {applying ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Applying Payment Change...
+                      </>
+                    ) : (
+                      <>
+                        <UserCheck className="w-4 h-4 mr-2" />
+                        Apply Payment Change
                       </>
                     )}
                   </Button>
