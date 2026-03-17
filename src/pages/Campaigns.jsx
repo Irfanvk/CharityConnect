@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
+import { PAGE_PATHS } from "@/config/appPaths";
 import CampaignForm from "@/components/campaigns/CampaignForm";
 import CampaignAnalytics from "@/components/campaigns/CampaignAnalytics";
 import RecurringDonationForm from "@/components/campaigns/RecurringDonationForm";
@@ -49,6 +50,7 @@ const statusConfig = {
 };
 
 export default function Campaigns() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [statusFilter, setStatusFilter] = useState("all");
   const [formOpen, setFormOpen] = useState(false);
@@ -324,7 +326,7 @@ export default function Campaigns() {
   const formatDonationRow = (challan) => {
     const memberId = challan?.member_id != null ? String(challan.member_id) : '';
     const member = memberMapById[memberId];
-    const donorName =
+    const fullName =
       member?.full_name ||
       challan?.member_name ||
       challan?.donor_name ||
@@ -332,7 +334,7 @@ export default function Campaigns() {
 
     return {
       id: challan?.id,
-      donorName,
+      fullName,
       memberCode: member?.member_code || member?.member_id || challan?.member_code || 'N/A',
       amount: Number(challan?.amount || 0),
       paymentMethod: challan?.payment_method || 'N/A',
@@ -358,6 +360,14 @@ export default function Campaigns() {
     setExpandedCampaignId((current) =>
       String(current) === String(campaign.id) ? null : campaign.id
     );
+  };
+
+  const openCampaignInReports = (campaign) => {
+    if (!campaign?.id) {
+      return;
+    }
+
+    navigate(`${PAGE_PATHS.REPORTS}?tab=donations&campaign=${encodeURIComponent(String(campaign.id))}`);
   };
 
   const filteredCampaigns = campaignsWithStats.filter(c => 
@@ -388,14 +398,19 @@ export default function Campaigns() {
 
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Button type="button" variant="outline" onClick={closeCampaignDetails}>
-            <ArrowLeft className="w-4 h-4 mr-1" /> Back to Campaigns
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{detailCampaign.title}</h1>
-            <p className="text-slate-500 dark:text-slate-400">Campaign details and donor list</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Button type="button" variant="outline" onClick={closeCampaignDetails}>
+              <ArrowLeft className="w-4 h-4 mr-1" /> Back to Campaigns
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{detailCampaign.title}</h1>
+              <p className="text-slate-500 dark:text-slate-400">Campaign details and donor list</p>
+            </div>
           </div>
+          <Button type="button" variant="outline" onClick={() => openCampaignInReports(detailCampaign)}>
+            View in Reports
+          </Button>
         </div>
 
         <Card className="border-0 shadow-sm">
@@ -444,7 +459,7 @@ export default function Campaigns() {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 text-slate-600">
                     <tr>
-                      <th className="text-left px-4 py-3">Donor</th>
+                      <th className="text-left px-4 py-3">Full Name</th>
                       <th className="text-left px-4 py-3">Member ID</th>
                       <th className="text-left px-4 py-3">Amount</th>
                       <th className="text-left px-4 py-3">Method</th>
@@ -456,7 +471,7 @@ export default function Campaigns() {
                   <tbody>
                     {donationRows.map((row) => (
                       <tr key={row.id} className="border-t">
-                        <td className="px-4 py-3 font-medium text-slate-900">{row.donorName}</td>
+                        <td className="px-4 py-3 font-medium text-slate-900">{row.fullName}</td>
                         <td className="px-4 py-3 text-slate-600">{row.memberCode}</td>
                         <td className="px-4 py-3 text-emerald-700 font-medium">₹{row.amount.toLocaleString()}</td>
                         <td className="px-4 py-3 text-slate-600">{row.paymentMethod}</td>
@@ -680,12 +695,22 @@ export default function Campaigns() {
                           {getCampaignDonations(campaign.id).slice(0, 8).map((row) => (
                             <div key={row.id} className="flex items-center justify-between text-xs">
                               <div className="min-w-0 pr-2">
-                                <p className="font-medium text-slate-800 truncate">{row.donorName}</p>
+                                <p className="font-medium text-slate-800 truncate">{row.fullName}</p>
                                 <p className="text-slate-500 truncate">{row.memberCode} • {row.paymentMethod}</p>
                               </div>
                               <span className="font-semibold text-emerald-700">₹{row.amount.toLocaleString()}</span>
                             </div>
                           ))}
+
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="link"
+                            className="px-0 text-xs"
+                            onClick={() => openCampaignInReports(campaign)}
+                          >
+                            Open filtered report for this campaign
+                          </Button>
 
                           {getCampaignDonations(campaign.id).length > 8 && (
                             <Button

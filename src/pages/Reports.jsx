@@ -1,11 +1,14 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Download, FileText } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ReportFilters from "@/components/reports/ReportFilters";
 import MemberActivityReport, { exportMemberCSV } from "@/components/reports/MemberActivityReport";
 import DonationSummaryReport, { exportDonationCSV } from "@/components/reports/DonationSummaryReport";
@@ -31,13 +34,16 @@ function downloadCSV({ headers, rows, filename }) {
 }
 
 export default function Reports() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("members");
   const [memberPeriod, setMemberPeriod] = useState("monthly");
   const [memberValue, setMemberValue] = useState(format(new Date(), "yyyy-MM"));
   const [donationPeriod, setDonationPeriod] = useState("monthly");
   const [donationValue, setDonationValue] = useState(format(new Date(), "yyyy-MM"));
+  const [donationCampaign, setDonationCampaign] = useState("all");
   const [challanPeriod, setChallanPeriod] = useState("monthly");
   const [challanValue, setChallanValue] = useState(format(new Date(), "yyyy-MM"));
+  const [exportScope, setExportScope] = useState("filtered");
 
   const { data: user } = useQuery({
     queryKey: ["me"],
@@ -131,18 +137,88 @@ export default function Reports() {
     [user]
   );
 
+  const campaignOptions = useMemo(
+    () => campaigns.map((campaign) => ({ id: String(campaign.id), name: campaign.title || `Campaign #${campaign.id}` })),
+    [campaigns]
+  );
+
+  useEffect(() => {
+    const linkedTab = searchParams.get("tab");
+    if (linkedTab === "members" || linkedTab === "donations" || linkedTab === "challans") {
+      setActiveTab(linkedTab);
+    }
+
+    const linkedCampaign = searchParams.get("campaign");
+    if (linkedCampaign) {
+      setDonationCampaign(String(linkedCampaign));
+      setActiveTab("donations");
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (donationCampaign === "all") {
+      return;
+    }
+
+    const exists = campaignOptions.some((campaign) => campaign.id === donationCampaign);
+    if (!exists) {
+      setDonationCampaign("all");
+    }
+  }, [campaignOptions, donationCampaign]);
+
+  const filteredDonationChallans = useMemo(() => {
+    if (donationCampaign === "all") {
+      return challans;
+    }
+
+    return challans.filter((challan) => String(challan.campaign_id || "") === donationCampaign);
+  }, [challans, donationCampaign]);
+
+  const selectedCampaignOption = useMemo(
+    () => campaignOptions.find((campaign) => campaign.id === donationCampaign) || null,
+    [campaignOptions, donationCampaign]
+  );
+
+  const handleDonationCampaignChange = (value) => {
+    setDonationCampaign(value);
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", "donations");
+    if (value === "all") {
+      next.delete("campaign");
+    } else {
+      next.set("campaign", value);
+    }
+    setSearchParams(next, { replace: true });
+  };
+
   const exportCurrentReport = async () => {
     let csvData;
     let reportName;
 
     if (activeTab === "members") {
-      csvData = exportMemberCSV(members, memberPeriod, memberValue);
+      csvData = exportMemberCSV(
+        members,
+        exportScope === "complete" ? "all" : memberPeriod,
+        exportScope === "complete" ? "all-time" : memberValue
+      );
       reportName = "Member Activity";
     } else if (activeTab === "donations") {
-      csvData = exportDonationCSV(challans, campaigns, donationPeriod, donationValue);
+      const scopedDonations = exportScope === "complete" ? challans : filteredDonationChallans;
+      csvData = exportDonationCSV(
+        scopedDonations,
+        campaigns,
+        exportScope === "complete" ? "all" : donationPeriod,
+        exportScope === "complete" ? "all-time" : donationValue,
+        members
+      );
       reportName = "Donation Summary";
     } else {
-      csvData = exportChallanCSV(challans, challanPeriod, challanValue, members);
+      csvData = exportChallanCSV(
+        challans,
+        exportScope === "complete" ? "all" : challanPeriod,
+        exportScope === "complete" ? "all-time" : challanValue,
+        members
+      );
       reportName = "Challan Status";
     }
 
@@ -157,6 +233,8 @@ export default function Reports() {
         target_name: reportName,
         details: {
           tab: activeTab,
+          campaign_filter: activeTab === "donations" && donationCampaign !== "all" ? donationCampaign : "all",
+          export_scope: exportScope,
           rows_exported: csvData.rows.length,
           filename: csvData.filename,
         },
@@ -183,11 +261,38 @@ export default function Reports() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Admin Reports</h1>
           <p className="text-slate-500">Member activity, donation summaries, and challan status reports</p>
+          {activeTab === "donations" && selectedCampaignOption && (
+            <div className="mt-2 flex items-center gap-2">
+              <Badge className="bg-emerald-100 text-emerald-700 border-0">
+                Campaign Filter: {selectedCampaignOption.name}
+              </Badge>
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto px-0 text-xs"
+                onClick={() => handleDonationCampaignChange("all")}
+              >
+                Clear
+              </Button>
+            </div>
+          )}
         </div>
-        <Button onClick={exportCurrentReport} className="bg-emerald-600 hover:bg-emerald-700">
-          <Download className="w-4 h-4 mr-2" />
-          Export CSV
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={exportScope} onValueChange={setExportScope}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="filtered">Export Filtered Data</SelectItem>
+              <SelectItem value="complete">Export Complete Data</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={exportCurrentReport} className="bg-emerald-600 hover:bg-emerald-700">
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -213,17 +318,33 @@ export default function Reports() {
         </TabsContent>
 
         <TabsContent value="donations" className="space-y-4">
-          <ReportFilters
-            period={donationPeriod}
-            onPeriodChange={setDonationPeriod}
-            value={donationValue}
-            onValueChange={setDonationValue}
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <ReportFilters
+              period={donationPeriod}
+              onPeriodChange={setDonationPeriod}
+              value={donationValue}
+              onValueChange={setDonationValue}
+            />
+            <Select value={donationCampaign} onValueChange={handleDonationCampaignChange}>
+              <SelectTrigger className="w-[260px]">
+                <SelectValue placeholder="Select campaign" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Campaigns</SelectItem>
+                {campaignOptions.map((campaign) => (
+                  <SelectItem key={campaign.id} value={campaign.id}>
+                    {campaign.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <DonationSummaryReport
-            challans={challans}
+            challans={filteredDonationChallans}
             campaigns={campaigns}
             period={donationPeriod}
             value={donationValue}
+            members={members}
           />
         </TabsContent>
 

@@ -16,25 +16,77 @@ function filterByPeriod(items, period, value) {
   });
 }
 
-export function exportDonationCSV(challans, campaigns, period, value) {
+function buildMemberLookup(members = []) {
+  const byId = {};
+  const byEmail = {};
+
+  members.forEach((member) => {
+    const idKey = member?.id != null ? String(member.id) : null;
+    const emailKey = member?.email ? String(member.email).toLowerCase() : null;
+
+    if (idKey) {
+      byId[idKey] = member;
+    }
+
+    if (emailKey) {
+      byEmail[emailKey] = member;
+    }
+  });
+
+  return { byId, byEmail };
+}
+
+function resolveDonationMember(challan, memberLookup) {
+  const memberIdKey = challan?.member_id != null ? String(challan.member_id) : null;
+  const memberEmailKey = challan?.member_email ? String(challan.member_email).toLowerCase() : null;
+
+  const memberFromDirectory =
+    (memberIdKey ? memberLookup.byId[memberIdKey] : null) ||
+    (memberEmailKey ? memberLookup.byEmail[memberEmailKey] : null) ||
+    null;
+
+  const fullName =
+    challan?.member_name ||
+    memberFromDirectory?.full_name ||
+    challan?.donor_name ||
+    "Unknown Donor";
+
+  const memberCode =
+    memberFromDirectory?.member_code ||
+    memberFromDirectory?.member_id ||
+    (challan?.member_id != null ? String(challan.member_id) : "N/A");
+
+  return {
+    fullName,
+    memberCode,
+  };
+}
+
+export function exportDonationCSV(challans, campaigns, period, value, members = []) {
   void campaigns;
+  const memberLookup = buildMemberLookup(members);
   const filtered = filterByPeriod(challans, period, value).filter((c) => c.status === "approved");
-  const headers = ["Challan Number", "Member Name", "Type", "Campaign", "Amount", "Month", "Approved Date"];
-  const rows = filtered.map((c) => [
-    c.challan_number,
-    c.member_name || "",
-    c.type,
-    c.campaign_name || "",
-    c.amount,
-    c.month || "",
-    c.approved_at ? format(new Date(c.approved_at), "yyyy-MM-dd") : "",
-  ]);
+  const headers = ["Challan Number", "Member ID", "Member Full Name", "Type", "Campaign", "Amount", "Month", "Approved Date"];
+  const rows = filtered.map((c) => {
+    const resolved = resolveDonationMember(c, memberLookup);
+    return [
+      c.challan_number,
+      resolved.memberCode,
+      resolved.fullName,
+      c.type,
+      c.campaign_name || "",
+      c.amount,
+      c.month || "",
+      c.approved_at ? format(new Date(c.approved_at), "yyyy-MM-dd") : "",
+    ];
+  });
 
   return { headers, rows, filename: `donation-report-${period === "all" ? "all-time" : value}` };
 }
 
-export default function DonationSummaryReport({ challans, campaigns, period, value }) {
+export default function DonationSummaryReport({ challans, campaigns, period, value, members = [] }) {
   void campaigns;
+  const memberLookup = React.useMemo(() => buildMemberLookup(members), [members]);
   const filtered = filterByPeriod(challans, period, value);
   const approved = filtered.filter((c) => c.status === "approved");
 
@@ -57,9 +109,12 @@ export default function DonationSummaryReport({ challans, campaigns, period, val
 
   const memberMap = {};
   approved.forEach((c) => {
-    const key = c.member_name || c.member_id || "Unknown";
-    if (!memberMap[key]) memberMap[key] = { name: key, total: 0 };
-    memberMap[key].total += c.amount || 0;
+    const resolved = resolveDonationMember(c, memberLookup);
+    const contributorKey = `${resolved.memberCode}-${resolved.fullName}`;
+    if (!memberMap[contributorKey]) {
+      memberMap[contributorKey] = { name: resolved.fullName, total: 0 };
+    }
+    memberMap[contributorKey].total += c.amount || 0;
   });
 
   const topContributors = Object.values(memberMap).sort((a, b) => b.total - a.total).slice(0, 10);
@@ -145,26 +200,31 @@ export default function DonationSummaryReport({ challans, campaigns, period, val
               <thead>
                 <tr className="border-b border-slate-100">
                   <th className="text-left py-2 px-3 text-slate-500 font-medium">Challan</th>
-                  <th className="text-left py-2 px-3 text-slate-500 font-medium">Member</th>
+                  <th className="text-left py-2 px-3 text-slate-500 font-medium">Member ID</th>
+                  <th className="text-left py-2 px-3 text-slate-500 font-medium">Full Name</th>
                   <th className="text-left py-2 px-3 text-slate-500 font-medium hidden md:table-cell">Type</th>
                   <th className="text-left py-2 px-3 text-slate-500 font-medium hidden md:table-cell">Campaign/Month</th>
                   <th className="text-right py-2 px-3 text-slate-500 font-medium">Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {approved.slice(0, 50).map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50">
-                    <td className="py-2 px-3 font-mono text-xs text-slate-500">{c.challan_number}</td>
-                    <td className="py-2 px-3 text-slate-800">{c.member_name || "—"}</td>
-                    <td className="py-2 px-3 hidden md:table-cell">
-                      <Badge className={`text-xs border-0 ${c.type === "monthly" ? "bg-blue-100 text-blue-700" : "bg-rose-100 text-rose-700"}`}>{c.type}</Badge>
-                    </td>
-                    <td className="py-2 px-3 text-slate-500 hidden md:table-cell">
-                      {c.type === "monthly" ? (c.month || "—") : (c.campaign_name || "—")}
-                    </td>
-                    <td className="py-2 px-3 text-right font-semibold text-emerald-600">₹{(c.amount || 0).toLocaleString()}</td>
-                  </tr>
-                ))}
+                {approved.slice(0, 50).map((c) => {
+                  const resolved = resolveDonationMember(c, memberLookup);
+                  return (
+                    <tr key={c.id} className="hover:bg-slate-50">
+                      <td className="py-2 px-3 font-mono text-xs text-slate-500">{c.challan_number}</td>
+                      <td className="py-2 px-3 text-slate-800">{resolved.memberCode}</td>
+                      <td className="py-2 px-3 text-slate-800">{resolved.fullName}</td>
+                      <td className="py-2 px-3 hidden md:table-cell">
+                        <Badge className={`text-xs border-0 ${c.type === "monthly" ? "bg-blue-100 text-blue-700" : "bg-rose-100 text-rose-700"}`}>{c.type}</Badge>
+                      </td>
+                      <td className="py-2 px-3 text-slate-500 hidden md:table-cell">
+                        {c.type === "monthly" ? (c.month || "—") : (c.campaign_name || "—")}
+                      </td>
+                      <td className="py-2 px-3 text-right font-semibold text-emerald-600">₹{(c.amount || 0).toLocaleString()}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             {approved.length === 0 && <p className="text-center text-slate-400 py-8">No approved transactions</p>}

@@ -50,7 +50,7 @@ export default function Members() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [user, setUser] = useState(null);
-  const [includeDonations, setIncludeDonations] = useState(true);
+  const [includeDonations, setIncludeDonations] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null); // { id, name }
   const [wipeOpen, setWipeOpen] = useState(false);
   const [wipeConfirmText, setWipeConfirmText] = useState("");
@@ -139,6 +139,24 @@ const { data: memberSummary } = useQuery({
   queryKey: ["members", "summary-counts"],
   queryFn: () => charityClient.members.summary(),
 });
+
+  const { data: importPrerequisites = { membersTotal: 0, hasCampaigns: false, hasChallans: false } } = useQuery({
+    queryKey: ["imports", "prerequisites"],
+    queryFn: async () => {
+      const [summary, campaignsPreview, challansPreview] = await Promise.all([
+        charityClient.members.summary(),
+        charityClient.campaigns.list({ skip: 0, limit: 1 }),
+        charityClient.challans.list({ skip: 0, limit: 1 }),
+      ]);
+
+      return {
+        membersTotal: Number(summary?.total_members || 0),
+        hasCampaigns: Array.isArray(campaignsPreview) && campaignsPreview.length > 0,
+        hasChallans: Array.isArray(challansPreview) && challansPreview.length > 0,
+      };
+    },
+    enabled: isSuperAdmin,
+  });
 
 React.useEffect(() => {
   setCurrentPage(1);
@@ -430,6 +448,37 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
     return lowerName.endsWith('.csv') || lowerName.endsWith('.xlsx');
   };
 
+  const validateImportPrerequisites = (importType) => {
+    if (importType === "challan" && importPrerequisites.membersTotal <= 0) {
+      toast({
+        title: "Import blocked",
+        description: "Import Members first (Step 2), then import Challan History.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (importType === "campaign" && importPrerequisites.membersTotal <= 0) {
+      toast({
+        title: "Import blocked",
+        description: "Import Members first (Step 2) before Campaign Payments.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (importType === "campaign" && !importPrerequisites.hasCampaigns) {
+      toast({
+        title: "Import blocked",
+        description: "Create Campaigns first (Step 1), then import Campaign Payments.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return true;
+  };
+
   const handleImportFileSelected = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -444,14 +493,15 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
       return;
     }
 
-    const lowerName = file.name.toLowerCase();
+    const effectiveIncludeDonations = includeDonations;
 
-    const looksLikeDonationFile =
-      lowerName.includes('challan') ||
-      lowerName.includes('campaign') ||
-      lowerName.includes('payment');
-
-    const effectiveIncludeDonations = looksLikeDonationFile ? true : includeDonations;
+    if (effectiveIncludeDonations && importPrerequisites.hasChallans) {
+      toast({
+        title: "Heads up",
+        description: "Existing challans found. Keep 'Include donations' OFF for clean re-import flow to avoid duplicate linking.",
+        variant: "destructive",
+      });
+    }
 
     setMemberImportProgress({
       fileName: file.name,
@@ -482,6 +532,11 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
     const file = event.target.files?.[0];
     if (!file) return;
 
+    if (!validateImportPrerequisites("challan")) {
+      event.target.value = '';
+      return;
+    }
+
     if (!hasValidImportExtension(file.name)) {
       toast({
         title: "Unsupported file type",
@@ -508,6 +563,11 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
   const handleCampaignImportFileSelected = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    if (!validateImportPrerequisites("campaign")) {
+      event.target.value = '';
+      return;
+    }
 
     if (!hasValidImportExtension(file.name)) {
       toast({
@@ -693,6 +753,7 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
                     <input type="checkbox" className="w-3 h-3" checked={includeDonations} onChange={(e) => setIncludeDonations(e.target.checked)} />
                     Include donations from file
                   </label>
+                  <span className="text-[10px] text-amber-600 max-w-[260px] leading-tight break-words">Recommended OFF for clean initial import. Use Step 3/4 for payment history.</span>
                 </div>
 
                 {/* Step 3 */}
