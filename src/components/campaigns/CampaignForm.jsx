@@ -17,11 +17,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import DatePickerField from "@/components/ui/date-picker-field";
 import { getCampaignEndDateMode, getCampaignTargetMode } from "@/lib/campaigns";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 const toDateInputValue = (value) => {
   if (!value) return '';
@@ -63,14 +62,23 @@ const getInitialFormData = (campaign) => {
 export default function CampaignForm({ open, onOpenChange, campaign, onSubmit }) {
   const [formData, setFormData] = useState(getInitialFormData(campaign));
   const [loading, setLoading] = useState(false);
+  const [dateError, setDateError] = useState("");
 
   useEffect(() => {
     if (!open) return;
     setFormData(getInitialFormData(campaign));
+    setDateError("");
   }, [open, campaign]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (hasFixedEndDate && formData.start_date && formData.end_date && formData.end_date < formData.start_date) {
+      setDateError("End date cannot be before start date.");
+      return;
+    }
+
+    setDateError("");
     setLoading(true);
     await onSubmit({
       ...formData,
@@ -200,45 +208,41 @@ export default function CampaignForm({ open, onOpenChange, campaign, onSubmit })
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Start Date *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.start_date 
-                      ? format(new Date(formData.start_date), "PPP")
-                      : "Pick date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={formData.start_date ? new Date(formData.start_date) : undefined}
-                    onSelect={(date) => setFormData({...formData, start_date: date ? format(date, 'yyyy-MM-dd') : ''})}
-                  />
-                </PopoverContent>
-              </Popover>
+              <DatePickerField
+                id="campaign_start_date"
+                value={formData.start_date}
+                onChange={(next) => {
+                  setDateError("");
+                  setFormData((prev) => ({
+                    ...prev,
+                    start_date: next,
+                    end_date:
+                      prev.end_date && next && prev.end_date < next
+                        ? next
+                        : prev.end_date,
+                  }));
+                }}
+                size="large"
+                placeholder="Pick date"
+              />
             </div>
 
             <div className="space-y-2">
               <Label>End Date{hasFixedEndDate ? ' *' : ''}</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal" disabled={!hasFixedEndDate}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {hasFixedEndDate && formData.end_date 
-                      ? format(new Date(formData.end_date), "PPP")
-                      : (hasFixedEndDate ? "Pick date" : "No end date")}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={formData.end_date ? new Date(formData.end_date) : undefined}
-                    onSelect={(date) => setFormData({...formData, end_date: date ? format(date, 'yyyy-MM-dd') : ''})}
-                    disabled={!hasFixedEndDate}
-                  />
-                </PopoverContent>
-              </Popover>
+              <DatePickerField
+                id="campaign_end_date"
+                value={formData.end_date}
+                onChange={(next) => {
+                  setDateError("");
+                  setFormData({ ...formData, end_date: next });
+                }}
+                size="large"
+                placeholder={hasFixedEndDate ? "Pick date" : "No end date"}
+                disabled={!hasFixedEndDate}
+                minDate={formData.start_date || undefined}
+                allowClear={hasFixedEndDate}
+              />
+              {dateError && <p className="text-xs text-rose-600">{dateError}</p>}
               {!hasFixedEndDate && (
                 <p className="text-xs text-slate-500">This campaign will remain open until you update its status or duration.</p>
               )}

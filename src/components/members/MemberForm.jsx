@@ -17,10 +17,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import DatePickerField from "@/components/ui/date-picker-field";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 const getInitialFormData = (member, suggestedId) => ({
   member_id: member?.member_id || suggestedId || '',
@@ -147,23 +146,13 @@ export default function MemberForm({ open, onOpenChange, member, onSubmit, sugge
 
             <div className="space-y-2">
               <Label>Join Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.join_date 
-                      ? format(new Date(formData.join_date), "PPP")
-                      : "Pick a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={formData.join_date ? new Date(formData.join_date) : undefined}
-                    onSelect={(date) => setFormData({...formData, join_date: date ? format(date, 'yyyy-MM-dd') : ''})}
-                  />
-                </PopoverContent>
-              </Popover>
+              <DatePickerField
+                id="join_date"
+                value={formData.join_date}
+                onChange={(next) => setFormData({ ...formData, join_date: next })}
+                size="large"
+                placeholder="Pick a date"
+              />
             </div>
 
             <div className="space-y-2">

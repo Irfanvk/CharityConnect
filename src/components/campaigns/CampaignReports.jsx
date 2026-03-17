@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import DatePickerField from "@/components/ui/date-picker-field";
 import {
   Select,
   SelectContent,
@@ -163,19 +163,29 @@ export default function CampaignReports({ campaigns, challans }) {
 
             <div className="space-y-2">
               <Label>From Date</Label>
-              <Input
-                type="date"
+              <DatePickerField
+                id="campaign_report_from_date"
                 value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
+                onChange={(next) => {
+                  setDateFrom(next);
+                  if (dateTo && next && dateTo < next) {
+                    setDateTo(next);
+                  }
+                }}
+                size="compact"
+                allowClear
               />
             </div>
 
             <div className="space-y-2">
               <Label>To Date</Label>
-              <Input
-                type="date"
+              <DatePickerField
+                id="campaign_report_to_date"
                 value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
+                onChange={setDateTo}
+                minDate={dateFrom || undefined}
+                size="compact"
+                allowClear
               />
             </div>
           </div>

@@ -3,6 +3,7 @@ import { charityClient } from "@/api/charityClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import DatePickerField from "@/components/ui/date-picker-field";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 export default function RecurringDonationForm({ open, onOpenChange, campaign, onSubmit }) {
   const [formData, setFormData] = useState({
@@ -121,18 +122,14 @@ export default function RecurringDonationForm({ open, onOpenChange, campaign, on
 
           <div className="space-y-2">
             <Label htmlFor="start_date">Start Date *</Label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                id="start_date"
-                type="date"
-                value={formData.start_date}
-                onChange={(e) => setFormData({...formData, start_date: e.target.value})}
-                className="pl-10"
-                min={new Date().toISOString().split('T')[0]}
-                required
-              />
-            </div>
+            <DatePickerField
+              id="start_date"
+              value={formData.start_date}
+              onChange={(next) => setFormData({ ...formData, start_date: next })}
+              minDate={new Date().toISOString().split('T')[0]}
+              size="large"
+              placeholder="Pick date"
+            />
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
