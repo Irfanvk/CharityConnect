@@ -5,8 +5,12 @@ import { APP_BRAND } from '@/config/appPaths'
 import '@/index.css'
 import { registerSW } from 'virtual:pwa-register'
 
-registerSW({
+const updateSW = registerSW({
   immediate: true,
+})
+
+window.addEventListener('online', () => {
+  updateSW(true)
 })
 
 document.title = APP_BRAND.TITLE;

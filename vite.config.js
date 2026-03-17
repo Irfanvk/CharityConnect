@@ -1,4 +1,5 @@
 import react from '@vitejs/plugin-react'
+import legacy from '@vitejs/plugin-legacy'
 import { defineConfig, loadEnv } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'url'
@@ -29,6 +30,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
+      // Keep production bundle compatible with older iOS Safari builds.
+      target: ['es2017', 'safari12'],
       // Production build optimizations
       minify: 'terser',
       terserOptions: {
@@ -55,6 +58,9 @@ export default defineConfig(({ mode }) => {
       sourcemap: false,
     },
     plugins: [
+      legacy({
+        targets: ['defaults', 'ios >= 12', 'safari >= 12'],
+      }),
       react(),
       VitePWA({
         registerType: 'autoUpdate',
@@ -86,6 +92,9 @@ export default defineConfig(({ mode }) => {
           ]
         },
         workbox: {
+          cleanupOutdatedCaches: true,
+          skipWaiting: true,
+          clientsClaim: true,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
           runtimeCaching: [
             {
