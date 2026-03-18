@@ -4,14 +4,9 @@ import App from '@/App.jsx'
 import { APP_BRAND } from '@/config/appPaths'
 import '@/index.css'
 import { registerSW } from 'virtual:pwa-register'
+import { isIOSDevice } from '@/lib/device'
 
 const IOS_SW_RESET_KEY = 'ios_sw_reset_v2';
-
-function isIOSDevice() {
-  const ua = navigator.userAgent || '';
-  const platform = navigator.platform || '';
-  return /iPad|iPhone|iPod/.test(ua) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-}
 
 function showBootstrapError(message) {
   const root = document.getElementById('root');
