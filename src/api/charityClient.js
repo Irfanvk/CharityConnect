@@ -3,7 +3,8 @@ import { APP_PATHS } from '@/config/appPaths';
 import { API_PATHS } from '@/config/apiPaths';
 import { tokenManager } from '@/lib/tokenManager';
 
-const BASE_URL = import.meta.env.VITE_CHARITY_APP_BASE_URL || '';
+const runtimeEnv = /** @type {any} */ (import.meta)?.env || {};
+const BASE_URL = runtimeEnv.VITE_CHARITY_APP_BASE_URL || '';
 const DEFAULT_TIMEOUT = 20000; // 20 seconds
 const IMPORT_TIMEOUT = 300000; // 5 minutes for large import files
 const IMPORT_JOB_POLL_INTERVAL = 1200;
@@ -807,6 +808,10 @@ const charityClient = {
         body: JSON.stringify(payload),
       });
     },
+
+    dashboardCharts: async (params = {}) => {
+      return apiFetch(API_PATHS.admin.dashboardCharts, { method: 'GET' }, params);
+    },
   },
 
   campaigns: {
@@ -881,6 +886,18 @@ const charityClient = {
       return extractArray(data).map(normalizeNotification);
     },
 
+    feed: async (params = {}) => {
+      const query = {
+        skip: params?.skip ?? 0,
+        limit: params?.limit ?? 50,
+      };
+      const data = await apiFetch(API_PATHS.notifications.feed, { method: 'GET' }, query);
+      return {
+        items: extractArray(data?.items).map(normalizeNotification),
+        unread_count: Number(data?.unread_count || 0),
+      };
+    },
+
     /**
      * Get unread notifications count
      * @returns {Promise<number>}
@@ -907,6 +924,13 @@ const charityClient = {
      */
     markAllRead: async () => {
       return apiFetch(API_PATHS.notifications.markAllRead, { method: 'POST' });
+    },
+
+    patchRead: async (payload = {}) => {
+      return apiFetch(API_PATHS.notifications.patchRead, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
     },
 
     /**

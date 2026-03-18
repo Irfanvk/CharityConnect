@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useEffect } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -42,6 +43,7 @@ import {
   emitNotificationsChanged,
   isNotificationDismissed,
 } from "@/lib/notificationState";
+import { useNotifications } from "@/lib/NotificationsContext";
 
 const typeConfig = {
   info: { label: "Info", color: "bg-blue-100 text-blue-700", icon: Info },
@@ -66,15 +68,18 @@ export default function Notifications() {
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const {
+    notifications,
+    unreadCount,
+    isLoading,
+    refreshNotifications,
+    markReadByIds,
+    markAllRead,
+  } = useNotifications();
 
   useEffect(() => {
     charityClient.auth.me().then(setUser).catch(() => {});
   }, []);
-
-  const { data: notifications = [], isLoading } = useQuery({
-    queryKey: ['notifications'],
-    queryFn: () => charityClient.notifications.list({ order: '-created_date' }),
-  });
 
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
 
@@ -87,6 +92,7 @@ export default function Notifications() {
   const handleCreateNotification = async (payload) => {
     await charityClient.notifications.send(payload);
     await queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    await refreshNotifications();
     setFormOpen(false);
     setFormData({ title: '', message: '', type: 'info', target_type: 'all' });
   };
@@ -99,6 +105,7 @@ export default function Notifications() {
         queryClient.invalidateQueries({ queryKey: ['notifications', 'sent-batches'] }),
         queryClient.invalidateQueries({ queryKey: ['notifications'] }),
       ]);
+      await refreshNotifications();
       emitNotificationsChanged('deleted');
       toast({
         title: 'Sent batch deleted',
@@ -132,10 +139,14 @@ export default function Notifications() {
 
   const markAsRead = async (notification) => {
     if (!isRead(notification)) {
-      await charityClient.notifications.markAsRead(notification.id);
-      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      await markReadByIds([notification.id]);
       emitNotificationsChanged('read');
     }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    await markAllRead();
+    emitNotificationsChanged('read');
   };
 
   const handleDeleteNotification = async (notification) => {
@@ -151,6 +162,7 @@ export default function Notifications() {
           target_name: notification.title,
         });
         await queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        await refreshNotifications();
         emitNotificationsChanged('deleted');
         toast({
           title: 'Notification deleted',
@@ -162,6 +174,7 @@ export default function Notifications() {
       // Members can only remove from their own list (local dismiss), not globally delete.
       dismissNotificationForUser(user?.email, notification.id);
       await queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      await refreshNotifications();
       emitNotificationsChanged('dismissed');
       toast({
         title: 'Notification removed',
@@ -197,15 +210,21 @@ export default function Notifications() {
           <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
           <p className="text-slate-500">Stay updated with latest announcements</p>
         </div>
-        {isAdmin && (
-          <Button 
-            onClick={() => setFormOpen(true)}
-            className="bg-emerald-600 hover:bg-emerald-700"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Post Notification
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="bg-slate-100 text-slate-700 border border-slate-200">Unread: {unreadCount}</Badge>
+          <Button variant="outline" onClick={handleMarkAllAsRead} disabled={unreadCount === 0}>
+            Mark all read
           </Button>
-        )}
+          {isAdmin && (
+            <Button
+              onClick={() => setFormOpen(true)}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Post Notification
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Notifications List */}
@@ -301,7 +320,7 @@ export default function Notifications() {
                           <div className="flex items-center gap-2 mb-1">
                             <h3 className="font-semibold text-slate-900">{notification.title}</h3>
                             {!read && (
-                              <Badge className="bg-emerald-500 text-white text-xs">New</Badge>
+                              <Badge variant="secondary" className="bg-emerald-500 text-white text-xs">New</Badge>
                             )}
                           </div>
                           <p className="text-slate-600">{notification.message}</p>

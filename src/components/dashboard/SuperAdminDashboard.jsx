@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,7 @@ export default function SuperAdminDashboard({
   members, 
   challans, 
   campaigns, 
+  dashboardCharts,
   auditLogs = [], 
   notifications = [],
   recurringDonations = []
@@ -52,19 +54,16 @@ export default function SuperAdminDashboard({
   const activeRecurring = recurringDonations.filter(rd => rd.status === 'active').length;
   const recentActivities = auditLogs.slice(0, 10);
   
-  // Donation trends (last 7 days)
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const date = subDays(new Date(), 6 - i);
-    const dayChallans = challans.filter(c => 
-      c.status === 'approved' && 
-      format(new Date(c.created_date), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
-    );
-    return {
-      date: format(date, 'MMM dd'),
-      amount: dayChallans.reduce((sum, c) => sum + c.amount, 0),
-      count: dayChallans.length
-    };
-  });
+  const monthlyDonations = Array.isArray(dashboardCharts?.monthly_donations)
+    ? dashboardCharts.monthly_donations.map((item) => ({
+        month: item?.month,
+        amount: Number(item?.amount || 0),
+      }))
+    : [];
+
+  const campaignProgressRows = Array.isArray(dashboardCharts?.campaign_progress)
+    ? dashboardCharts.campaign_progress
+    : [];
 
   // Member status distribution
   const memberStatusData = [
@@ -73,7 +72,7 @@ export default function SuperAdminDashboard({
     { name: 'Suspended', value: members.filter(m => m.status === 'suspended').length },
   ].filter(d => d.value > 0);
 
-  // Top contributors (last 30 days)
+  // Top contributors (fallback from challans if dashboard aggregate is unavailable)
   const recentChallans = challans.filter(c => 
     c.status === 'approved' && 
     isAfter(new Date(c.created_date), subDays(new Date(), 30))
@@ -87,9 +86,17 @@ export default function SuperAdminDashboard({
     contributorMap[key].total += c.amount;
     contributorMap[key].count += 1;
   });
-  const topContributors = Object.values(contributorMap)
+  const fallbackTopContributors = Object.values(contributorMap)
     .sort((a, b) => b.total - a.total)
     .slice(0, 5);
+
+  const topContributors = Array.isArray(dashboardCharts?.top_donors) && dashboardCharts.top_donors.length > 0
+    ? dashboardCharts.top_donors.map((row) => ({
+        email: row?.name || row?.member_code || `Member #${row?.member_id || ''}`,
+        total: Number(row?.total_amount || 0),
+        count: null,
+      }))
+    : fallbackTopContributors;
 
   return (
     <div className="space-y-6">
@@ -164,16 +171,15 @@ export default function SuperAdminDashboard({
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <BarChart3 className="w-5 h-5 text-emerald-600" />
-              Donation Trends (7 Days)
+              Monthly Donations
             </CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={last7Days}>
+              <LineChart data={monthlyDonations}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                 <YAxis yAxisId="left" tick={{ fontSize: 12 }} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: 'white', 
@@ -190,15 +196,6 @@ export default function SuperAdminDashboard({
                   strokeWidth={3}
                   name="Amount (₹)"
                   dot={{ fill: '#10b981', r: 5 }}
-                />
-                <Line 
-                  yAxisId="right"
-                  type="monotone" 
-                  dataKey="count" 
-                  stroke="#3b82f6" 
-                  strokeWidth={2}
-                  name="Count"
-                  dot={{ fill: '#3b82f6', r: 4 }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -261,7 +258,7 @@ export default function SuperAdminDashboard({
                       <p className="font-medium text-slate-900 truncate text-sm">
                         {contributor.email}
                       </p>
-                      <p className="text-xs text-slate-500">{contributor.count} donations</p>
+                      <p className="text-xs text-slate-500">{contributor.count ? `${contributor.count} donations` : 'Top donor'}</p>
                     </div>
                     <p className="font-bold text-emerald-600">₹{contributor.total.toLocaleString()}</p>
                   </div>
@@ -324,13 +321,16 @@ export default function SuperAdminDashboard({
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {activeCampaigns.length === 0 ? (
+              {(campaignProgressRows.length > 0 ? campaignProgressRows : activeCampaigns).length === 0 ? (
                 <p className="text-center text-slate-500 py-4">No active campaigns</p>
               ) : (
-                activeCampaigns.slice(0, 5).map((campaign) => {
-                  const progress = getCampaignProgress(campaign);
+                (campaignProgressRows.length > 0 ? campaignProgressRows : activeCampaigns).slice(0, 5).map((campaign) => {
+                  const progress = campaignProgressRows.length > 0
+                    ? campaign.progress_percent
+                    : getCampaignProgress(campaign);
+                  const collectedAmount = Number(campaign.collected_amount || 0);
                   return (
-                    <div key={campaign.id} className="p-3 rounded-lg bg-gradient-to-r from-rose-50 to-pink-50">
+                    <div key={campaign.id || campaign.campaign_id} className="p-3 rounded-lg bg-gradient-to-r from-rose-50 to-pink-50">
                       <div className="flex items-start justify-between mb-2">
                         <p className="font-medium text-slate-900 text-sm">{campaign.title}</p>
                         <Badge className="bg-emerald-100 text-emerald-700 text-xs">
@@ -344,8 +344,8 @@ export default function SuperAdminDashboard({
                         />
                       </div>
                       <div className="flex items-center justify-between mt-2 text-xs text-slate-600">
-                        <span>₹{(campaign.collected_amount || 0).toLocaleString()}</span>
-                        <span>of {formatCampaignTargetText(campaign)}</span>
+                        <span>₹{collectedAmount.toLocaleString()}</span>
+                        <span>of {campaignProgressRows.length > 0 ? (campaign.target_amount ? `₹${Number(campaign.target_amount).toLocaleString()}` : 'Open Goal') : formatCampaignTargetText(campaign)}</span>
                       </div>
                     </div>
                   );

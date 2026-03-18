@@ -19,6 +19,7 @@ import { BackendHealthBanner } from '@/components/BackendHealthBanner';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { IOSInstallPrompt } from '@/components/IOSInstallPrompt';
 import { AndroidInstallPrompt } from '@/components/AndroidInstallPrompt';
+import { NotificationsProvider } from '@/lib/NotificationsContext';
 
 const { Pages, PUBLIC_PAGES, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -193,20 +194,22 @@ function App() {
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
-        <Router
-          future={{
-            v7_startTransition: true,
-            v7_relativeSplatPath: true,
-          }}
-        >
-          <BackendHealthBanner />
-          <OfflineBanner />
-          <SessionExpiredToastBridge />
-          <NavigationTracker />
-          <AuthenticatedApp />
-          <IOSInstallPrompt />
-          <AndroidInstallPrompt />
-        </Router>
+        <NotificationsProvider>
+          <Router
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true,
+            }}
+          >
+            <BackendHealthBanner />
+            <OfflineBanner />
+            <SessionExpiredToastBridge />
+            <NavigationTracker />
+            <AuthenticatedApp />
+            <IOSInstallPrompt />
+            <AndroidInstallPrompt />
+          </Router>
+        </NotificationsProvider>
         <Toaster />
       </QueryClientProvider>
     </AuthProvider>

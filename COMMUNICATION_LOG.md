@@ -11,6 +11,9 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-03-18 | Frontend notification state moved to shared React context | Frontend | ✅ | Added provider for `notifications`, `unreadCount`, polling refresh, and read actions to avoid duplicate per-page unread logic |
+| 2026-03-18 | Notifications page aligned to backend feed and patch-read contracts | Both | ✅ | Consumes `GET /notifications/feed`; uses `PATCH /notifications/read` for selective and mark-all read updates |
+| 2026-03-18 | Superadmin chart widgets now consume backend dashboard aggregates | Both | ✅ | Dashboard wired to `GET /admin/dashboard/charts` for campaign progress, monthly donations, and top donors (`recharts` rendering) |
 | 2026-03-18 | v2.12 member requests UI migrated to explicit member/admin flows | Frontend | ✅ | Added dedicated pages and routing for `/requests` (member) and `/admin/requests` (admin), plus role-based navigation badge for pending requests |
 | 2026-03-18 | Profile change requests aligned to backend approval workflow | Frontend | ✅ | Profile screen now submits `monthly_amount_change`, `profile_update`, and `complaint/suggestion/general` requests with pending-request guardrails |
 | 2026-03-18 | Request outcome UX added to notifications | Frontend | ✅ | Notifications now render request-specific icons for `Request Approved` and `Request Update` events |

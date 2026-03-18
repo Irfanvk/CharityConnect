@@ -22,6 +22,7 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|---------|
+| 2.13 | 2026-03-18 | Minor | Integrated backend notification feed/read patch APIs with shared React notifications context (items + unread count + polling refresh), added UI mark-all-read support, and wired superadmin dashboard charts to `GET /admin/dashboard/charts` (monthly donations, campaign progress, top donors). |
 | 2.12 | 2026-03-18 | Minor | Implemented v2.12 member requests lifecycle in frontend: dedicated member/admin request pages and routes, profile request workflows (`monthly_amount_change`, `profile_update`, `complaint/suggestion/general`), request pending badges in navigation, and request outcome icons in notifications. |
 | 2.11 | 2026-03-18 | Minor | Complete PWA support hardening: iOS install prompt, Android install prompt, PWA update notifications, device utility library, health check banner, offline detection, token security (in-memory + session expiry event), query keys factory. Import wizard 3-step UI (CSV upload/preview/progress). Backend CORS environment configuration. Netlify deployment support. Member dashboard Upcoming Dues section. Add Member dialog invite reminder. |
 | 2.10 | 2026-03-16 | Patch | Added Vercel production deployment setup (`vercel.json` with SPA rewrites/security headers/cache policy), standardized `.env.example`, and documented backend CORS/env requirements for production frontend hosting |
@@ -50,6 +51,47 @@ This document records all technical changes, implementations, and decisions made
 
 
 ## 📅 March 18, 2026 - Member Requests v2.12 Frontend Rollout (Version 2.12)
+
+## 📅 March 18, 2026 - Notification Context + Dashboard Charts Integration (Version 2.13)
+
+### Objectives Met
+- Added shared React notification context with centralized unread-count state.
+- Switched to backend feed payload consumption (`GET /notifications/feed`).
+- Added patch-based read updates (`PATCH /notifications/read`) for selective and mark-all workflows.
+- Wired superadmin analytics charts to backend aggregate endpoint (`GET /admin/dashboard/charts`).
+
+### Frontend Changes
+
+1. **Notifications context provider**
+- Added `src/lib/NotificationsContext.jsx`.
+- Provides `notifications`, `unreadCount`, `refreshNotifications`, `markReadByIds`, and `markAllRead`.
+- Polls every 30 seconds and refreshes on app focus/visibility and custom notification events.
+
+2. **Global provider wiring**
+- Updated `src/App.jsx` to wrap router in `NotificationsProvider`.
+
+3. **Notifications page updates**
+- Updated `src/pages/Notifications.jsx` to consume shared context state.
+- Added unread badge and "Mark all read" action.
+- Uses patch-read flow for marking individual notifications as read.
+
+4. **Layout unread counter alignment**
+- Updated `src/Layout.jsx` to use context-driven unread count instead of manual per-page reads.
+
+5. **API client and path updates**
+- Added paths in `src/config/apiPaths.js`:
+  - `/notifications/feed`
+  - `/notifications/read`
+  - `/admin/dashboard/charts`
+- Extended `src/api/charityClient.js` and `src/api/notificationsApi.js` with feed/patch-read/dashboard methods.
+
+6. **Dashboard chart integration**
+- Updated `src/pages/Dashboard.jsx` to fetch `charityClient.admin.dashboardCharts(...)`.
+- Updated `src/components/dashboard/SuperAdminDashboard.jsx` to render:
+  - monthly donations (line chart)
+  - campaign progress list
+  - top donors
+  using backend aggregate payloads with local fallbacks.
 
 ### 🎯 Objectives Met
 - ✅ Added dedicated member and admin request pages with role-based routing

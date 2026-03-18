@@ -10,6 +10,10 @@ export const getMyNotifications = async (skip = 0, limit = 50) => {
   return await charityClient.notifications.listMine({ skip, limit });
 };
 
+export const getNotificationFeed = async (skip = 0, limit = 50) => {
+  return await charityClient.notifications.feed({ skip, limit });
+};
+
 // Get unread notifications count for current user
 export const getUnreadCount = async () => {
   return await charityClient.notifications.unreadCount();
@@ -27,7 +31,14 @@ export const markAsRead = async (notificationId) => {
 
 // Mark all notifications as read for current user
 export const markAllAsRead = async () => {
-  return await charityClient.notifications.markAllRead();
+  return await charityClient.notifications.patchRead({ mark_all: true });
+};
+
+export const markSelectedAsRead = async (notificationIds = []) => {
+  return await charityClient.notifications.patchRead({
+    mark_all: false,
+    notification_ids: notificationIds,
+  });
 };
 
 // Update notification details (Admin only)

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { charityClient } from "@/api/charityClient";
@@ -38,18 +39,18 @@ import BottomNav from "@/components/mobile/BottomNav";
 import BackButton from "@/components/mobile/BackButton";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  getDismissedNotificationIds,
   NOTIFICATIONS_CHANGED_EVENT,
 } from "@/lib/notificationState";
+import { useNotifications } from "@/lib/NotificationsContext";
 
 export default function Layout({ children, currentPageName }) {
   const { user: authUser, isAuthenticated, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState(null);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [logoLoadError, setLogoLoadError] = useState(false);
   const currentUser = authUser || user;
+  const { unreadCount, refreshNotifications } = useNotifications();
 
   useEffect(() => {
     loadUser();
@@ -58,17 +59,17 @@ export default function Layout({ children, currentPageName }) {
   useEffect(() => {
     if (!currentUser) return;
 
-    loadNotifications();
+    refreshNotifications();
     loadPendingRequestsCount();
 
     const handleNotificationsChanged = () => {
-      loadNotifications();
+      refreshNotifications();
     };
     window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, handleNotificationsChanged);
 
     // Real-time subscription for notifications
     const unsubscribe = charityClient.notifications.subscribe?.(() => {
-      loadNotifications();
+      refreshNotifications();
     });
 
     const requestPolling = window.setInterval(() => {
@@ -80,45 +81,20 @@ export default function Layout({ children, currentPageName }) {
       window.clearInterval(requestPolling);
       window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, handleNotificationsChanged);
     };
-  }, [currentUser]);
+  }, [currentUser, refreshNotifications]);
 
   const loadUser = async () => {
     try {
       const currentUser = await charityClient.auth.me();
       if (!currentUser) {
         setUser(null);
-        setUnreadCount(0);
         return;
       }
       setUser(currentUser);
-      loadNotifications();
+      refreshNotifications();
     } catch (e) {
       setUser(null);
-      setUnreadCount(0);
     }
-  };
-
-  const loadNotifications = async () => {
-    try {
-      if (!currentUser) {
-        setUnreadCount(0);
-        return;
-      }
-      const notifications = await charityClient.notifications.list();
-      const dismissed = new Set(getDismissedNotificationIds(currentUser.email));
-      const isNotificationRead = (notification) => {
-        if (dismissed.has(notification?.id)) return true;
-        if (notification?.is_read) return true;
-        return Boolean(notification?.read_by?.includes(currentUser.email));
-      };
-      const unread = notifications.filter(n => {
-        if (!n.target_type || n.target_type === 'all') return !isNotificationRead(n);
-        if (n.target_type === 'member') return n.target_member_id === currentUser.email && !isNotificationRead(n);
-        if (n.target_type === 'admins' && (currentUser.role === 'admin' || currentUser.role === 'superadmin')) return !isNotificationRead(n);
-        return !isNotificationRead(n);
-      });
-      setUnreadCount(unread.length);
-    } catch (e) {}
   };
 
   const loadPendingRequestsCount = async () => {

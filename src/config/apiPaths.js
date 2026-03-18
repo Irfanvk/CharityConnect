@@ -42,6 +42,7 @@ export const API_PATHS = {
   },
   admin: {
     wipeData: '/admin/system/wipe',
+    dashboardCharts: '/admin/dashboard/charts',
   },
   campaigns: {
     list: '/campaigns/',
@@ -52,8 +53,10 @@ export const API_PATHS = {
   },
   notifications: {
     list: '/notifications/',
+    feed: '/notifications/feed',
     byId: (id) => `/notifications/${id}`,
     read: (id) => `/notifications/${id}/read`,
+    patchRead: '/notifications/read',
     markAllRead: '/notifications/mark-all-read',
     unreadCount: '/notifications/unread/count',
     adminSent: '/notifications/admin/sent',
