@@ -17,7 +17,8 @@ import {
   Settings,
   Shield,
   MessageSquare,
-  FileText
+  FileText,
+  Upload
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import NotificationManager from "@/components/NotificationManager";
 import CorsWarningBanner from "@/components/CorsWarningBanner";
 import PWAInstallButton from "@/components/PWAInstallButton";
+import { PWAUpdatePrompt } from "@/components/PWAUpdatePrompt";
 import BottomNav from "@/components/mobile/BottomNav";
 import BackButton from "@/components/mobile/BackButton";
 import { motion, AnimatePresence } from "framer-motion";
@@ -131,6 +133,7 @@ export default function Layout({ children, currentPageName }) {
     ...(hasRequestsPage ? [{ name: "Requests", href: ROUTE_KEYS.REQUESTS, path: PAGE_PATHS.REQUESTS, icon: MessageSquare }] : []),
     { name: "Notifications", href: ROUTE_KEYS.NOTIFICATIONS, path: PAGE_PATHS.NOTIFICATIONS, icon: Bell, badge: unreadCount },
     { name: "Documentation", href: ROUTE_KEYS.DOCUMENTATION, path: PAGE_PATHS.DOCUMENTATION, icon: FileText },
+    { name: "Import Data", href: ROUTE_KEYS.IMPORT, path: PAGE_PATHS.IMPORT, icon: Upload, superadminOnly: true },
     { name: "Superadmin Panel", href: ROUTE_KEYS.SUPERADMIN_PANEL, path: PAGE_PATHS.SUPERADMIN_PANEL, icon: Shield, superadminOnly: true },
   ];
 
@@ -368,6 +371,7 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Bottom Navigation - Mobile Only */}
       <BottomNav />
+      <PWAUpdatePrompt />
     </div>
   );
 }

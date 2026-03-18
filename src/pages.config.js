@@ -52,6 +52,7 @@ import Campaigns from './pages/Campaigns';
 import Challans from './pages/Challans';
 import Dashboard from './pages/Dashboard';
 import Documentation from './pages/Documentation';
+import Import from './pages/Import';
 import Members from './pages/Members';
 import Notifications from './pages/Notifications';
 import Profile from './pages/Profile';
@@ -70,6 +71,7 @@ export const PAGES = {
     "Challans": Challans,
     "Dashboard": Dashboard,
     "Documentation": Documentation,
+    "Import": Import,
     "Members": Members,
     "Notifications": Notifications,
     "Profile": Profile,
