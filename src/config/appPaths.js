@@ -19,6 +19,7 @@ export const ROUTE_KEYS = {
   PROFILE: 'Profile',
   SETTINGS: 'Settings',
   SUPERADMIN_PANEL: 'SuperadminPanel',
+  IMPORT: 'Import',
 };
 
 export const APP_PATHS = {
@@ -39,6 +40,7 @@ export const PAGE_PATHS = {
   PROFILE: createPageUrl(ROUTE_KEYS.PROFILE),
   SETTINGS: createPageUrl(ROUTE_KEYS.SETTINGS),
   SUPERADMIN_PANEL: createPageUrl(ROUTE_KEYS.SUPERADMIN_PANEL),
+  IMPORT: createPageUrl(ROUTE_KEYS.IMPORT),
 };
 
 export const APP_IMAGES = {
