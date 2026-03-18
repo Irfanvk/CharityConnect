@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { format, addMonths, startOfMonth, formatDistanceToNow } from "date-fns";
 import {
   TrendingUp,
@@ -23,6 +23,7 @@ import { Progress } from "@/components/ui/progress";
 import StatsCard from "./StatsCard";
 import { PAGE_PATHS } from "@/config/appPaths";
 import { getMemberSetup } from "@/lib/memberSetup";
+import { queryKeys } from "@/lib/queryKeys";
 
 const statusConfig = {
   generated: { label: "Generated", color: "bg-slate-100 text-slate-700", icon: Receipt },
@@ -40,6 +41,7 @@ const getStatusForCard = (challan) => {
 };
 
 export default function MemberDashboard({ user, memberProfile, challans, campaigns, memberSetupData, onOpenSetup }) {
+  const navigate = useNavigate();
   const memberIdentifiers = new Set(
     [memberProfile?.id, memberProfile?.member_id].filter(Boolean)
   );
@@ -64,6 +66,12 @@ export default function MemberDashboard({ user, memberProfile, challans, campaig
     0
   );
   const monthlyAmount = memberProfile?.monthly_amount || 0;
+
+  // Upcoming dues: actual pending monthly challans from the backend
+  const pendingMonthlyChallans = myChallans
+    .filter((c) => c.type === 'monthly' && c.status === 'pending')
+    .sort((a, b) => (a.month || '').localeCompare(b.month || ''));
+  const totalOutstanding = pendingMonthlyChallans.reduce((sum, c) => sum + (c.amount || 0), 0);
 
   const upcomingMonths = [];
   const paidMonths = new Set(
@@ -216,6 +224,60 @@ export default function MemberDashboard({ user, memberProfile, challans, campaig
           color="rose"
         />
       </div>
+
+      {/* Upcoming Dues — actual pending monthly challans */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-amber-500" />
+              Upcoming Dues
+            </CardTitle>
+            {pendingMonthlyChallans.length > 0 && (
+              <Badge className="bg-amber-100 text-amber-700 border-0">
+                Outstanding: ₹{totalOutstanding.toLocaleString()} across {pendingMonthlyChallans.length} month{pendingMonthlyChallans.length !== 1 ? 's' : ''}
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {pendingMonthlyChallans.length === 0 ? (
+            <div className="flex items-center gap-2 text-emerald-600 text-sm py-3">
+              <CheckCircle2 className="w-5 h-5" />
+              <span className="font-medium">All payments up to date</span>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {pendingMonthlyChallans.map((challan) => (
+                <div
+                  key={challan.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800"
+                >
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-4 h-4 text-amber-500 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        {challan.month ? format(new Date(`${challan.month}-01`), 'MMMM yyyy') : '—'}
+                      </p>
+                      <p className="text-xs text-slate-500">{challan.challan_number || `#${challan.id}`}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-amber-700">₹{(challan.amount || 0).toLocaleString()}</span>
+                    <Badge className="text-xs bg-amber-100 text-amber-700 border-0">Pending</Badge>
+                    <button
+                      onClick={() => navigate(`${PAGE_PATHS.CHALLANS}?challan=${challan.id}`)}
+                      className="text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      Pay Now
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-0 shadow-sm">

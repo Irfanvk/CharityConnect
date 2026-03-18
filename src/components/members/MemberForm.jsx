@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import DatePickerField from "@/components/ui/date-picker-field";
 import { format } from "date-fns";
-import { Loader2 } from "lucide-react";
+import { Info, Loader2 } from "lucide-react";
 
 const getInitialFormData = (member, suggestedId) => ({
   member_id: member?.member_id || suggestedId || '',
@@ -205,6 +205,13 @@ export default function MemberForm({ open, onOpenChange, member, onSubmit, sugge
               rows={2}
             />
           </div>
+
+          {!member && (
+            <div className="flex items-start gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
+              <Info className="mt-0.5 w-3.5 h-3.5 flex-shrink-0" />
+              <span>After adding, create an invite code so this member can set their own password.</span>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
