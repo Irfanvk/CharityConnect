@@ -13,6 +13,10 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { APP_PATHS } from '@/config/appPaths';
 import { SESSION_EXPIRED_TOAST_KEY } from '@/config/constants';
+import { BackendHealthBanner } from '@/components/BackendHealthBanner';
+import { OfflineBanner } from '@/components/OfflineBanner';
+import { IOSInstallPrompt } from '@/components/IOSInstallPrompt';
+import { AndroidInstallPrompt } from '@/components/AndroidInstallPrompt';
 
 const { Pages, PUBLIC_PAGES, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -170,9 +174,13 @@ function App() {
             v7_relativeSplatPath: true,
           }}
         >
+          <BackendHealthBanner />
+          <OfflineBanner />
           <SessionExpiredToastBridge />
           <NavigationTracker />
           <AuthenticatedApp />
+          <IOSInstallPrompt />
+          <AndroidInstallPrompt />
         </Router>
         <Toaster />
       </QueryClientProvider>
