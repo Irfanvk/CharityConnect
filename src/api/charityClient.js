@@ -3,8 +3,7 @@ import { APP_PATHS } from '@/config/appPaths';
 import { API_PATHS } from '@/config/apiPaths';
 import { tokenManager } from '@/lib/tokenManager';
 
-const runtimeEnv = /** @type {any} */ (import.meta)?.env || {};
-const BASE_URL = runtimeEnv.VITE_CHARITY_APP_BASE_URL || '';
+const BASE_URL = import.meta.env.VITE_CHARITY_APP_BASE_URL;
 const DEFAULT_TIMEOUT = 20000; // 20 seconds
 const IMPORT_TIMEOUT = 300000; // 5 minutes for large import files
 const IMPORT_JOB_POLL_INTERVAL = 1200;

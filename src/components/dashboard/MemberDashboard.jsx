@@ -23,7 +23,10 @@ import { Progress } from "@/components/ui/progress";
 import StatsCard from "./StatsCard";
 import { PAGE_PATHS } from "@/config/appPaths";
 import { getMemberSetup } from "@/lib/memberSetup";
-import { queryKeys } from "@/lib/queryKeys";
+
+// ✅ No changes needed in this file — it is a pure display component.
+// It receives all data as props and makes zero API calls itself.
+// The infinite loop was NOT caused by this component.
 
 const statusConfig = {
   generated: { label: "Generated", color: "bg-slate-100 text-slate-700", icon: Receipt },
@@ -67,7 +70,6 @@ export default function MemberDashboard({ user, memberProfile, challans, campaig
   );
   const monthlyAmount = memberProfile?.monthly_amount || 0;
 
-  // Upcoming dues: actual pending monthly challans from the backend
   const pendingMonthlyChallans = myChallans
     .filter((c) => c.type === 'monthly' && c.status === 'pending')
     .sort((a, b) => (a.month || '').localeCompare(b.month || ''));
@@ -106,7 +108,7 @@ export default function MemberDashboard({ user, memberProfile, challans, campaig
   const displayEmail = memberProfile?.email || user?.email || memberSetupData?.email;
   const displayCity = memberProfile?.city || memberSetupData?.city;
   const displayAddress = memberProfile?.address || memberSetupData?.address;
-  
+
   const setupData = getMemberSetup(user?.id);
   const setupCompletedAt = setupData?.completedAt;
 
@@ -225,7 +227,6 @@ export default function MemberDashboard({ user, memberProfile, challans, campaig
         />
       </div>
 
-      {/* Upcoming Dues — actual pending monthly challans */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
@@ -374,18 +375,16 @@ export default function MemberDashboard({ user, memberProfile, challans, campaig
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              {myCampaigns.filter((campaign) => campaign.status === "active").slice(0, 3).length === 0 ? (
+              {myCampaigns.filter((c) => c.status === "active").slice(0, 3).length === 0 ? (
                 <p className="text-sm text-slate-400 text-center py-2">No active campaigns</p>
               ) : (
                 myCampaigns
-                  .filter((campaign) => campaign.status === "active")
+                  .filter((c) => c.status === "active")
                   .slice(0, 3)
                   .map((campaign) => {
                     const targetAmount = Number(campaign.target_amount) || 0;
                     const collectedAmount = Number(campaign.collected_amount) || 0;
-                    const progress = targetAmount > 0
-                      ? Math.min(100, (collectedAmount / targetAmount) * 100)
-                      : 0;
+                    const progress = targetAmount > 0 ? Math.min(100, (collectedAmount / targetAmount) * 100) : 0;
                     const participated = donatedCampaignIds.has(campaign.id);
                     return (
                       <div key={campaign.id} className="space-y-1.5">
