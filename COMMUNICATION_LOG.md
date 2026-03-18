@@ -3,7 +3,7 @@
 **Project:** CharityConnect  
 **Purpose:** Decisions, meeting minutes, and action items  
 **Owner:** Integration Lead  
-**Last Updated:** 2026-03-15
+**Last Updated:** 2026-03-18
 
 ---
 
@@ -11,6 +11,22 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-03-18 | Backend CORS configuration hardened with environment-driven allow list | Backend | ✅ | Updated `config.py` to read `ALLOWED_ORIGINS` from env variable; updated `.env.example` with production configuration guidance |
+| 2026-03-18 | Import wizard page completed with 3-step CSV upload UI | Frontend | ✅ | Created `src/pages/Import.jsx`: Step 1 drag-drop upload (Members required, Challans/Campaign optional), Step 2 CSV preview with warning notes, Step 3 progress tracking + result badges |
+| 2026-03-18 | Campaign import note added to wizard about "Inaugural Donation" campaign requirement | Frontend | ✅ | Step 2 preview shows warning when campaign payments CSV detected; user reminded that required campaigns must exist before import |
+| 2026-03-18 | Add Member dialog enhanced with invite code creation reminder | Frontend | ✅ | Blue info box in dialog footer (new members only): "After adding, create an invite code so this member can set their own password." |
+| 2026-03-18 | Import wizard registered in navigation and routing system | Frontend | ✅ | Added `Import` to `ROUTE_KEYS`, `PAGE_PATHS`, `pages.config.js`; added nav item with Upload icon (superadmin-only) in Layout |
+| 2026-03-18 | Member dashboard enhanced with Upcoming Dues section | Frontend | ✅ | Shows pending monthly challans grouped by month; displays outstanding badge + Pay Now button per record; total Due amount summary |
+| 2026-03-18 | Query keys standardization completed with factory pattern | Frontend | ✅ | Created `src/lib/queryKeys.js` with queryKeys factory covering: members, challans, campaigns, notifications, invites, audit logs, health, import status |
+| 2026-03-18 | Backend health check endpoint confirmed operational | Frontend | ✅ | `GET /health` endpoint verified in `main.py`; frontend `checkBackendHealth()` probes endpoint with 5s timeout |
+| 2026-03-18 | Offline detection banner enabled for all users | Frontend | ✅ | Created `src/components/OfflineBanner.jsx`; listens to browser online/offline events; displays yellow banner during connectivity loss |
+| 2026-03-18 | Backend health status banner added to startup sequence | Frontend | ✅ | Created `src/components/BackendHealthBanner.jsx` + `src/lib/healthCheck.js`; shows yellow status banner with retry logic (8s intervals) until backend online |
+| 2026-03-18 | Android install prompt implemented with beforeinstallprompt handler | Frontend | ✅ | Created `src/components/AndroidInstallPrompt.jsx`; Shows Install/Later buttons; calls `deferredPrompt.prompt()` on Android devices |
+| 2026-03-18 | iOS install prompt implemented with fallback share guidance | Frontend | ✅ | Created `src/components/IOSInstallPrompt.jsx`; Shows only on iOS non-standalone mode; share icon directs to add-to-home-screen flow |
+| 2026-03-18 | PWA update prompt integrated for safe service worker updates | Frontend | ✅ | Created `src/components/PWAUpdatePrompt.jsx`; uses `virtual:pwa-register/react` with Update Now (reload) + Later buttons |
+| 2026-03-18 | Device utility library created for iOS and storage detection | Frontend | ✅ | Created `src/lib/device.js`: exports `isIOSDevice()` (checks Safari + maxTouchPoints), `isStandalone()`, `safeLocalStorage()` (try/catch for Private mode) |
+| 2026-03-18 | Token security hardened with in-memory storage + session expiry event | Both | ✅ | Created `src/lib/tokenManager.js`; charityClient now stores token in-memory with localStorage fallback; dispatches `auth:expired` on 401; AuthContext handles graceful session timeout |
+| 2026-03-18 | Netlify SPA configuration added for production deployment | Frontend | ✅ | Created `public/_redirects` (wildcard SPA rewrite) and `netlify.toml` (build config, asset cache, security headers, manifest headers) |
 | 2026-03-16 | Frontend is now production-prepped for Vercel hosting | Frontend | ✅ | Added `vercel.json` (SPA rewrites, security headers, immutable asset cache), updated `.env.example`, and documented backend CORS requirements for deployed frontend domains |
 | 2026-03-15 | Campaigns now support goal mode (`targeted`/`unlimited`) and duration mode (`fixed`/`open`) in frontend and API contract docs | Frontend | ✅ | Form submits `target_mode`, `end_date_mode`, nullable `target_amount`, nullable `end_date`; campaign cards/reports/dashboard now render unlimited and open-ended campaigns safely |
 | 2026-03-15 | Dashboard and Campaign screens now load full paginated datasets for reliable totals | Frontend | ✅ | Replaced single-page fetch behavior with skip/limit batching for members, campaigns, and challans to avoid default limit caps (ex: active members showing 20) |

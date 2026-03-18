@@ -22,6 +22,7 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|---------|
+| 2.11 | 2026-03-18 | Minor | Complete PWA support hardening: iOS install prompt, Android install prompt, PWA update notifications, device utility library, health check banner, offline detection, token security (in-memory + session expiry event), query keys factory. Import wizard 3-step UI (CSV upload/preview/progress). Backend CORS environment configuration. Netlify deployment support. Member dashboard Upcoming Dues section. Add Member dialog invite reminder. |
 | 2.10 | 2026-03-16 | Patch | Added Vercel production deployment setup (`vercel.json` with SPA rewrites/security headers/cache policy), standardized `.env.example`, and documented backend CORS/env requirements for production frontend hosting |
 | 2.9 | 2026-03-15 | Minor | Campaign create/edit now supports targeted vs unlimited goals and fixed vs open-ended duration; frontend rendering and API docs updated for nullable `target_amount` / `end_date` plus `target_mode` / `end_date_mode` |
 | 2.8 | 2026-03-15 | Patch | Fixed dashboard member count truncation and campaign donor/collection visibility after payment imports; added backend campaign aggregate fields; improved wipe result UX (dismissible 10-second notification) |
@@ -43,6 +44,95 @@ This document records all technical changes, implementations, and decisions made
 | 1.2 | 2026-03-01 | Patch | Challan role-based visibility, proof re-upload flow, status filter alignment |
 | 1.1 | 2026-02-26 | Patch | Auth/login redirect stabilization, logout visibility, API client hardening |
 | 1.0 | 2026-02-24 | Release | Phase 1 MVP complete |
+
+---
+
+
+## 📅 March 18, 2026 - Complete PWA Hardening + Import Wizard + Security (Version 2.11)
+
+### 🎯 Objectives Met
+- ✅ PWA support hardened with device-specific install prompts (iOS/Android)
+- ✅ PWA update detection and graceful user notification
+- ✅ Backend health check monitoring with auto-retry banner
+- ✅ Offline detection with real-time connectivity status
+- ✅ Token security hardened (in-memory + localStorage fallback + session expiry event)
+- ✅ 3-step import wizard for CSV member/challan/campaign data
+- ✅ Standardized query keys across the app
+- ✅ Backend CORS configuration hardened with environment variables
+- ✅ Netlify SPA deployment support
+- ✅ Member dashboard Upcoming Dues section
+- ✅ Add Member dialog includes invite code creation reminder
+
+### Frontend Changes
+
+**Task 1 - Netlify SPA Fix**
+- Created `public/_redirects` for SPA fallback redirect
+- Created `netlify.toml` with build config, SPA rewrite, security headers, manifest headers
+
+**Task 2 - PWA Update Prompt** (`src/components/PWAUpdatePrompt.jsx`)
+- Uses `virtual:pwa-register/react` for update detection
+- Shows green-bordered card with Update Now (reload) and Later buttons
+- Z-index 50 (above other prompts)
+
+**Task 3 & 4 - Install Prompts** (`IOSInstallPrompt.jsx`, `AndroidInstallPrompt.jsx`)
+- iOS: Shows on non-standalone mode, uses safeLocalStorage dismissal
+- Android: Listens to beforeinstallprompt event, calls deferredPrompt.prompt()
+- Both use device utility detection
+
+**Task 5 - Index.html Meta Tags**
+- Fixed theme-color to #059669, status-bar-style to "default"
+- Added manifest link
+
+**Task 6 - Device Utility** (`src/lib/device.js`)
+- `isIOSDevice()` - Safari + iPad detection
+- `isStandalone()` - PWA mode check
+- `safeLocalStorage()` - Private mode safe wrapper
+
+**Task 7 - Token Security** (`src/lib/tokenManager.js` + updates)
+- In-memory token with localStorage fallback
+- `auth:expired` event for graceful session timeout
+- AuthContext listens and redirects with returnTo parameter
+
+**Task 8 & 9 - Health & Offline** (`healthCheck.js`, `BackendHealthBanner.jsx`, `OfflineBanner.jsx`)
+- Health: Probes GET /health, retries every 8s, shows yellow banner
+- Offline: Browser online/offline events, real-time status
+
+**Task 10 - Query Keys** (`src/lib/queryKeys.js`)
+- Factory pattern for consistent cache key management
+- Covers members, challans, campaigns, notifications, etc.
+
+**Task 11 - Import Wizard** (`src/pages/Import.jsx`)
+- 3-step UI: Upload, Preview, Progress
+- Drag-drop support, CSV validation, progress bars
+- Campaign payment warning note
+
+**Task 12 - Add Member Dialog Enhancement**
+- Blue info box: "After adding, create an invite code..."
+
+**Task 13 - Member Dashboard Dues**
+- Upcoming Dues card with pending challans
+- Pay Now buttons navigate to Challans page
+
+**Task 15 - Import Wizard Navigation**
+- Added to appPaths, pages.config, Layout sidebar (superadmin-only)
+
+### Backend Changes
+
+**Task 15 - CORS Environment Configuration** (`app/config.py`)
+- Reads ALLOWED_ORIGINS from environment variable
+- Falls back to localhost defaults
+- Supports comma-separated format
+
+**Task 14 - Campaign Import Note**
+- Added warning in wizard Step 2 about required campaigns
+
+### API Endpoint Verification
+
+✅ All backend endpoints confirmed operational:
+- GET /health
+- POST /members/import, /members/import/jobs
+- POST /challans/import/history, /challans/import/history/jobs
+- POST /campaigns/import/payments, /campaigns/import/payments/jobs
 
 ---
 
