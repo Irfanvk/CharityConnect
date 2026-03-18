@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { charityClient } from '@/api/charityClient';
 import { appParams } from '@/lib/app-params';
-import { AUTH_TOKEN_KEY } from '@/config/constants';
+import { AUTH_TOKEN_KEY, SESSION_EXPIRED_TOAST_KEY } from '@/config/constants';
 import { APP_PATHS } from '@/config/appPaths';
 import { API_PATHS } from '@/config/apiPaths';
 
@@ -38,6 +38,19 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     checkAppState();
+  }, []);
+
+  // Listen for 401 auth expiry dispatched by charityClient — handle gracefully
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      setUser(null);
+      setIsAuthenticated(false);
+      sessionStorage.setItem(SESSION_EXPIRED_TOAST_KEY, '1');
+      const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      window.location.href = `${APP_PATHS.LOGIN}?returnTo=${encodeURIComponent(returnTo)}`;
+    };
+    window.addEventListener('auth:expired', handleAuthExpired);
+    return () => window.removeEventListener('auth:expired', handleAuthExpired);
   }, []);
 
   const checkBackendReachability = async () => {

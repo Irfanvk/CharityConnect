@@ -1,6 +1,7 @@
 import { AUTH_TOKEN_KEY, SESSION_EXPIRED_TOAST_KEY } from '@/config/constants';
 import { APP_PATHS } from '@/config/appPaths';
 import { API_PATHS } from '@/config/apiPaths';
+import { tokenManager } from '@/lib/tokenManager';
 
 const BASE_URL = import.meta.env.VITE_CHARITY_APP_BASE_URL || '';
 const DEFAULT_TIMEOUT = 20000; // 20 seconds
@@ -18,6 +19,7 @@ function handleUnauthorized(path = '') {
     return;
   }
 
+  tokenManager.clear();
   localStorage.removeItem(AUTH_TOKEN_KEY);
 
   if (shouldSkipUnauthorizedRedirect(path)) {
@@ -28,10 +30,8 @@ function handleUnauthorized(path = '') {
     return;
   }
 
-  sessionStorage.setItem(SESSION_EXPIRED_TOAST_KEY, '1');
-
-  const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  window.location.href = `${APP_PATHS.LOGIN}?returnTo=${encodeURIComponent(returnTo)}`;
+  // Dispatch event so AuthContext can handle it gracefully without a hard reload.
+  window.dispatchEvent(new Event('auth:expired'));
 }
 
 function normalizeSortQuery(query = {}) {
@@ -71,7 +71,8 @@ function buildUrl(path, query = {}) {
 }
 
 function getAuthToken() {
-  return localStorage.getItem(AUTH_TOKEN_KEY);
+  // Prefer in-memory token; fall back to localStorage for page-reload persistence.
+  return tokenManager.get() || localStorage.getItem(AUTH_TOKEN_KEY);
 }
 
 function extractAuthToken(data) {
@@ -517,6 +518,7 @@ const charityClient = {
 
       const token = extractAuthToken(data);
       if (token) {
+        tokenManager.set(token);
         localStorage.setItem(AUTH_TOKEN_KEY, token);
       }
 
@@ -531,6 +533,7 @@ const charityClient = {
 
       const token = extractAuthToken(data);
       if (token) {
+        tokenManager.set(token);
         localStorage.setItem(AUTH_TOKEN_KEY, token);
       }
 
@@ -541,6 +544,7 @@ const charityClient = {
       try {
         await apiFetch(API_PATHS.auth.logout, { method: 'POST' });
       } catch {}
+      tokenManager.clear();
       localStorage.removeItem(AUTH_TOKEN_KEY);
       window.location.href = APP_PATHS.LOGIN;
     },
