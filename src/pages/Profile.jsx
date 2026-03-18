@@ -9,8 +9,9 @@ import PhoneInput from "@/components/ui/phone-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mail, Phone, MapPin, Calendar, Receipt, 
-  TrendingUp, CheckCircle, Clock, Loader2, UserCircle, Trash2, AlertTriangle, CreditCard
+  TrendingUp, CheckCircle, Clock, Loader2, UserCircle, Trash2, AlertTriangle, CreditCard, Pencil
 } from "lucide-react";
 import { format } from "date-fns";
 import ContributionHistory from "@/components/profile/ContributionHistory";
@@ -45,13 +46,24 @@ const statusConfig = {
 export default function Profile() {
   const [user, setUser] = useState(null);
   const [editing, setEditing] = useState(false);
-  const [formData, setFormData] = useState({});
+  const [formData, setFormData] = useState({ full_name: '', phone: '', email: '' });
   const [loading, setLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [paymentChangeOpen, setPaymentChangeOpen] = useState(false);
   const [newMonthlyAmount, setNewMonthlyAmount] = useState("");
   const [paymentChangeReason, setPaymentChangeReason] = useState("");
   const [submittingPaymentChange, setSubmittingPaymentChange] = useState(false);
+  const [profileUpdateOpen, setProfileUpdateOpen] = useState(false);
+  const [profileUpdateField, setProfileUpdateField] = useState("");
+  const [profileUpdateCurrentValue, setProfileUpdateCurrentValue] = useState("");
+  const [profileUpdateNewValue, setProfileUpdateNewValue] = useState("");
+  const [profileUpdateReason, setProfileUpdateReason] = useState("");
+  const [submittingProfileUpdate, setSubmittingProfileUpdate] = useState(false);
+  const [generalRequestOpen, setGeneralRequestOpen] = useState(false);
+  const [generalRequestType, setGeneralRequestType] = useState('general');
+  const [generalRequestSubject, setGeneralRequestSubject] = useState('');
+  const [generalRequestMessage, setGeneralRequestMessage] = useState('');
+  const [submittingGeneralRequest, setSubmittingGeneralRequest] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -61,7 +73,11 @@ export default function Profile() {
   const loadUser = async () => {
     const currentUser = await charityClient.auth.me();
     setUser(currentUser);
-    setFormData(currentUser);
+    setFormData({
+      full_name: currentUser?.full_name || '',
+      phone: currentUser?.phone || '',
+      email: currentUser?.email || '',
+    });
   };
 
   const { data: members = [] } = useQuery({
@@ -77,6 +93,12 @@ export default function Profile() {
   const { data: invites = [] } = useQuery({
     queryKey: ['invites'],
     queryFn: () => charityClient.invites.list(),
+  });
+
+  const { data: myRequests = [] } = useQuery({
+    queryKey: ['requests', 'mine', user?.email],
+    queryFn: () => charityClient.requests.list({ limit: 200 }),
+    enabled: Boolean(user?.email),
   });
 
   // Phase 1: RecurringDonations disabled - will implement in Phase 2
@@ -103,6 +125,23 @@ export default function Profile() {
   // Find user's invite
   const userInvite = invites.find(i => 
     i.email === user?.email || i.phone === memberProfile?.phone
+  );
+
+  const pendingMonthlyAmountRequest = myRequests.find(
+    (request) => request.status === 'pending' && request.request_type === 'monthly_amount_change'
+  );
+
+  const pendingProfileFieldSet = new Set(
+    myRequests
+      .filter((request) => request.status === 'pending' && request.request_type === 'profile_update')
+      .flatMap((request) => {
+        try {
+          const changes = JSON.parse(request.requested_changes || '{}');
+          return changes && typeof changes === 'object' ? Object.keys(changes) : [];
+        } catch {
+          return [];
+        }
+      })
   );
 
   const handleSave = async () => {
@@ -170,7 +209,7 @@ export default function Profile() {
   };
 
   const handleSubmitPaymentChange = async () => {
-    const amount = parseInt(newMonthlyAmount, 10);
+    const amount = Number(newMonthlyAmount);
     
     if (!amount || amount < 50 || amount > 10000) {
       toast({
@@ -181,10 +220,10 @@ export default function Profile() {
       return;
     }
 
-    if (!paymentChangeReason.trim()) {
+    if (!paymentChangeReason.trim() || paymentChangeReason.trim().length < 10) {
       toast({
         title: "Reason required",
-        description: "Please provide a reason for the payment change.",
+        description: "Please provide at least 10 characters explaining the change.",
         variant: "destructive",
       });
       return;
@@ -193,15 +232,15 @@ export default function Profile() {
     setSubmittingPaymentChange(true);
     try {
       await charityClient.requests.create({
-        request_type: 'payment_change',
-        subject: `Request to change monthly payment from ₹${memberProfile?.monthly_amount || 100} to ₹${amount}`,
-        message: `I would like to change my monthly payment amount to ₹${amount}.\n\nReason: ${paymentChangeReason}`,
-        priority: 'medium',
+        request_type: 'monthly_amount_change',
+        subject: 'Monthly amount change request',
+        message: paymentChangeReason.trim(),
+        requested_amount: amount,
       });
 
       toast({
         title: "Request submitted",
-        description: "Your payment change request has been submitted to the administrators for approval.",
+        description: "Your request has been submitted. The admin will review it shortly.",
       });
       
       setPaymentChangeOpen(false);
@@ -215,6 +254,96 @@ export default function Profile() {
       });
     } finally {
       setSubmittingPaymentChange(false);
+    }
+  };
+
+  const openProfileUpdateDialog = (fieldKey, currentValue) => {
+    setProfileUpdateField(fieldKey);
+    setProfileUpdateCurrentValue(currentValue || '');
+    setProfileUpdateNewValue('');
+    setProfileUpdateReason('');
+    setProfileUpdateOpen(true);
+  };
+
+  const handleSubmitProfileUpdateRequest = async () => {
+    if (!profileUpdateField || !profileUpdateNewValue.trim()) {
+      toast({
+        title: 'New value required',
+        description: 'Please provide a new value.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSubmittingProfileUpdate(true);
+    try {
+      await charityClient.requests.create({
+        request_type: 'profile_update',
+        subject: 'Profile update request',
+        message: profileUpdateReason.trim() || `Please update my ${profileUpdateField}.`,
+        requested_changes: {
+          [profileUpdateField]: profileUpdateNewValue.trim(),
+        },
+      });
+
+      toast({
+        title: 'Request submitted',
+        description: 'Your profile update request has been submitted for admin approval.',
+      });
+      setProfileUpdateOpen(false);
+    } catch (error) {
+      toast({
+        title: 'Unable to submit request',
+        description: error?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmittingProfileUpdate(false);
+    }
+  };
+
+  const handleSubmitGeneralRequest = async () => {
+    if (!generalRequestSubject.trim() || generalRequestSubject.trim().length > 100) {
+      toast({
+        title: 'Valid subject required',
+        description: 'Subject is required and must be up to 100 characters.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!generalRequestMessage.trim() || generalRequestMessage.trim().length < 20) {
+      toast({
+        title: 'Message too short',
+        description: 'Message must be at least 20 characters.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSubmittingGeneralRequest(true);
+    try {
+      await charityClient.requests.create({
+        request_type: generalRequestType,
+        subject: generalRequestSubject.trim(),
+        message: generalRequestMessage.trim(),
+      });
+      toast({
+        title: 'Request submitted',
+        description: 'Your request has been sent to admin.',
+      });
+      setGeneralRequestOpen(false);
+      setGeneralRequestType('general');
+      setGeneralRequestSubject('');
+      setGeneralRequestMessage('');
+    } catch (error) {
+      toast({
+        title: 'Unable to submit request',
+        description: error?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmittingGeneralRequest(false);
     }
   };
 
@@ -268,6 +397,7 @@ export default function Profile() {
                       label="Phone"
                       value={formData.phone || memberProfile?.phone || ''}
                       onChange={(value) => setFormData({ ...formData, phone: value })}
+                      helperText=""
                     />
                   </div>
                   <div className="flex gap-2">
@@ -283,7 +413,7 @@ export default function Profile() {
               ) : (
                 <>
                   <h2 className="text-xl font-semibold text-slate-900">{user.full_name || 'User'}</h2>
-                  <Badge className="mt-2 capitalize">{user.role}</Badge>
+                  <Badge variant="secondary" className="mt-2 capitalize">{user.role}</Badge>
                   
                   <div className="mt-6 space-y-3 text-left">
                     <div className="flex items-center gap-3 text-slate-600">
@@ -292,16 +422,63 @@ export default function Profile() {
                     </div>
                     {memberProfile && (
                       <>
-                        <div className="flex items-center gap-3 text-slate-600">
-                          <Phone className="w-4 h-4 text-slate-400" />
-                          <span className="text-sm">{memberProfile.phone}</span>
-                        </div>
-                        {memberProfile.city && (
-                          <div className="flex items-center gap-3 text-slate-600">
-                            <MapPin className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm">{memberProfile.city}</span>
+                        <div className="flex items-center justify-between gap-3 text-slate-600">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Phone className="w-4 h-4 text-slate-400" />
+                            <span className="text-sm">{memberProfile.phone || '-'}</span>
                           </div>
-                        )}
+                          {user?.role === 'member' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2"
+                              disabled={pendingProfileFieldSet.has('phone')}
+                              onClick={() => openProfileUpdateDialog('phone', memberProfile.phone || '')}
+                              title={pendingProfileFieldSet.has('phone') ? 'A change request for this field is already pending.' : 'Request phone update'}
+                            >
+                              <Pencil className="w-3.5 h-3.5 mr-1" />
+                              Edit
+                            </Button>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between gap-3 text-slate-600">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <MapPin className="w-4 h-4 text-slate-400" />
+                            <span className="text-sm">{memberProfile.address || memberProfile.city || '-'}</span>
+                          </div>
+                          {user?.role === 'member' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2"
+                              disabled={pendingProfileFieldSet.has('address')}
+                              onClick={() => openProfileUpdateDialog('address', memberProfile.address || memberProfile.city || '')}
+                              title={pendingProfileFieldSet.has('address') ? 'A change request for this field is already pending.' : 'Request address update'}
+                            >
+                              <Pencil className="w-3.5 h-3.5 mr-1" />
+                              Edit
+                            </Button>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between gap-3 text-slate-600">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <UserCircle className="w-4 h-4 text-slate-400" />
+                            <span className="text-sm">{user.full_name || '-'}</span>
+                          </div>
+                          {user?.role === 'member' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2"
+                              disabled={pendingProfileFieldSet.has('full_name')}
+                              onClick={() => openProfileUpdateDialog('full_name', user.full_name || '')}
+                              title={pendingProfileFieldSet.has('full_name') ? 'A change request for this field is already pending.' : 'Request full name update'}
+                            >
+                              <Pencil className="w-3.5 h-3.5 mr-1" />
+                              Edit
+                            </Button>
+                          )}
+                        </div>
                         {memberProfile.join_date && (
                           <div className="flex items-center gap-3 text-slate-600">
                             <Calendar className="w-4 h-4 text-slate-400" />
@@ -312,13 +489,15 @@ export default function Profile() {
                     )}
                   </div>
                   
-                  <Button 
-                    variant="outline" 
-                    className="w-full mt-6"
-                    onClick={() => setEditing(true)}
-                  >
-                    Edit Profile
-                  </Button>
+                  {user?.role !== 'member' && (
+                    <Button 
+                      variant="outline" 
+                      className="w-full mt-6"
+                      onClick={() => setEditing(true)}
+                    >
+                      Edit Profile
+                    </Button>
+                  )}
                 </>
               )}
             </div>
@@ -396,6 +575,8 @@ export default function Profile() {
                         size="sm"
                         variant="outline"
                         onClick={() => setPaymentChangeOpen(true)}
+                        disabled={Boolean(pendingMonthlyAmountRequest)}
+                        title={pendingMonthlyAmountRequest ? 'You already have a pending change request.' : 'Request monthly amount change'}
                         className="text-xs"
                       >
                         Request Change
@@ -410,6 +591,25 @@ export default function Profile() {
                     <p className="text-sm text-slate-500 mt-2">
                       This amount will be deducted monthly. Changes require admin approval.
                     </p>
+                    {pendingMonthlyAmountRequest && (
+                      <Badge variant="secondary" className="mt-3 bg-amber-100 text-amber-700">
+                        Pending change request in review
+                      </Badge>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {user?.role === 'member' && (
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-4 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900">Need help from admin?</p>
+                      <p className="text-sm text-slate-500">Submit a complaint, suggestion, or general inquiry.</p>
+                    </div>
+                    <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setGeneralRequestOpen(true)}>
+                      Submit a Request
+                    </Button>
                   </CardContent>
                 </Card>
               )}
@@ -441,7 +641,7 @@ export default function Profile() {
                           </div>
                           <div className="text-right">
                             <p className="font-semibold text-slate-800">₹{challan.amount}</p>
-                            <Badge className={statusConfig[challan.status]?.color || 'bg-slate-100'}>
+                            <Badge variant="secondary" className={statusConfig[challan.status]?.color || 'bg-slate-100'}>
                               {statusConfig[challan.status]?.label || challan.status}
                             </Badge>
                           </div>
@@ -513,7 +713,7 @@ export default function Profile() {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-slate-500">Status</span>
-                        <Badge className="bg-emerald-100 text-emerald-700">Used</Badge>
+                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">Used</Badge>
                       </div>
                       {userInvite.used_at && (
                         <div className="flex items-center justify-between">
@@ -563,46 +763,157 @@ export default function Profile() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <Dialog open={profileUpdateOpen} onOpenChange={setProfileUpdateOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Request Profile Update</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="text-sm space-y-1">
+              <p className="text-slate-500">Field</p>
+              <p className="font-medium text-slate-900">{profileUpdateField || '-'}</p>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Current value</Label>
+              <Input value={profileUpdateCurrentValue} readOnly />
+            </div>
+
+            <div className="space-y-1">
+              <Label>New value *</Label>
+              <Input
+                value={profileUpdateNewValue}
+                onChange={(e) => setProfileUpdateNewValue(e.target.value)}
+                placeholder="Enter new value"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label>Reason (optional)</Label>
+              <Textarea
+                value={profileUpdateReason}
+                onChange={(e) => setProfileUpdateReason(e.target.value)}
+                placeholder="Optional context for admin review"
+                rows={3}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setProfileUpdateOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                disabled={submittingProfileUpdate || !profileUpdateNewValue.trim()}
+                onClick={handleSubmitProfileUpdateRequest}
+              >
+                {submittingProfileUpdate && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Submit Request
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={generalRequestOpen} onOpenChange={setGeneralRequestOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Submit Request</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Request type</Label>
+              <Select value={generalRequestType} onValueChange={setGeneralRequestType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select request type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="complaint">Complaint</SelectItem>
+                  <SelectItem value="suggestion">Suggestion</SelectItem>
+                  <SelectItem value="general">General Inquiry</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Subject</Label>
+              <Input
+                value={generalRequestSubject}
+                onChange={(e) => setGeneralRequestSubject(e.target.value)}
+                maxLength={100}
+                placeholder="Enter subject"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Message</Label>
+              <Textarea
+                value={generalRequestMessage}
+                onChange={(e) => setGeneralRequestMessage(e.target.value)}
+                rows={4}
+                placeholder="Describe your request in detail"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setGeneralRequestOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                disabled={submittingGeneralRequest}
+                onClick={handleSubmitGeneralRequest}
+              >
+                {submittingGeneralRequest && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Submit
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Payment Change Request Dialog */}
       <Dialog open={paymentChangeOpen} onOpenChange={setPaymentChangeOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-amber-600" />
-              Request Payment Change
+              Request Monthly Amount Change
             </DialogTitle>
           </DialogHeader>
 
           {memberProfile && (
             <div className="space-y-5">
               <div className="p-3 bg-slate-50 rounded-lg">
-                <p className="text-xs text-slate-500">Current monthly payment</p>
-                <p className="text-2xl font-bold text-slate-900">₹{memberProfile.monthly_amount || 100}</p>
+                <p className="text-xs text-slate-500">Current amount</p>
+                <p className="text-2xl font-bold text-slate-900">₹{memberProfile.monthly_amount || 100}/month</p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="newAmount">New Monthly Payment Amount (₹) *</Label>
+                <Label htmlFor="newAmount">New requested amount *</Label>
                 <Input
                   id="newAmount"
                   type="number"
                   value={newMonthlyAmount}
                   onChange={(e) => setNewMonthlyAmount(e.target.value)}
-                  placeholder="Enter new amount (₹50 - ₹10,000)"
-                  min="50"
-                  max="10000"
+                  placeholder="Enter new amount"
+                  min="0"
+                  step="0.01"
                 />
                 <p className="text-xs text-slate-500">
-                  Must be between ₹50 and ₹10,000
+                  Your current amount is ₹{memberProfile.monthly_amount || 100}. The new amount requires admin approval.
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="reason">Reason for Change *</Label>
+                <Label htmlFor="reason">Reason / message *</Label>
                 <Textarea
                   id="reason"
                   value={paymentChangeReason}
                   onChange={(e) => setPaymentChangeReason(e.target.value)}
-                  placeholder="Why would you like to change your monthly payment?"
+                  placeholder="Please explain why you need this change..."
                   rows={3}
                 />
               </div>

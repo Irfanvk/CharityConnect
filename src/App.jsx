@@ -6,6 +6,8 @@ import NavigationTracker from '@/lib/NavigationTracker'
 import { pagesConfig } from './pages.config'
 import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
+import MemberRequests from './pages/MemberRequests';
+import AdminRequests from './pages/AdminRequests';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -22,7 +24,7 @@ const { Pages, PUBLIC_PAGES, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
 const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
 
-const ADMIN_PAGES = new Set(['Members', 'Reports', 'AuditLogs', 'Settings']);
+const ADMIN_PAGES = new Set(['Members', 'Reports', 'AuditLogs', 'Settings', 'AdminRequests']);
 const SUPERADMIN_PAGES = new Set(['SuperadminPanel']);
 
 const canAccessPage = (pageKey, role) => {
@@ -157,6 +159,29 @@ const AuthenticatedApp = () => {
           }
         />
       ))}
+
+      <Route
+        path="/requests"
+        element={
+          <LayoutWrapper currentPageName={'Requests'}>
+            <MemberRequests />
+          </LayoutWrapper>
+        }
+      />
+
+      <Route
+        path="/admin/requests"
+        element={
+          canAccessPage('AdminRequests', authUser?.role) ? (
+            <LayoutWrapper currentPageName={'AdminRequests'}>
+              <AdminRequests />
+            </LayoutWrapper>
+          ) : (
+            <Navigate to={APP_PATHS.HOME} replace />
+          )
+        }
+      />
+
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

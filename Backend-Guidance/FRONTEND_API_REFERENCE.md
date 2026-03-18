@@ -2,7 +2,7 @@
 
 **Version:** 1.0.0  
 **Base URL:** `http://localhost:8000` (Development)  
-**Last Updated:** March 3, 2026
+**Last Updated:** March 18, 2026
 
 ---
 
@@ -19,6 +19,40 @@
 10. [Audit Log Management](#audit-log-management)
 11. [Error Response Format](#error-response-format)
 12. [Data Types & Enums](#data-types--enums)
+
+---
+
+## v2.12 Requests API Update (March 18, 2026)
+
+The request system now uses a dedicated member-request lifecycle.
+
+### Member Endpoints
+- `POST /requests/` - Create a request
+- `GET /requests/` - List own requests
+- `GET /requests/{id}` - Get own request details
+- `DELETE /requests/{id}` - Cancel own pending request
+
+### Admin Endpoints
+- `GET /admin/requests/` - List all requests (supports filters + pagination)
+- `PATCH /requests/{id}/approve` - Approve request
+- `PATCH /requests/{id}/reject` - Reject request
+
+### Request Types
+- `monthly_amount_change`
+- `profile_update`
+- `complaint`
+- `suggestion`
+- `general`
+
+### Request Status
+- `pending`
+- `approved`
+- `rejected`
+
+### Frontend Integration Notes
+- Profile changes are submitted as requests and applied after admin approval.
+- Approved/rejected outcomes are delivered through notifications.
+- Admin UI should consume paginated envelope responses for request lists.
 
 ---
 

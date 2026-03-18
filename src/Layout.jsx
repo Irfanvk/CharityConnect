@@ -17,6 +17,7 @@ import {
   Settings,
   Shield,
   MessageSquare,
+  Inbox,
   FileText,
   Upload
 } from "lucide-react";
@@ -46,6 +47,7 @@ export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [logoLoadError, setLogoLoadError] = useState(false);
   const currentUser = authUser || user;
 
@@ -57,6 +59,7 @@ export default function Layout({ children, currentPageName }) {
     if (!currentUser) return;
 
     loadNotifications();
+    loadPendingRequestsCount();
 
     const handleNotificationsChanged = () => {
       loadNotifications();
@@ -68,8 +71,13 @@ export default function Layout({ children, currentPageName }) {
       loadNotifications();
     });
 
+    const requestPolling = window.setInterval(() => {
+      loadPendingRequestsCount();
+    }, 60000);
+
     return () => {
       unsubscribe?.();
+      window.clearInterval(requestPolling);
       window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, handleNotificationsChanged);
     };
   }, [currentUser]);
@@ -113,6 +121,27 @@ export default function Layout({ children, currentPageName }) {
     } catch (e) {}
   };
 
+  const loadPendingRequestsCount = async () => {
+    try {
+      if (!currentUser) {
+        setPendingRequestsCount(0);
+        return;
+      }
+
+      const isAdminUser = currentUser.role === 'admin' || currentUser.role === 'superadmin';
+      if (isAdminUser) {
+        const page = await charityClient.requests.adminList({ status: 'pending', skip: 0, limit: 1 });
+        setPendingRequestsCount(Number(page?.total || 0));
+        return;
+      }
+
+      const myPending = await charityClient.requests.list({ status: 'pending', limit: 200 });
+      setPendingRequestsCount(Array.isArray(myPending) ? myPending.length : 0);
+    } catch {
+      setPendingRequestsCount(0);
+    }
+  };
+
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const isSuperadmin = currentUser?.role === 'superadmin';
   const displayName =
@@ -130,7 +159,26 @@ export default function Layout({ children, currentPageName }) {
     { name: "Campaigns", href: ROUTE_KEYS.CAMPAIGNS, path: PAGE_PATHS.CAMPAIGNS, icon: Heart },
     { name: "Reports", href: ROUTE_KEYS.REPORTS, path: PAGE_PATHS.REPORTS, icon: FileText, adminOnly: true },
     { name: "Audit Logs", href: ROUTE_KEYS.AUDIT_LOGS, path: PAGE_PATHS.AUDIT_LOGS, icon: Settings, adminOnly: true },
-    ...(hasRequestsPage ? [{ name: "Requests", href: ROUTE_KEYS.REQUESTS, path: PAGE_PATHS.REQUESTS, icon: MessageSquare }] : []),
+    ...(hasRequestsPage
+      ? [
+          isAdmin
+            ? {
+                name: "Requests",
+                href: ROUTE_KEYS.ADMIN_REQUESTS,
+                path: PAGE_PATHS.ADMIN_REQUESTS,
+                icon: Inbox,
+                badge: pendingRequestsCount,
+                adminOnly: true,
+              }
+            : {
+                name: "My Requests",
+                href: ROUTE_KEYS.REQUESTS,
+                path: '/requests',
+                icon: MessageSquare,
+                badge: pendingRequestsCount,
+              },
+        ]
+      : []),
     { name: "Notifications", href: ROUTE_KEYS.NOTIFICATIONS, path: PAGE_PATHS.NOTIFICATIONS, icon: Bell, badge: unreadCount },
     { name: "Documentation", href: ROUTE_KEYS.DOCUMENTATION, path: PAGE_PATHS.DOCUMENTATION, icon: FileText },
     { name: "Import Data", href: ROUTE_KEYS.IMPORT, path: PAGE_PATHS.IMPORT, icon: Upload, superadminOnly: true },
@@ -241,7 +289,7 @@ export default function Layout({ children, currentPageName }) {
                   <item.icon className={`w-5 h-5 ${isActive ? 'text-emerald-600' : ''}`} />
                   <span className="font-medium">{item.name}</span>
                   {item.badge > 0 && (
-                    <Badge className="ml-auto bg-rose-500 hover:bg-rose-500 text-white text-xs px-2">
+                    <Badge variant="destructive" className="ml-auto bg-rose-500 hover:bg-rose-500 text-white text-xs px-2">
                       {item.badge}
                     </Badge>
                   )}

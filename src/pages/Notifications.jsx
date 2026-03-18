@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { 
   Plus, Bell, Info, CheckCircle, AlertTriangle, 
-  Receipt, Heart, Trash2, Loader2 
+  Receipt, Heart, Trash2, Loader2, CheckCircle2 
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/components/ui/use-toast";
@@ -271,7 +271,14 @@ export default function Notifications() {
         <div className="space-y-4">
           {userNotifications.map((notification) => {
             const type = typeConfig[notification.type] || typeConfig.info;
-            const TypeIcon = type.icon;
+            const isRequestApproved = String(notification?.title || '').startsWith('Request Approved');
+            const isRequestUpdate = String(notification?.title || '').startsWith('Request Update');
+            const TypeIcon = isRequestApproved ? CheckCircle2 : isRequestUpdate ? Info : type.icon;
+            const iconColorClass = isRequestApproved
+              ? 'bg-emerald-100 text-emerald-700'
+              : isRequestUpdate
+              ? 'bg-amber-100 text-amber-700'
+              : type.color;
             const read = isRead(notification);
 
             return (
@@ -284,7 +291,7 @@ export default function Notifications() {
               >
                 <CardContent className="p-5">
                   <div className="flex items-start gap-4">
-                    <div className={`w-10 h-10 rounded-lg ${type.color} flex items-center justify-center flex-shrink-0`}>
+                    <div className={`w-10 h-10 rounded-lg ${iconColorClass} flex items-center justify-center flex-shrink-0`}>
                       <TypeIcon className="w-5 h-5" />
                     </div>
                     

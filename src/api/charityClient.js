@@ -999,6 +999,17 @@ const charityClient = {
       return extractArray(data).map(normalizeRequest);
     },
 
+    adminList: async (query = {}) => {
+      const data = await apiFetch(API_PATHS.requests.adminList, { method: 'GET' }, query);
+      const items = extractArray(data?.items || data).map(normalizeRequest);
+      return {
+        items,
+        total: extractTotal(data, items.length),
+        skip: Number(data?.skip || query?.skip || 0),
+        limit: Number(data?.limit || query?.limit || items.length || 0),
+      };
+    },
+
     get: async (id) => normalizeRequest(await apiFetch(API_PATHS.requests.byId(id), { method: 'GET' })),
 
     create: async (data) =>
@@ -1012,10 +1023,35 @@ const charityClient = {
     update: async (id, data) =>
       normalizeRequest(
         await apiFetch(API_PATHS.requests.byId(id), {
-          method: 'PUT',
+          method: 'PATCH',
           body: JSON.stringify(data),
         })
       ),
+
+    approve: async (id, adminNotes = '') =>
+      normalizeRequest(
+        await apiFetch(API_PATHS.requests.approve(id), {
+          method: 'PATCH',
+          body: JSON.stringify({ action: 'approve', admin_notes: adminNotes || undefined }),
+        })
+      ),
+
+    reject: async (id, rejectionReason, adminNotes = '') =>
+      normalizeRequest(
+        await apiFetch(API_PATHS.requests.reject(id), {
+          method: 'PATCH',
+          body: JSON.stringify({
+            action: 'reject',
+            rejection_reason: rejectionReason,
+            admin_notes: adminNotes || undefined,
+          }),
+        })
+      ),
+
+    cancel: async (id) =>
+      apiFetch(API_PATHS.requests.byId(id), {
+        method: 'DELETE',
+      }),
   },
 
   invites: {

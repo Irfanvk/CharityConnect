@@ -11,6 +11,9 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-03-18 | v2.12 member requests UI migrated to explicit member/admin flows | Frontend | ✅ | Added dedicated pages and routing for `/requests` (member) and `/admin/requests` (admin), plus role-based navigation badge for pending requests |
+| 2026-03-18 | Profile change requests aligned to backend approval workflow | Frontend | ✅ | Profile screen now submits `monthly_amount_change`, `profile_update`, and `complaint/suggestion/general` requests with pending-request guardrails |
+| 2026-03-18 | Request outcome UX added to notifications | Frontend | ✅ | Notifications now render request-specific icons for `Request Approved` and `Request Update` events |
 | 2026-03-18 | Backend CORS configuration hardened with environment-driven allow list | Backend | ✅ | Updated `config.py` to read `ALLOWED_ORIGINS` from env variable; updated `.env.example` with production configuration guidance |
 | 2026-03-18 | Import wizard page completed with 3-step CSV upload UI | Frontend | ✅ | Created `src/pages/Import.jsx`: Step 1 drag-drop upload (Members required, Challans/Campaign optional), Step 2 CSV preview with warning notes, Step 3 progress tracking + result badges |
 | 2026-03-18 | Campaign import note added to wizard about "Inaugural Donation" campaign requirement | Frontend | ✅ | Step 2 preview shows warning when campaign payments CSV detected; user reminded that required campaigns must exist before import |
@@ -83,6 +86,45 @@
 ---
 
 ## 2026-03-04 - Frontend to Backend Communication (Unauthorized Session Handling Update)
+
+## 2026-03-18 - Frontend to Backend Communication (v2.12 Request Lifecycle)
+
+**Summary:** Frontend request flows were migrated to the v2.12 member-request lifecycle with explicit member/admin routes and approval-aware profile actions.
+
+### Frontend Changes Applied
+
+1. **Dedicated request pages and route split**
+   - Added member requests view at `/requests`.
+   - Added admin moderation view at `/admin/requests`.
+   - Preserved compatibility by mapping legacy requests page export to member requests.
+
+2. **Profile-driven request submission**
+   - Monthly amount change now submits `request_type=monthly_amount_change` with `requested_amount`.
+   - Field updates (`full_name`, `phone`, `address`) now submit `request_type=profile_update` with structured `requested_changes`.
+   - Added general request submission types: `complaint`, `suggestion`, `general`.
+
+3. **Pending request awareness in navigation and forms**
+   - Sidebar now shows pending request badge count for both member and admin contexts.
+   - Profile action buttons are disabled when a pending request already exists for the same field/change type.
+
+4. **Request outcome visualization**
+   - Notifications UI now differentiates request outcomes using title-based icon rendering for approval/update statuses.
+
+### Backend Confirmation Requested
+
+- Keep canonical request enums stable:
+  - `request_type`: `monthly_amount_change`, `profile_update`, `complaint`, `suggestion`, `general`
+  - `status`: `pending`, `approved`, `rejected`
+- Preserve admin moderation endpoints:
+  - `GET /admin/requests/`
+  - `PATCH /requests/{id}/approve`
+  - `PATCH /requests/{id}/reject`
+- Preserve member endpoints:
+  - `POST /requests/`, `GET /requests/`, `DELETE /requests/{id}`
+
+### Status
+
+- Frontend implementation complete for v2.12 request lifecycle.
 
 **Summary:** Frontend now treats backend `401` responses as an expired/invalid session event and forces a clean re-login flow.
 

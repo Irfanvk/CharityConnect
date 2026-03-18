@@ -19,6 +19,11 @@ export const queryKeys = {
   invites:             (f) => ['invites', f ?? 'all'],
   invite:              (id) => ['invites', id],
   users:               (f) => ['users', f ?? 'all'],
+  requests: {
+    mine:              (f) => ['requests', 'mine', f ?? 'all'],
+    all:               (f) => ['requests', 'all', f ?? 'all'],
+    byId:              (id) => ['requests', 'by-id', id],
+  },
   auditLogs:           (f) => ['audit-logs', f ?? 'all'],
   health:              ['health'],
   importStatus:        ['import', 'status'],

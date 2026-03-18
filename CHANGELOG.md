@@ -22,6 +22,7 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|---------|
+| 2.12 | 2026-03-18 | Minor | Implemented v2.12 member requests lifecycle in frontend: dedicated member/admin request pages and routes, profile request workflows (`monthly_amount_change`, `profile_update`, `complaint/suggestion/general`), request pending badges in navigation, and request outcome icons in notifications. |
 | 2.11 | 2026-03-18 | Minor | Complete PWA support hardening: iOS install prompt, Android install prompt, PWA update notifications, device utility library, health check banner, offline detection, token security (in-memory + session expiry event), query keys factory. Import wizard 3-step UI (CSV upload/preview/progress). Backend CORS environment configuration. Netlify deployment support. Member dashboard Upcoming Dues section. Add Member dialog invite reminder. |
 | 2.10 | 2026-03-16 | Patch | Added Vercel production deployment setup (`vercel.json` with SPA rewrites/security headers/cache policy), standardized `.env.example`, and documented backend CORS/env requirements for production frontend hosting |
 | 2.9 | 2026-03-15 | Minor | Campaign create/edit now supports targeted vs unlimited goals and fixed vs open-ended duration; frontend rendering and API docs updated for nullable `target_amount` / `end_date` plus `target_mode` / `end_date_mode` |
@@ -44,6 +45,57 @@ This document records all technical changes, implementations, and decisions made
 | 1.2 | 2026-03-01 | Patch | Challan role-based visibility, proof re-upload flow, status filter alignment |
 | 1.1 | 2026-02-26 | Patch | Auth/login redirect stabilization, logout visibility, API client hardening |
 | 1.0 | 2026-02-24 | Release | Phase 1 MVP complete |
+
+---
+
+
+## 📅 March 18, 2026 - Member Requests v2.12 Frontend Rollout (Version 2.12)
+
+### 🎯 Objectives Met
+- ✅ Added dedicated member and admin request pages with role-based routing
+- ✅ Aligned profile request submissions to the new backend request contract
+- ✅ Added pending-request guardrails for duplicate profile/monthly change submissions
+- ✅ Added request moderation actions in admin UI (approve/reject)
+- ✅ Added request outcome visuals in notifications and pending badges in navigation
+
+### Frontend Changes
+
+1. **New request pages and route wiring**
+- Added `src/pages/MemberRequests.jsx` for member-side request history and cancellation.
+- Added `src/pages/AdminRequests.jsx` for admin filtering, pagination, review, approve/reject actions.
+- Added canonical routes in `src/App.jsx`:
+  - `/requests` (member)
+  - `/admin/requests` (admin)
+
+2. **API client and query key alignment**
+- Extended `src/api/charityClient.js` request client with:
+  - `adminList(...)`
+  - `approve(id, payload)`
+  - `reject(id, payload)`
+  - `cancel(id)`
+- Added request endpoint helpers in `src/config/apiPaths.js`.
+- Added request query key helpers in `src/lib/queryKeys.js`.
+
+3. **Profile request lifecycle integration**
+- `src/pages/Profile.jsx` now submits:
+  - `monthly_amount_change` with `requested_amount`
+  - `profile_update` with structured `requested_changes`
+  - general request types: `complaint`, `suggestion`, `general`
+- Added pending-request checks to avoid duplicate requests for the same change scope.
+
+4. **Layout and notification UX updates**
+- `src/Layout.jsx` now shows role-aware request navigation labels and pending request badge counts.
+- `src/pages/Notifications.jsx` now renders request-specific icons for approval/update outcomes.
+
+### API Contract Dependencies
+
+Frontend v2.12 flow assumes backend support for:
+- `POST /requests/`
+- `GET /requests/`
+- `DELETE /requests/{id}`
+- `GET /admin/requests/`
+- `PATCH /requests/{id}/approve`
+- `PATCH /requests/{id}/reject`
 
 ---
 

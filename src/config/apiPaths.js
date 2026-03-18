@@ -60,7 +60,10 @@ export const API_PATHS = {
   },
   requests: {
     list: '/requests/',
+    adminList: '/admin/requests/',
     byId: (id) => `/requests/${id}`,
+    approve: (id) => `/requests/${id}/approve`,
+    reject: (id) => `/requests/${id}/reject`,
   },
   invites: {
     list: '/invites/',
