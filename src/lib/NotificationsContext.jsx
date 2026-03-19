@@ -1,10 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { charityClient } from '@/api/charityClient';
+import { useAuth } from '@/lib/AuthContext';
 import { NOTIFICATIONS_CHANGED_EVENT } from '@/lib/notificationState';
 
 const NotificationsContext = createContext(null);
 
 export function NotificationsProvider({ children }) {
+  const { isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -66,6 +68,14 @@ export function NotificationsProvider({ children }) {
   };
 
   useEffect(() => {
+    // Only poll if user is authenticated
+    if (!isAuthenticated) {
+      // Clear notifications when logging out
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
     refresh(undefined, { force: true });
 
     const onFocus = () => {
@@ -92,7 +102,7 @@ export function NotificationsProvider({ children }) {
       window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, onNotificationsChanged);
       document.removeEventListener('visibilitychange', onFocus);
     };
-  }, [refresh]);
+  }, [refresh, isAuthenticated]);
 
   const value = useMemo(
     () => ({
