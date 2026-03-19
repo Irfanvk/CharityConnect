@@ -19,7 +19,7 @@ import { BackendHealthBanner } from '@/components/BackendHealthBanner';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { IOSInstallPrompt } from '@/components/IOSInstallPrompt';
 import { AndroidInstallPrompt } from '@/components/AndroidInstallPrompt';
-import { NotificationsProvider } from '@/lib/NotificationsContext';
+import { NotificationsProvider } from '@/context/NotificationContext';
 
 const { Pages, PUBLIC_PAGES, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];

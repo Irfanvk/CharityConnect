@@ -3,7 +3,15 @@ import { APP_PATHS } from '@/config/appPaths';
 import { API_PATHS } from '@/config/apiPaths';
 import { tokenManager } from '@/lib/tokenManager';
 
-const BASE_URL = import.meta.env.VITE_CHARITY_APP_BASE_URL;
+function resolveApiBaseUrl() {
+  const configuredBaseUrl = String(import.meta.env.VITE_CHARITY_APP_BASE_URL || '').trim();
+  if (!configuredBaseUrl) {
+    return '/api';
+  }
+  return configuredBaseUrl.replace(/\/$/, '');
+}
+
+const BASE_URL = resolveApiBaseUrl();
 const DEFAULT_TIMEOUT = 20000; // 20 seconds
 const IMPORT_TIMEOUT = 300000; // 5 minutes for large import files
 const IMPORT_JOB_POLL_INTERVAL = 1200;
@@ -50,8 +58,11 @@ function normalizeSortQuery(query = {}) {
 }
 
 function buildUrl(path, query = {}) {
-  const base = BASE_URL.replace(/\/$/, '');
-  const url = new URL(`${base}${path}`, window.location.origin);
+  const normalizedPath = String(path || '').startsWith('/') ? String(path) : `/${String(path || '')}`;
+  const isAbsoluteBase = /^https?:\/\//i.test(BASE_URL);
+  const url = isAbsoluteBase
+    ? new URL(`${BASE_URL}${normalizedPath}`)
+    : new URL(`${BASE_URL.startsWith('/') ? BASE_URL : `/${BASE_URL}`}${normalizedPath}`, window.location.origin);
 
   Object.entries(normalizeSortQuery(query) || {}).forEach(([key, value]) => {
     if (value === undefined || value === null) return;
@@ -993,6 +1004,12 @@ const charityClient = {
         body: JSON.stringify(payload),
       });
     },
+
+    sendWhatsApp: (payload) =>
+      apiFetch(API_PATHS.notifications.sendWhatsApp, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
 
     update: (id, data) =>
       apiFetch(API_PATHS.notifications.byId(id), {

@@ -43,7 +43,7 @@ import {
   emitNotificationsChanged,
   isNotificationDismissed,
 } from "@/lib/notificationState";
-import { useNotifications } from "@/lib/NotificationsContext";
+import { useNotifications } from "@/context/NotificationContext";
 
 const typeConfig = {
   info: { label: "Info", color: "bg-blue-100 text-blue-700", icon: Info },

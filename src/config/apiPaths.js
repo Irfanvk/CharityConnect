@@ -54,6 +54,7 @@ export const API_PATHS = {
   notifications: {
     list: '/notifications/',
     feed: '/notifications/feed',
+    sendWhatsApp: '/notifications/send-whatsapp',
     byId: (id) => `/notifications/${id}`,
     read: (id) => `/notifications/${id}/read`,
     patchRead: '/notifications/read',

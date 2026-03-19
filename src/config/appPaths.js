@@ -2,8 +2,8 @@ import { createPageUrl } from '@/utils';
 
 export const APP_BRAND = {
   NAME: 'CharityHub',
-  TAGLINE: 'Management System',
-  TITLE: 'CharityHub APP',
+  TAGLINE: 'Poyyathabail GCC',
+  TITLE: 'CharityHub | Poyyathabail GCC',
 };
 
 export const ROUTE_KEYS = {

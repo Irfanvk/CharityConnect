@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { charityClient } from "@/api/charityClient";
 import { useAuth } from "@/lib/AuthContext";
@@ -41,7 +41,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   NOTIFICATIONS_CHANGED_EVENT,
 } from "@/lib/notificationState";
-import { useNotifications } from "@/lib/NotificationsContext";
+import { useNotifications } from "@/context/NotificationContext";
 
 export default function Layout({ children, currentPageName }) {
   const { user: authUser, isAuthenticated, logout } = useAuth();
@@ -50,14 +50,37 @@ export default function Layout({ children, currentPageName }) {
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [logoLoadError, setLogoLoadError] = useState(false);
   const currentUser = authUser || user;
+  const currentUserId = currentUser?.id ?? null;
+  const currentUserRole = currentUser?.role ?? null;
   const { unreadCount, refreshNotifications } = useNotifications();
 
   useEffect(() => {
     loadUser();
   }, []);
 
+  const loadPendingRequestsCount = useCallback(async () => {
+    try {
+      if (!currentUserId) {
+        setPendingRequestsCount(0);
+        return;
+      }
+
+      const isAdminUser = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+      if (isAdminUser) {
+        const page = await charityClient.requests.adminList({ status: 'pending', skip: 0, limit: 1 });
+        setPendingRequestsCount(Number(page?.total || 0));
+        return;
+      }
+
+      const myPending = await charityClient.requests.list({ status: 'pending', limit: 200 });
+      setPendingRequestsCount(Array.isArray(myPending) ? myPending.length : 0);
+    } catch {
+      setPendingRequestsCount(0);
+    }
+  }, [currentUserId, currentUserRole]);
+
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUserId) return;
 
     refreshNotifications();
     loadPendingRequestsCount();
@@ -81,7 +104,7 @@ export default function Layout({ children, currentPageName }) {
       window.clearInterval(requestPolling);
       window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, handleNotificationsChanged);
     };
-  }, [currentUser, refreshNotifications]);
+  }, [currentUserId, refreshNotifications, loadPendingRequestsCount]);
 
   const loadUser = async () => {
     try {
@@ -94,27 +117,6 @@ export default function Layout({ children, currentPageName }) {
       refreshNotifications();
     } catch (e) {
       setUser(null);
-    }
-  };
-
-  const loadPendingRequestsCount = async () => {
-    try {
-      if (!currentUser) {
-        setPendingRequestsCount(0);
-        return;
-      }
-
-      const isAdminUser = currentUser.role === 'admin' || currentUser.role === 'superadmin';
-      if (isAdminUser) {
-        const page = await charityClient.requests.adminList({ status: 'pending', skip: 0, limit: 1 });
-        setPendingRequestsCount(Number(page?.total || 0));
-        return;
-      }
-
-      const myPending = await charityClient.requests.list({ status: 'pending', limit: 200 });
-      setPendingRequestsCount(Array.isArray(myPending) ? myPending.length : 0);
-    } catch {
-      setPendingRequestsCount(0);
     }
   };
 
@@ -354,7 +356,7 @@ export default function Layout({ children, currentPageName }) {
                   variant="outline"
                   size="sm"
                   onClick={() => logout()}
-                  className="inline-flex"
+                  className="hidden sm:inline-flex"
                 >
                   <LogOut className="w-4 h-4 mr-2" />
                   Logout

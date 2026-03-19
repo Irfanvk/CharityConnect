@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { charityClient } from '@/api/charityClient';
 import { NOTIFICATIONS_CHANGED_EVENT } from '@/lib/notificationState';
 
@@ -8,37 +8,65 @@ export function NotificationsProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const inFlightPromiseRef = useRef(null);
+  const lastRefreshAtRef = useRef(0);
+  const notificationsRef = useRef([]);
+  const unreadCountRef = useRef(0);
 
-  const refresh = async (params = { skip: 0, limit: 100 }) => {
-    setIsLoading(true);
-    try {
-      const feed = await charityClient.notifications.feed(params);
-      setNotifications(Array.isArray(feed?.items) ? feed.items : []);
-      setUnreadCount(Number(feed?.unread_count || 0));
-      return feed;
-    } catch {
-      setNotifications([]);
-      setUnreadCount(0);
-      return { items: [], unread_count: 0 };
-    } finally {
-      setIsLoading(false);
+  useEffect(() => {
+    notificationsRef.current = notifications;
+  }, [notifications]);
+
+  useEffect(() => {
+    unreadCountRef.current = unreadCount;
+  }, [unreadCount]);
+
+  const refresh = useCallback(async (params = { skip: 0, limit: 100 }, options = {}) => {
+    const now = Date.now();
+    const minIntervalMs = Number(options?.minIntervalMs ?? 750);
+    if (!options?.force && now - lastRefreshAtRef.current < minIntervalMs) {
+      return inFlightPromiseRef.current || { items: notificationsRef.current, unread_count: unreadCountRef.current };
     }
-  };
+
+    if (inFlightPromiseRef.current) {
+      return inFlightPromiseRef.current;
+    }
+
+    lastRefreshAtRef.current = now;
+    setIsLoading(true);
+    inFlightPromiseRef.current = (async () => {
+      try {
+        const feed = await charityClient.notifications.feed(params);
+        setNotifications(Array.isArray(feed?.items) ? feed.items : []);
+        setUnreadCount(Number(feed?.unread_count || 0));
+        return feed;
+      } catch {
+        setNotifications([]);
+        setUnreadCount(0);
+        return { items: [], unread_count: 0 };
+      } finally {
+        inFlightPromiseRef.current = null;
+        setIsLoading(false);
+      }
+    })();
+
+    return inFlightPromiseRef.current;
+  }, []);
 
   const markAllRead = async () => {
     await charityClient.notifications.patchRead({ mark_all: true });
-    await refresh();
+    await refresh(undefined, { force: true });
   };
 
   const markReadByIds = async (ids = []) => {
     const normalized = Array.from(new Set((ids || []).map((id) => Number(id)).filter(Boolean)));
     if (normalized.length === 0) return;
     await charityClient.notifications.patchRead({ notification_ids: normalized, mark_all: false });
-    await refresh();
+    await refresh(undefined, { force: true });
   };
 
   useEffect(() => {
-    refresh();
+    refresh(undefined, { force: true });
 
     const onFocus = () => {
       if (document.visibilityState === 'visible') {
@@ -47,7 +75,7 @@ export function NotificationsProvider({ children }) {
     };
 
     const onNotificationsChanged = () => {
-      refresh();
+      refresh(undefined, { force: true });
     };
 
     const intervalId = window.setInterval(() => {
@@ -64,7 +92,7 @@ export function NotificationsProvider({ children }) {
       window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, onNotificationsChanged);
       document.removeEventListener('visibilitychange', onFocus);
     };
-  }, []);
+  }, [refresh]);
 
   const value = useMemo(
     () => ({

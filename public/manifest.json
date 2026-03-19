@@ -1,7 +1,7 @@
 {
-  "name": "CharityHub APP",
+  "name": "CharityHub | Poyyathabail GCC",
   "short_name": "CharityHub",
-  "description": "Charity management and donation tracking application",
+  "description": "CharityHub by Poyyathabail GCC for donation tracking and membership management",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

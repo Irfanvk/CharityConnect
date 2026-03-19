@@ -79,11 +79,11 @@ export default function PWAInstallButton({ className = '' }) {
       size="sm"
       onClick={handleInstall}
       className={`inline-flex ${className}`.trim()}
-      aria-label="Install app"
-      title="Install app"
+      aria-label="Install CharityHub app"
+      title="Install CharityHub app"
     >
       <Download className="w-4 h-4 mr-2" />
-      Install App
+      Install CharityHub
     </Button>
   );
 }

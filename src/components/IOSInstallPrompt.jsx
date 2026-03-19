@@ -23,7 +23,7 @@ export function IOSInstallPrompt() {
           <Share className="w-5 h-5 text-white" />
         </div>
         <div className="flex-1">
-          <p className="font-semibold text-slate-800 text-sm">Add CharityConnect to your home screen</p>
+          <p className="font-semibold text-slate-800 text-sm">Add CharityHub to your home screen</p>
           <p className="text-slate-500 text-xs mt-1">
             Open in Safari → tap <strong>Share</strong> <span aria-label="share icon">↑</span> → tap <strong>"Add to Home Screen"</strong>
           </p>
