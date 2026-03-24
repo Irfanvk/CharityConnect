@@ -38,9 +38,6 @@ import { PWAUpdatePrompt } from "@/components/PWAUpdatePrompt";
 import BottomNav from "@/components/mobile/BottomNav";
 import BackButton from "@/components/mobile/BackButton";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  NOTIFICATIONS_CHANGED_EVENT,
-} from "@/lib/notificationState";
 import { useNotifications } from "@/context/NotificationContext";
 
 export default function Layout({ children, currentPageName }) {
@@ -52,7 +49,7 @@ export default function Layout({ children, currentPageName }) {
   const currentUser = authUser || user;
   const currentUserId = currentUser?.id ?? null;
   const currentUserRole = currentUser?.role ?? null;
-  const { unreadCount, refreshNotifications } = useNotifications();
+  const { unreadCount } = useNotifications();
 
   useEffect(() => {
     loadUser();
@@ -81,30 +78,16 @@ export default function Layout({ children, currentPageName }) {
 
   useEffect(() => {
     if (!currentUserId) return;
-
-    refreshNotifications();
     loadPendingRequestsCount();
-
-    const handleNotificationsChanged = () => {
-      refreshNotifications();
-    };
-    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, handleNotificationsChanged);
-
-    // Real-time subscription for notifications
-    const unsubscribe = charityClient.notifications.subscribe?.(() => {
-      refreshNotifications();
-    });
 
     const requestPolling = window.setInterval(() => {
       loadPendingRequestsCount();
     }, 60000);
 
     return () => {
-      unsubscribe?.();
       window.clearInterval(requestPolling);
-      window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, handleNotificationsChanged);
     };
-  }, [currentUserId, refreshNotifications, loadPendingRequestsCount]);
+  }, [currentUserId, loadPendingRequestsCount]);
 
   const loadUser = async () => {
     try {
@@ -114,7 +97,6 @@ export default function Layout({ children, currentPageName }) {
         return;
       }
       setUser(currentUser);
-      refreshNotifications();
     } catch (e) {
       setUser(null);
     }

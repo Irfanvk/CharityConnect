@@ -23,7 +23,7 @@ export function NotificationsProvider({ children }) {
     unreadCountRef.current = unreadCount;
   }, [unreadCount]);
 
-  const refresh = useCallback(async (params = { skip: 0, limit: 100 }, options = {}) => {
+  const refresh = useCallback(async (params = { skip: 0, limit: 50 }, options = {}) => {
     const now = Date.now();
     const minIntervalMs = Number(options?.minIntervalMs ?? 750);
     if (!options?.force && now - lastRefreshAtRef.current < minIntervalMs) {
