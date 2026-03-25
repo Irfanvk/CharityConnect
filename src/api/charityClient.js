@@ -993,7 +993,8 @@ const charityClient = {
       };
       if (payload.target_type) {
         if (payload.target_type === 'admins') payload.target_role = 'admin';
-        if (payload.target_type === 'all') payload.target_role = 'member';
+        else if (payload.target_type === 'members') payload.target_role = 'member';
+        // 'all' means broadcast to everyone — omit target_role so backend sends to all
       }
 
       delete payload.target_type;

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { charityClient } from "@/api/charityClient";
+import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,7 @@ import { APP_BRAND, APP_IMAGES, APP_PATHS } from "@/config/appPaths";
 
 export default function Register() {
   const navigate = useNavigate();
+  const { setAuthenticatedUser } = useAuth();
   const [step, setStep] = useState(1); // 1: enter code, 2: registration form + backend validation
   const [inviteCode, setInviteCode] = useState('');
   const [formData, setFormData] = useState({
@@ -123,7 +125,7 @@ export default function Register() {
       );
 
       // Register with backend - creates both User and Member
-      await charityClient.auth.register({
+      const response = await charityClient.auth.register({
         invite_code: inviteCode.trim().toUpperCase(),
         username: formData.username,
         password: formData.password,
@@ -139,6 +141,11 @@ export default function Register() {
       // - Creates Member profile with auto-generated code (MEM-001, etc.)
       // - Marks invite as used
       // - Returns auth token
+
+      // Set authenticated user in auth context so they're logged in immediately
+      if (response?.user) {
+        setAuthenticatedUser(response.user);
+      }
 
       setSuccess(true);
     } catch (err) {
