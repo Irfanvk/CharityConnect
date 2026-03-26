@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
 
 export default function PullToRefresh({ onRefresh, children }) {
@@ -6,15 +6,21 @@ export default function PullToRefresh({ onRefresh, children }) {
   const [refreshing, setRefreshing] = useState(false);
   const startY = useRef(0);
   const pullDistance = useRef(0);
+  const containerRef = useRef(null);
+  const refreshingRef = useRef(false);
 
-  const handleTouchStart = (e) => {
+  useEffect(() => {
+    refreshingRef.current = refreshing;
+  }, [refreshing]);
+
+  const handleTouchStart = useCallback((e) => {
     if (window.scrollY === 0) {
       startY.current = e.touches[0].clientY;
     }
-  };
+  }, []);
 
-  const handleTouchMove = (e) => {
-    if (startY.current === 0 || refreshing) return;
+  const handleTouchMove = useCallback((e) => {
+    if (startY.current === 0 || refreshingRef.current) return;
     
     const currentY = e.touches[0].clientY;
     const distance = currentY - startY.current;
@@ -27,10 +33,10 @@ export default function PullToRefresh({ onRefresh, children }) {
         e.preventDefault();
       }
     }
-  };
+  }, []);
 
-  const handleTouchEnd = async () => {
-    if (pullDistance.current > 60 && !refreshing) {
+  const handleTouchEnd = useCallback(async () => {
+    if (pullDistance.current > 60 && !refreshingRef.current) {
       setRefreshing(true);
       await onRefresh();
       setRefreshing(false);
@@ -39,13 +45,25 @@ export default function PullToRefresh({ onRefresh, children }) {
     setPulling(false);
     startY.current = 0;
     pullDistance.current = 0;
-  };
+  }, [onRefresh]);
+
+  // Attach touchmove with { passive: false } so preventDefault works on iOS Safari
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener('touchstart', handleTouchStart, { passive: true });
+    el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    el.addEventListener('touchend', handleTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+      el.removeEventListener('touchmove', handleTouchMove);
+      el.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   return (
     <div
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      ref={containerRef}
       className="min-h-screen"
     >
       {/* Pull to refresh indicator */}

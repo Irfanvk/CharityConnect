@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import PhoneInput from "@/components/ui/phone-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Heart, CheckCircle, XCircle, Loader2, MoonStar } from "lucide-react";
+import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { APP_BRAND, APP_IMAGES, APP_PATHS } from "@/config/appPaths";
 

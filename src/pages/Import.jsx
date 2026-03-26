@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/use-toast";
-import { Upload, AlertTriangle, CheckCircle2, Loader2, X, ChevronRight, ChevronLeft } from "lucide-react";
+import { Upload, AlertTriangle, CheckCircle2, Loader2, ChevronRight, ChevronLeft } from "lucide-react";
 
 export default function Import() {
   const [step, setStep] = useState(1);

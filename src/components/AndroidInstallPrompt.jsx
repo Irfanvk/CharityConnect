@@ -38,7 +38,10 @@ export function AndroidInstallPrompt() {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white rounded-t-xl shadow-2xl border-t border-slate-200 p-5 pb-6">
+    <div
+      className="fixed bottom-0 left-0 right-0 z-40 bg-white rounded-t-xl shadow-2xl border-t border-slate-200 p-5"
+      style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+    >
       <div className="flex items-start gap-3">
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shrink-0 mt-0.5">
           <Heart className="w-4 h-4 text-white" />

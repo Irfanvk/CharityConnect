@@ -12,7 +12,7 @@ function showBootstrapError(message) {
   const root = document.getElementById('root');
   if (!root) return;
   root.innerHTML = `
-    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f8fafc;color:#0f172a;">
+    <div style="min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f8fafc;color:#0f172a;">
       <div style="max-width:560px;background:white;border:1px solid #e2e8f0;border-radius:12px;padding:20px;box-shadow:0 10px 30px rgba(15,23,42,0.08)">
         <h2 style="margin:0 0 12px;font-size:20px;">Unable to open app</h2>
         <p style="margin:0 0 10px;color:#334155;">${message}</p>

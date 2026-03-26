@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/AuthContext";
-import { Users, Receipt, Heart, TrendingUp, Calendar, Clock } from "lucide-react";
+import { Users, Heart, TrendingUp, Calendar, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StatsCard from "@/components/dashboard/StatsCard";

@@ -41,16 +41,14 @@ export default defineConfig(({ mode }) => {
     build: {
       // Keep production bundle compatible with older iOS Safari builds.
       target: ['es2017', 'safari12'],
-      // Production build optimizations
-      minify: 'terser',
-      terserOptions: {
-        compress: {
-          drop_console: true,
-          drop_debugger: true,
-        },
+      // Production build optimizations — esbuild is faster and lighter than terser
+      minify: 'esbuild',
+      esbuildOptions: {
+        drop: ['console', 'debugger'],
       },
       // Code splitting for better caching
       rollupOptions: {
+        maxParallelFileOps: 2,
         output: {
           manualChunks: {
             // Separate vendor chunks
@@ -69,6 +67,9 @@ export default defineConfig(({ mode }) => {
     plugins: [
       legacy({
         targets: ['defaults', 'ios >= 12', 'safari >= 12'],
+        // Reduce polyfill size — only add what's actually used
+        modernPolyfills: false,
+        renderLegacyChunks: false,
       }),
       react(),
       VitePWA({

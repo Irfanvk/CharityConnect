@@ -43,17 +43,12 @@ import { useNotifications } from "@/context/NotificationContext";
 export default function Layout({ children, currentPageName }) {
   const { user: authUser, isAuthenticated, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [user, setUser] = useState(null);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [logoLoadError, setLogoLoadError] = useState(false);
-  const currentUser = authUser || user;
+  const currentUser = authUser;
   const currentUserId = currentUser?.id ?? null;
   const currentUserRole = currentUser?.role ?? null;
   const { unreadCount } = useNotifications();
-
-  useEffect(() => {
-    loadUser();
-  }, []);
 
   const loadPendingRequestsCount = useCallback(async () => {
     try {
@@ -88,19 +83,6 @@ export default function Layout({ children, currentPageName }) {
       window.clearInterval(requestPolling);
     };
   }, [currentUserId, loadPendingRequestsCount]);
-
-  const loadUser = async () => {
-    try {
-      const currentUser = await charityClient.auth.me();
-      if (!currentUser) {
-        setUser(null);
-        return;
-      }
-      setUser(currentUser);
-    } catch (e) {
-      setUser(null);
-    }
-  };
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const isSuperadmin = currentUser?.role === 'superadmin';
@@ -156,7 +138,7 @@ export default function Layout({ children, currentPageName }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900">
-      <NotificationManager user={user} />
+      <NotificationManager user={currentUser} />
       <style>{`
         :root {
           --primary: 158 64% 42%;
