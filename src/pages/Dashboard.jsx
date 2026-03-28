@@ -19,12 +19,10 @@ import { getMemberSetup, isMemberSetupCompleted, saveMemberSetup } from "@/lib/m
 
 const DASHBOARD_RECENT_CHALLAN_LIMIT = 200;
 const DASHBOARD_CAMPAIGN_LIMIT = 200;
-const DASHBOARD_MEMBER_SAMPLE_LIMIT = 300;
+// ✅ FIX: Was 300, backend enforces le=200 — sending 300 caused 422 Unprocessable Entity
+const DASHBOARD_MEMBER_SAMPLE_LIMIT = 200;
 
 export default function Dashboard() {
-  // ✅ FIX 1: Use authUser directly from context — no duplicate state needed.
-  // Previously, `user` was a local state copy of `authUser`, and the useEffect
-  // that synced them recreated a new object every render, causing an infinite loop.
   const { user } = useAuth();
 
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -33,14 +31,10 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const currentMonth = format(new Date(), 'yyyy-MM');
 
-  // ✅ FIX 2: Derive role flags directly from `user` (no stale local state).
   const isSuperAdmin = user?.is_superadmin === true || user?.role === 'superadmin';
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const isMember = !!user && !isAdmin && !isSuperAdmin;
 
-  // ✅ FIX 3: Onboarding check runs only once when user.id is first available.
-  // Previously `loadUserData` called `charityClient.auth.me()` again even though
-  // AuthContext had already fetched the user — a redundant network call on every render.
   useEffect(() => {
     if (!user?.id) return;
     if (user.role === 'member') {
@@ -51,16 +45,14 @@ export default function Dashboard() {
       setShowOnboarding(false);
       setMemberSetupData(null);
     }
-  }, [user?.id, user?.role]); // ✅ primitive deps only — no object reference churn
+  }, [user?.id, user?.role]);
 
-  // ✅ FIX 4: Stable callback so it doesn't get recreated on every render.
   const handleOnboardingComplete = useCallback((setupData) => {
     if (user?.id) {
       saveMemberSetup(user.id, setupData || {});
     }
     setMemberSetupData(getMemberSetup(user?.id));
     setShowOnboarding(false);
-    // ✅ No more redundant `loadUserData()` call here — user is already in context.
   }, [user?.id]);
 
   // ─── Queries ────────────────────────────────────────────────────────────────
@@ -70,8 +62,7 @@ export default function Dashboard() {
     queryFn: () =>
       charityClient.members.list({ skip: 0, limit: DASHBOARD_MEMBER_SAMPLE_LIMIT }),
     enabled: isAdmin,
-    // ✅ FIX 5: staleTime prevents refetching on every focus/mount.
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
   });
 
   const { data: memberSummary } = useQuery({
@@ -87,7 +78,7 @@ export default function Dashboard() {
     queryKey: ['members', 'me'],
     queryFn: () => charityClient.members.me(),
     enabled: !!user && !isAdmin,
-    staleTime: 5 * 60 * 1000, // 5 minutes — profile rarely changes
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: challans } = useQuery({
@@ -137,7 +128,6 @@ export default function Dashboard() {
 
   const auditLogsArray = Array.isArray(auditLogs) ? auditLogs : [];
 
-  // Phase 1: RecurringDonations disabled
   const recurringDonationsArray = [];
 
   // ─── Pull-to-refresh ────────────────────────────────────────────────────────
@@ -171,7 +161,6 @@ export default function Dashboard() {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
-  // Superadmin dashboard
   if (isSuperAdmin) {
     return (
       <PullToRefresh onRefresh={handleRefresh}>
@@ -215,7 +204,6 @@ export default function Dashboard() {
     );
   }
 
-  // Member dashboard
   if (isMember) {
     return (
       <PullToRefresh onRefresh={handleRefresh}>
