@@ -3,17 +3,22 @@ import { charityClient } from "@/api/charityClient";
 import { APP_BRAND, APP_IMAGES } from "@/config/appPaths";
 
 export default function NotificationManager({ user }) {
-  const [permission, setPermission] = useState(Notification.permission);
+  const hasNotificationApi = typeof window !== "undefined" && "Notification" in window;
+  const [permission, setPermission] = useState(
+    hasNotificationApi ? window.Notification.permission : "unsupported"
+  );
 
   useEffect(() => {
+    if (!hasNotificationApi) return;
+
     // Request notification permission
     if (permission === "default") {
-      Notification.requestPermission().then(setPermission);
+      window.Notification.requestPermission().then(setPermission);
     }
-  }, []);
+  }, [hasNotificationApi, permission]);
 
   useEffect(() => {
-    if (!user || permission !== "granted") return;
+    if (!hasNotificationApi || !user || permission !== "granted") return;
 
     // Subscribe to new notifications
     const unsubscribe = charityClient.notifications.subscribe((event) => {
@@ -32,19 +37,23 @@ export default function NotificationManager({ user }) {
 
       if (isRelevant && !isRead) {
         // Show browser notification
-        new Notification(`${APP_BRAND.NAME} - ${notification.title}`, {
-          body: notification.message,
-          icon: APP_IMAGES.LOGOS.FAVICON,
-          badge: APP_IMAGES.LOGOS.FAVICON,
-          tag: notification.id,
-          requireInteraction: false,
-          silent: false
-        });
+        try {
+          new window.Notification(`${APP_BRAND.NAME} - ${notification.title}`, {
+            body: notification.message,
+            icon: APP_IMAGES.LOGOS.FAVICON,
+            badge: APP_IMAGES.LOGOS.FAVICON,
+            tag: notification.id,
+            requireInteraction: false,
+            silent: false,
+          });
+        } catch {
+          // Ignore notification rendering failures on unsupported browsers.
+        }
       }
     });
 
     return unsubscribe;
-  }, [user, permission]);
+  }, [hasNotificationApi, user, permission]);
 
   return null;
 }
