@@ -20,6 +20,7 @@ import {
   getCampaignTargetAmount,
   isUnlimitedTarget,
 } from "@/lib/campaigns";
+import CollectionStats from "@/components/dashboard/CollectionStats";
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -30,7 +31,8 @@ export default function SuperAdminDashboard({
   dashboardCharts,
   auditLogs = [], 
   notifications = [],
-  recurringDonations = []
+  recurringDonations = [],
+  collectionStats
 }) {
   // Real-time metrics
   const activeMembers = members.filter(m => m.status === 'active').length;
@@ -108,6 +110,9 @@ export default function SuperAdminDashboard({
         </Badge>
         <span className="text-sm text-slate-500">Advanced analytics and system overview</span>
       </div>
+
+      {/* Collection Overview Stats */}
+      <CollectionStats collectionStats={collectionStats} />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

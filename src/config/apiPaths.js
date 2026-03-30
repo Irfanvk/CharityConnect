@@ -23,6 +23,7 @@ export const API_PATHS = {
   challans: {
     list: '/challans/',
     summary: '/challans/summary',
+    collectionStats: '/challans/collection-stats',
     payableMonths: '/challans/payable-months',
     importHistory: '/challans/import/history',
     importHistoryJob: '/challans/import/history/jobs',
@@ -43,6 +44,7 @@ export const API_PATHS = {
   admin: {
     wipeData: '/admin/system/wipe',
     dashboardCharts: '/admin/dashboard/charts',
+    settings: '/admin/settings',
   },
   campaigns: {
     list: '/campaigns/',

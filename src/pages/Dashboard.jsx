@@ -15,6 +15,7 @@ import SuperAdminDashboard from "@/components/dashboard/SuperAdminDashboard";
 import PullToRefresh from "@/components/mobile/PullToRefresh";
 import { APP_IMAGES } from "@/config/appPaths";
 import BulkOperationsPanel from "@/components/dashboard/BulkOperationsPanel";
+import CollectionStats from "@/components/dashboard/CollectionStats";
 import { getMemberSetup, isMemberSetupCompleted, saveMemberSetup } from "@/lib/memberSetup";
 
 const DASHBOARD_RECENT_CHALLAN_LIMIT = 200;
@@ -130,12 +131,27 @@ export default function Dashboard() {
 
   const recurringDonationsArray = [];
 
+  const { data: collectionStats } = useQuery({
+    queryKey: ['challans', 'collection-stats', user?.role],
+    queryFn: () => charityClient.challans.collectionStats(),
+    enabled: !!user,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const { data: appSettings } = useQuery({
+    queryKey: ['admin', 'settings'],
+    queryFn: () => charityClient.admin.getSettings(),
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // ─── Pull-to-refresh ────────────────────────────────────────────────────────
 
   const handleRefresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['members'] });
     await queryClient.invalidateQueries({ queryKey: ['challans'] });
     await queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+    await queryClient.invalidateQueries({ queryKey: ['admin', 'settings'] });
     if (user?.is_superadmin) {
       await queryClient.invalidateQueries({ queryKey: ['auditLogs'] });
     }
@@ -198,6 +214,7 @@ export default function Dashboard() {
             dashboardCharts={dashboardCharts}
             auditLogs={auditLogsArray}
             recurringDonations={recurringDonationsArray}
+            collectionStats={collectionStats}
           />
         </div>
       </PullToRefresh>
@@ -239,6 +256,8 @@ export default function Dashboard() {
             campaigns={campaignsArray}
             memberSetupData={memberSetupData}
             onOpenSetup={() => setShowOnboarding(true)}
+            showCollectionStats={appSettings?.member_stats_visible === true}
+            collectionStats={collectionStats}
           />
         </div>
       </PullToRefresh>
@@ -286,6 +305,9 @@ export default function Dashboard() {
           <BulkOperationsPanel />
         ) : (
           <>
+            {/* Collection Overview Stats */}
+            <CollectionStats collectionStats={collectionStats} />
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <StatsCard
                 title="Active Members"

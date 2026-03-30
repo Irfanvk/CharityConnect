@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import StatsCard from "./StatsCard";
+import CollectionStats from "@/components/dashboard/CollectionStats";
 import { PAGE_PATHS } from "@/config/appPaths";
 import { getMemberSetup } from "@/lib/memberSetup";
 
@@ -43,7 +44,7 @@ const getStatusForCard = (challan) => {
   return statusConfig[challan.status] || statusConfig.generated;
 };
 
-export default function MemberDashboard({ user, memberProfile, challans, campaigns, memberSetupData, onOpenSetup }) {
+export default function MemberDashboard({ user, memberProfile, challans, campaigns, memberSetupData, onOpenSetup, showCollectionStats = false, collectionStats }) {
   const navigate = useNavigate();
   const memberIdentifiers = new Set(
     [memberProfile?.id, memberProfile?.member_id].filter(Boolean)
@@ -226,6 +227,10 @@ export default function MemberDashboard({ user, memberProfile, challans, campaig
           color="rose"
         />
       </div>
+
+      {showCollectionStats && (
+        <CollectionStats collectionStats={collectionStats} compact />
+      )}
 
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">

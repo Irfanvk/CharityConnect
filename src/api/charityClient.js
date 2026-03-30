@@ -644,6 +644,17 @@ const charityClient = {
       };
     },
 
+    collectionStats: async () => {
+      const data = await apiFetch(API_PATHS.challans.collectionStats, { method: 'GET' });
+      return {
+        today: Number(data?.today || 0),
+        this_week: Number(data?.this_week || 0),
+        this_month: Number(data?.this_month || 0),
+        this_year: Number(data?.this_year || 0),
+        all_time: Number(data?.all_time || 0),
+      };
+    },
+
     payableMonths: async (query = {}) => {
       const data = await apiFetch(API_PATHS.challans.payableMonths, { method: 'GET' }, query);
       return {
@@ -821,6 +832,17 @@ const charityClient = {
 
     dashboardCharts: async (params = {}) => {
       return apiFetch(API_PATHS.admin.dashboardCharts, { method: 'GET' }, params);
+    },
+
+    getSettings: async () => {
+      return apiFetch(API_PATHS.admin.settings, { method: 'GET' });
+    },
+
+    updateSettings: async (payload) => {
+      return apiFetch(API_PATHS.admin.settings, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
     },
   },
 

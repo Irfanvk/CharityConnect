@@ -23,8 +23,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import { UserPlus, Shield, Loader2 } from "lucide-react";
+import { UserPlus, Shield, Loader2, Eye, EyeOff, Settings2 } from "lucide-react";
 import { format } from "date-fns";
+import { Switch } from "@/components/ui/switch";
 
 export default function Settings() {
 
@@ -37,6 +38,26 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState("invites");
 
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    charityClient.auth.me().then(setUser).catch(() => {});
+  }, []);
+
+  // App Settings API
+  const { data: appSettings } = useQuery({
+    queryKey: ['admin', 'settings'],
+    queryFn: () => charityClient.admin.getSettings(),
+    enabled: activeTab === "preferences"
+  });
+
+  const memberStatsEnabled = appSettings?.member_stats_visible === true;
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: (data) => charityClient.admin.updateSettings(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'settings'] });
+    },
+  });
 
   useEffect(() => {
     charityClient.auth.me().then(setUser).catch(() => {});
@@ -115,6 +136,7 @@ export default function Settings() {
         <TabsList>
           <TabsTrigger value="invites">Invites</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="preferences">Preferences</TabsTrigger>
         </TabsList>
 
         {/* INVITES TAB */}
@@ -294,6 +316,58 @@ export default function Settings() {
 
           </Card>
 
+        </TabsContent>
+
+        {/* PREFERENCES TAB */}
+        <TabsContent value="preferences" className="space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800">Dashboard Preferences</h2>
+            <p className="text-sm text-slate-500">Control what members can see on their dashboard</p>
+          </div>
+
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-6 space-y-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-sm mt-0.5">
+                    {memberStatsEnabled ? (
+                      <Eye className="w-5 h-5 text-white" />
+                    ) : (
+                      <EyeOff className="w-5 h-5 text-white" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-800">Show Collection Stats to Members</p>
+                    <p className="text-sm text-slate-500 mt-1">
+                      When enabled, members will see the collection overview (today, this week, this month, this year, all-time) on their dashboard.
+                    </p>
+                    <Badge className={`mt-2 text-xs border-0 ${
+                      memberStatsEnabled
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {memberStatsEnabled ? 'Visible to members' : 'Hidden from members'}
+                    </Badge>
+                  </div>
+                </div>
+                <Switch
+                  checked={memberStatsEnabled}
+                  onCheckedChange={(checked) => {
+                    updateSettingsMutation.mutate({ member_stats_visible: checked });
+                  }}
+                />
+              </div>
+
+              <div className="border-t border-slate-100 pt-4">
+                <div className="flex items-start gap-3">
+                  <Settings2 className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                  <p className="text-xs text-slate-400">
+                    This preference is saved on the server and applies to all members. Admins always see collection stats regardless of this setting.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
       </Tabs>
