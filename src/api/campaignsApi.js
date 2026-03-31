@@ -6,8 +6,12 @@ export const createCampaign = async (campaignData) => {
 };
 
 // Get all campaigns with optional pagination and filtering
-export const getAllCampaigns = async (skip = 0, limit = 100, activeOnly = false) => {
-  return await charityClient.campaigns.getAll({ skip, limit, active_only: activeOnly });
+export const getAllCampaigns = async (skip = 0, limit = 100, activeOnly = false, statusFilter = null) => {
+  const params = { skip, limit, active_only: activeOnly };
+  if (statusFilter && statusFilter !== 'all') {
+    params.status = statusFilter;
+  }
+  return await charityClient.campaigns.getAll(params);
 };
 
 // Get campaign by ID

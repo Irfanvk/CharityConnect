@@ -69,8 +69,9 @@ export default function Campaigns() {
     charityClient.auth.me().then(setUser).catch(() => {});
   }, []);
 
+  // REPLACE the campaigns useQuery
   const { data: campaigns = [], isLoading } = useQuery({
-    queryKey: ['campaigns'],
+    queryKey: ['campaigns'],  // ✅ Remove statusFilter from key
     queryFn: async () => {
       let allCampaigns = [];
       let skip = 0;
@@ -80,14 +81,11 @@ export default function Campaigns() {
           order: '-created_date',
           skip,
           limit: CAMPAIGN_LIST_BATCH_SIZE,
+          // No status param here — fetch all, filter below
         });
 
         allCampaigns = allCampaigns.concat(chunk);
-
-        if (chunk.length < CAMPAIGN_LIST_BATCH_SIZE) {
-          break;
-        }
-
+        if (chunk.length < CAMPAIGN_LIST_BATCH_SIZE) break;
         skip += CAMPAIGN_LIST_BATCH_SIZE;
       }
 
