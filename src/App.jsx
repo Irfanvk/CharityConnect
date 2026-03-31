@@ -25,7 +25,7 @@ const { Pages, PUBLIC_PAGES, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
 const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
 
-const ADMIN_PAGES = new Set(['Members', 'Reports', 'AuditLogs', 'Settings', 'AdminRequests']);
+const ADMIN_PAGES = new Set(['Members', 'Reports', 'AuditLogs', 'Settings', 'AdminRequests', 'FundUtilization']);
 const SUPERADMIN_PAGES = new Set(['SuperadminPanel']);
 
 const canAccessPage = (pageKey, role) => {

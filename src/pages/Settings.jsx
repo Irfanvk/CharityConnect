@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import { UserPlus, Shield, Loader2, Eye, EyeOff, Settings2 } from "lucide-react";
+import { UserPlus, Shield, Loader2, Eye, EyeOff, Settings2, MessageCircle, Share2 } from "lucide-react";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
 import UserProfilePopover, { AvatarCircle } from "@/components/UserProfilePopover";
@@ -32,6 +32,7 @@ export default function Settings() {
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteData, setInviteData] = useState({ phone: '', email: '' });
+  const [shareMethod, setShareMethod] = useState('offline');
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState(null);
 
@@ -84,6 +85,7 @@ export default function Settings() {
       queryClient.invalidateQueries({ queryKey: ['invites'] });
       setInviteOpen(false);
       setInviteData({ phone: '', email: '' });
+      setShareMethod('offline');
     },
   });
 
@@ -93,13 +95,27 @@ export default function Settings() {
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + 7);
 
-    await createInviteMutation.mutateAsync({
+    const result = await createInviteMutation.mutateAsync({
       phone: inviteData.phone || null,
       email: inviteData.email || null,
       expiry_date: expiryDate.toISOString()
     });
 
     setLoading(false);
+
+    if (shareMethod === 'whatsapp' && result?.invite_code) {
+      const code = result.invite_code;
+      const registerUrl = `${window.location.origin}/register`;
+      // Strip all non-digit characters for wa.me (include country code, drop leading +)
+      const rawPhone = (inviteData.phone || '').replace(/\D/g, '');
+      const message = encodeURIComponent(
+        `You've been invited to join CharityHub!\n\nUse this invite code to register:\n*${code}*\n\nRegister here: ${registerUrl}\n\nThis invite expires in 7 days.`
+      );
+      const waUrl = rawPhone
+        ? `https://wa.me/${rawPhone}?text=${message}`
+        : `https://wa.me/?text=${message}`;
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
+    }
   };
 
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
@@ -370,9 +386,9 @@ export default function Settings() {
 
       </Tabs>
 
-      {/* Invite Dialog (UNCHANGED) */}
+      {/* Invite Dialog */}
 
-      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+      <Dialog open={inviteOpen} onOpenChange={(open) => { if (!open) { setShareMethod('offline'); setInviteData({ phone: '', email: '' }); } setInviteOpen(open); }}>
 
         <DialogContent className="max-w-md">
 
@@ -384,8 +400,51 @@ export default function Settings() {
 
           <div className="space-y-5">
 
+            {/* Sharing method toggle */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700">Sharing Method</Label>
+              <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShareMethod('offline')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium transition-colors ${
+                    shareMethod === 'offline'
+                      ? 'bg-slate-800 text-white'
+                      : 'bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <Share2 className="w-4 h-4" />
+                  Offline / Manual
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShareMethod('whatsapp')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium transition-colors border-l border-slate-200 ${
+                    shareMethod === 'whatsapp'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  WhatsApp
+                </button>
+              </div>
+              {shareMethod === 'whatsapp' && (
+                <p className="text-xs text-green-700 bg-green-50 rounded-md px-3 py-2">
+                  After generating, WhatsApp will open with a pre-filled message containing the invite code and registration link.
+                </p>
+              )}
+              {shareMethod === 'offline' && (
+                <p className="text-xs text-slate-500">
+                  The invite code will be generated and listed below. Share it with the recipient manually.
+                </p>
+              )}
+            </div>
+
             <p className="text-sm text-slate-500">
-              Enter phone number or email to associate with the invite code.
+              {shareMethod === 'whatsapp'
+                ? 'Enter the phone number to send the WhatsApp invite to.'
+                : 'Enter phone number or email to associate with the invite code.'}
             </p>
 
             <div className="space-y-2">
@@ -418,13 +477,17 @@ export default function Settings() {
 
               <Button
                 onClick={handleInvite}
-                disabled={loading || (!inviteData.phone && !inviteData.email)}
-                className="bg-emerald-600 hover:bg-emerald-700"
+                disabled={loading || (!inviteData.phone && !inviteData.email) || (shareMethod === 'whatsapp' && !inviteData.phone)}
+                className={shareMethod === 'whatsapp' ? 'bg-green-600 hover:bg-green-700' : 'bg-emerald-600 hover:bg-emerald-700'}
               >
                 {loading && (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 )}
-                Generate Code
+                {shareMethod === 'whatsapp' ? (
+                  <><MessageCircle className="w-4 h-4 mr-2" />Generate &amp; Send via WhatsApp</>
+                ) : (
+                  'Generate Code'
+                )}
               </Button>
 
             </div>

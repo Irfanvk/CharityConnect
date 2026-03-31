@@ -91,4 +91,9 @@ export const API_PATHS = {
     list: '/users/',
     byId: (id) => `/users/${id}`,
   },
+  fundUtilizations: {
+    list: '/fund-utilizations/',
+    summary: '/fund-utilizations/summary',
+    byId: (id) => `/fund-utilizations/${id}`,
+  },
 };

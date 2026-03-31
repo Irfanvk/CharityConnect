@@ -20,7 +20,8 @@ import {
   MessageSquare,
   Inbox,
   FileText,
-  Upload
+  Upload,
+  Wallet
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -101,6 +102,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Campaigns", href: ROUTE_KEYS.CAMPAIGNS, path: PAGE_PATHS.CAMPAIGNS, icon: Heart },
     { name: "Reports", href: ROUTE_KEYS.REPORTS, path: PAGE_PATHS.REPORTS, icon: FileText, adminOnly: true },
     { name: "Audit Logs", href: ROUTE_KEYS.AUDIT_LOGS, path: PAGE_PATHS.AUDIT_LOGS, icon: Settings, adminOnly: true },
+    { name: "Fund Utilization", href: ROUTE_KEYS.FUND_UTILIZATION, path: PAGE_PATHS.FUND_UTILIZATION, icon: Wallet, adminOnly: true },
     ...(hasRequestsPage
       ? [
           isAdmin

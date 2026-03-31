@@ -52,6 +52,7 @@ import AdminRequests from './pages/AdminRequests';
 import Campaigns from './pages/Campaigns';
 import Challans from './pages/Challans';
 import Dashboard from './pages/Dashboard';
+import FundUtilization from './pages/FundUtilization';
 import Documentation from './pages/Documentation';
 import Import from './pages/Import';
 import MemberRequests from './pages/MemberRequests';
@@ -73,6 +74,7 @@ export const PAGES = {
     "Campaigns": Campaigns,
     "Challans": Challans,
     "Dashboard": Dashboard,
+    "FundUtilization": FundUtilization,
     "Documentation": Documentation,
     "Import": Import,
     "MemberRequests": MemberRequests,

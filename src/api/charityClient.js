@@ -1196,6 +1196,35 @@ const charityClient = {
     },
   },
 
+  // Fund Utilizations (admin CRUD)
+  fundUtilizations: {
+    list: async (query = {}) => {
+      const data = await apiFetch(API_PATHS.fundUtilizations.list, { method: 'GET' }, query);
+      return extractArray(data);
+    },
+
+    summary: async () => apiFetch(API_PATHS.fundUtilizations.summary, { method: 'GET' }),
+
+    get: async (id) => apiFetch(API_PATHS.fundUtilizations.byId(id), { method: 'GET' }),
+
+    create: (data) =>
+      apiFetch(API_PATHS.fundUtilizations.list, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    update: (id, data) =>
+      apiFetch(API_PATHS.fundUtilizations.byId(id), {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+
+    delete: (id) =>
+      apiFetch(API_PATHS.fundUtilizations.byId(id), {
+        method: 'DELETE',
+      }),
+  },
+
   // Audit logs for admin
   auditLogs: {
     list: async (query = {}) => {
