@@ -38,3 +38,8 @@ export const approveChallan = async (challanId, approveData) => {
 export const rejectChallan = async (challanId, rejectData) => {
   return await charityClient.challans.reject(challanId, rejectData);
 };
+
+// Revert a challan to pending (Admin only)
+export const revertChallan = async (challanId, revertData = {}) => {
+  return await charityClient.challans.revert(challanId, revertData);
+};

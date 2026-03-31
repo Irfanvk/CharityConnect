@@ -40,6 +40,7 @@ import {
   FileText,
   Image as ImageIcon,
   Loader2,
+  Undo2,
 } from "lucide-react";
 import { format } from "date-fns";
 import ChallanForm from "@/components/challans/ChallanForm";
@@ -419,6 +420,36 @@ export default function Challans() {
     }
   };
 
+  // ── Revert to Pending ─────────────────────────────────────────────────────
+  const handleRevert = async (challan) => {
+    try {
+      await charityClient.challans.revert(challan.id, {});
+
+      await charityClient.auditLogs.create({
+        action_type: "challan_reverted",
+        performed_by: user?.email,
+        performed_by_name: user?.full_name,
+        target_type: "Challan",
+        target_id: challan.id,
+        target_name: challan.challan_number,
+        details: {
+          amount: challan.amount,
+          member: challan.member_name,
+          previous_status: challan.status,
+        },
+      });
+
+      await refreshChallanData();
+      toast({ title: "Challan reverted to pending." });
+    } catch (error) {
+      toast({
+        title: "Revert failed",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // ── Misc helpers ──────────────────────────────────────────────────────────
   const getSuggestedNumber = () => {
     const prefix = "CHN";
@@ -696,6 +727,40 @@ export default function Challans() {
                                     </DropdownMenuItem>
                                   </>
                                 )}
+
+                              {/* Admin: Revert / Reject approved challan */}
+                              {isAdmin && challan.status === "approved" && (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={() => handleRevert(challan)}
+                                    className="text-amber-600"
+                                  >
+                                    <Undo2 className="w-4 h-4 mr-2" />
+                                    Revert to Pending
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedChallan(challan);
+                                      setRejectOpen(true);
+                                    }}
+                                    className="text-rose-600"
+                                  >
+                                    <XCircle className="w-4 h-4 mr-2" />
+                                    Reject
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+
+                              {/* Admin: Revert rejected challan */}
+                              {isAdmin && challan.status === "rejected" && (
+                                <DropdownMenuItem
+                                  onClick={() => handleRevert(challan)}
+                                  className="text-amber-600"
+                                >
+                                  <Undo2 className="w-4 h-4 mr-2" />
+                                  Revert to Pending
+                                </DropdownMenuItem>
+                              )}
 
                             </DropdownMenuContent>
                           </DropdownMenu>

@@ -33,6 +33,7 @@ export const API_PATHS = {
     uploadProof: (id) => `/challans/${id}/upload-proof`,
     approve: (id) => `/challans/${id}/approve`,
     reject: (id) => `/challans/${id}/reject`,
+    revert: (id) => `/challans/${id}/revert`,
     bulkCreate: '/challans/bulk-create',
   },
   bulk: {

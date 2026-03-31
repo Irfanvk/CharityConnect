@@ -757,6 +757,13 @@ const charityClient = {
       }
     },
 
+    revert: async (id, payload = {}) => {
+      return normalizeChallan(await apiFetch(API_PATHS.challans.revert(id), {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      }));
+    },
+
     bulkCreate: async (data) => {
       const payload = {
         ...(data || {}),
