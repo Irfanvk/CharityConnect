@@ -246,8 +246,12 @@ export default function Layout({ children, currentPageName }) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors select-none">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-semibold">
-                      {avatarInitial}
+                    <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-semibold">
+                      {currentUser.avatar_url ? (
+                        <img src={currentUser.avatar_url} alt={displayName} className="w-10 h-10 object-cover" />
+                      ) : (
+                        avatarInitial
+                      )}
                     </div>
                     <div className="flex-1 text-left">
                       <p className="font-medium text-slate-800 dark:text-white text-sm truncate">{displayName}</p>

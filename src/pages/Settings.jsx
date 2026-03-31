@@ -26,6 +26,7 @@ import {
 import { UserPlus, Shield, Loader2, Eye, EyeOff, Settings2 } from "lucide-react";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
+import UserProfilePopover, { AvatarCircle } from "@/components/UserProfilePopover";
 
 export default function Settings() {
 
@@ -269,20 +270,17 @@ export default function Settings() {
 
                         <TableCell>
 
-                          <div className="flex items-center gap-3">
+                          <UserProfilePopover user={u}>
+                            <div className="flex items-center gap-3">
 
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-sm font-semibold">
+                              <AvatarCircle avatarUrl={u.avatar_url} name={u.full_name || u.email} size="sm" />
 
-                              {u.full_name?.charAt(0)?.toUpperCase() ||
-                                u.email?.charAt(0)?.toUpperCase()}
+                              <span className="font-medium">
+                                {u.full_name || 'User'}
+                              </span>
 
                             </div>
-
-                            <span className="font-medium">
-                              {u.full_name || 'User'}
-                            </span>
-
-                          </div>
+                          </UserProfilePopover>
 
                         </TableCell>
 

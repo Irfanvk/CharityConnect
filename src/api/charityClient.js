@@ -563,6 +563,21 @@ const charityClient = {
     redirectToLogin: () => {
       window.location.href = APP_PATHS.LOGIN;
     },
+
+    uploadAvatar: async (file) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return await apiFetch(API_PATHS.auth.uploadAvatar, {
+        method: 'POST',
+        body: formData,
+      });
+    },
+
+    removeAvatar: async () => {
+      return await apiFetch(API_PATHS.auth.removeAvatar, {
+        method: 'DELETE',
+      });
+    },
   },
 
   members: {

@@ -34,6 +34,7 @@ import {
 import { Plus, Search, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2, X, Download, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import MemberForm from "@/components/members/MemberForm";
+import UserProfilePopover, { AvatarCircle } from "@/components/UserProfilePopover";
 
 const statusConfig = {
   active: { label: "Active", color: "bg-emerald-100 text-emerald-700" },
@@ -952,15 +953,15 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
                 paginatedMembers.map((member) => (
                   <TableRow key={member.id} className="hover:bg-slate-50/50">
                     <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-semibold">
-                          {member.full_name?.charAt(0)?.toUpperCase()}
+                      <UserProfilePopover user={member}>
+                        <div className="flex items-center gap-3">
+                          <AvatarCircle avatarUrl={member.avatar_url} name={member.full_name} size="sm" />
+                          <div>
+                            <p className="font-medium text-slate-900">{member.full_name}</p>
+                            <p className="text-sm text-slate-500">{member.member_id}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-slate-900">{member.full_name}</p>
-                          <p className="text-sm text-slate-500">{member.member_id}</p>
-                        </div>
-                      </div>
+                      </UserProfilePopover>
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">

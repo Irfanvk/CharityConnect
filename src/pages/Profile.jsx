@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mail, Phone, MapPin, Calendar, Receipt, 
-  TrendingUp, CheckCircle, Clock, Loader2, UserCircle, Trash2, AlertTriangle, CreditCard, Pencil
+  TrendingUp, CheckCircle, Clock, Loader2, UserCircle, Trash2, AlertTriangle, CreditCard, Pencil, Camera, X
 } from "lucide-react";
 import { format } from "date-fns";
 import ContributionHistory from "@/components/profile/ContributionHistory";
@@ -64,6 +64,7 @@ export default function Profile() {
   const [generalRequestSubject, setGeneralRequestSubject] = useState('');
   const [generalRequestMessage, setGeneralRequestMessage] = useState('');
   const [submittingGeneralRequest, setSubmittingGeneralRequest] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -78,6 +79,43 @@ export default function Profile() {
       phone: currentUser?.phone || '',
       email: currentUser?.email || '',
     });
+  };
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: "Invalid file", description: "Please select an image file (JPG or PNG).", variant: "destructive" });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum size is 2 MB.", variant: "destructive" });
+      return;
+    }
+    setUploadingAvatar(true);
+    try {
+      const updated = await charityClient.auth.uploadAvatar(file);
+      setUser((prev) => ({ ...prev, avatar_url: updated.avatar_url }));
+      toast({ title: "Profile photo updated" });
+    } catch (error) {
+      toast({ title: "Upload failed", description: error?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setUploadingAvatar(true);
+    try {
+      await charityClient.auth.removeAvatar();
+      setUser((prev) => ({ ...prev, avatar_url: null }));
+      toast({ title: "Profile photo removed" });
+    } catch (error) {
+      toast({ title: "Remove failed", description: error?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const { data: members = [] } = useQuery({
@@ -368,8 +406,45 @@ export default function Profile() {
         <Card className="border-0 shadow-sm lg:col-span-1">
           <CardContent className="p-6">
             <div className="text-center">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-3xl font-bold mx-auto mb-4">
-                {user.full_name?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase()}
+              <div className="relative w-24 h-24 mx-auto mb-4 group">
+                {user.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt={user.full_name || 'Avatar'}
+                    className="w-24 h-24 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-3xl font-bold">
+                    {user.full_name?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase()}
+                  </div>
+                )}
+                <label
+                  className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  title="Change photo"
+                >
+                  {uploadingAvatar ? (
+                    <Loader2 className="w-6 h-6 text-white animate-spin" />
+                  ) : (
+                    <Camera className="w-6 h-6 text-white" />
+                  )}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png"
+                    className="hidden"
+                    onChange={handleAvatarUpload}
+                    disabled={uploadingAvatar}
+                  />
+                </label>
+                {user.avatar_url && (
+                  <button
+                    onClick={handleRemoveAvatar}
+                    disabled={uploadingAvatar}
+                    className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"
+                    title="Remove photo"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
               
               {editing ? (

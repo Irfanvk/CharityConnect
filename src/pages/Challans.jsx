@@ -46,6 +46,7 @@ import { format } from "date-fns";
 import ChallanForm from "@/components/challans/ChallanForm";
 import ProofUpload from "@/components/challans/ProofUpload";
 import PullToRefresh from "@/components/mobile/PullToRefresh";
+import UserProfilePopover from "@/components/UserProfilePopover";
 import { useToast } from "@/components/ui/use-toast";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -569,9 +570,15 @@ export default function Challans() {
 
                         {/* Member */}
                         <TableCell>
-                          <p className="font-medium text-slate-900">
-                            {challan.member_name}
-                          </p>
+                          <UserProfilePopover
+                            user={members.find(
+                              (m) => normalizeId(m.id) === normalizeId(challan.member_id)
+                            ) || { full_name: challan.member_name }}
+                          >
+                            <span className="font-medium text-slate-900">
+                              {challan.member_name}
+                            </span>
+                          </UserProfilePopover>
                         </TableCell>
 
                         {/* Type */}

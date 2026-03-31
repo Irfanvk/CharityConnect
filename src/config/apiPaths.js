@@ -9,6 +9,8 @@ export const API_PATHS = {
     login: '/auth/login',
     register: '/auth/register',
     logout: '/auth/logout',
+    uploadAvatar: '/auth/me/avatar',
+    removeAvatar: '/auth/me/avatar',
   },
   members: {
     list: '/members/',
