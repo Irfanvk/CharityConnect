@@ -104,16 +104,24 @@ export default function Settings() {
     setLoading(false);
 
     if (shareMethod === 'whatsapp' && result?.invite_code) {
-      const code = result.invite_code;
-      const registerUrl = `${window.location.origin}/register`;
-      // Strip all non-digit characters for wa.me (include country code, drop leading +)
       const rawPhone = (inviteData.phone || '').replace(/\D/g, '');
-      const message = encodeURIComponent(
-        `You've been invited to join CharityHub!\n\nUse this invite code to register:\n*${code}*\n\nRegister here: ${registerUrl}\n\nThis invite expires in 7 days.`
-      );
+      const registrationUrl = result.registration_url || `${window.location.origin}/register?invite_code=${encodeURIComponent(result.invite_code)}`;
+      const shareMessage = result.share_message || [
+        'Assalamu Alaikum',
+        '',
+        "You've been invited to join CharityHub!",
+        '',
+        'Use this invite code to register:',
+        result.invite_code,
+        '',
+        'Open your registration link:',
+        registrationUrl,
+        '',
+        result.expiry_label || 'This invite expires in 7 days.',
+      ].join('\n');
       const waUrl = rawPhone
-        ? `https://wa.me/${rawPhone}?text=${message}`
-        : `https://wa.me/?text=${message}`;
+        ? `https://wa.me/${rawPhone}?text=${encodeURIComponent(shareMessage)}`
+        : result.whatsapp_share_url || `https://wa.me/?text=${encodeURIComponent(shareMessage)}`;
       window.open(waUrl, '_blank', 'noopener,noreferrer');
     }
   };
@@ -203,9 +211,21 @@ export default function Settings() {
                       <TableRow key={invite.id}>
 
                         <TableCell>
-                          <code className="px-2 py-1 bg-slate-100 rounded text-sm font-mono">
-                            {invite.invite_code}
-                          </code>
+                          <div className="space-y-1">
+                            <code className="px-2 py-1 bg-slate-100 rounded text-sm font-mono inline-block">
+                              {invite.invite_code}
+                            </code>
+                            {invite.registration_url && (
+                              <a
+                                href={invite.registration_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block text-xs text-emerald-700 hover:text-emerald-800 hover:underline break-all"
+                              >
+                                {invite.registration_url}
+                              </a>
+                            )}
+                          </div>
                         </TableCell>
 
                         <TableCell>

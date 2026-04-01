@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -8,11 +8,12 @@ import PhoneInput from "@/components/ui/phone-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { APP_BRAND, APP_IMAGES, APP_PATHS } from "@/config/appPaths";
 
 export default function Register() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { setAuthenticatedUser } = useAuth();
   const [step, setStep] = useState(1); // 1: enter code, 2: registration form + backend validation
   const [inviteCode, setInviteCode] = useState('');
@@ -31,6 +32,23 @@ export default function Register() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [usernameError, setUsernameError] = useState('');
+
+  useEffect(() => {
+    const linkedInviteCode = searchParams.get('invite_code') || searchParams.get('inviteCode');
+    if (!linkedInviteCode) {
+      return;
+    }
+
+    const normalizedCode = linkedInviteCode.trim().toUpperCase();
+    const inviteCodePattern = /^INV-[A-Z0-9]{6}$/;
+    if (!inviteCodePattern.test(normalizedCode)) {
+      return;
+    }
+
+    setInviteCode(normalizedCode);
+    setStep(2);
+    setError('');
+  }, [searchParams]);
 
   // Validate username format and length
   const validateUsername = (username) => {
