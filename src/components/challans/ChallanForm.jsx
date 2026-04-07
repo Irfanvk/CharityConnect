@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { charityClient } from "@/api/charityClient";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,12 @@ export default function ChallanForm({
   const [selectedMonths, setSelectedMonths] = useState([]);
   const [includeUpcomingMonths, setIncludeUpcomingMonths] = useState(false);
   const [loading, setLoading] = useState(false);
+  // 🔥 ComboBox states
+  const [memberSearch, setMemberSearch] = useState("");
+  const [memberOptions, setMemberOptions] = useState([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
 
   // Get unpaid months for selected member
   const getUnpaidMonths = (memberId) => {
@@ -97,6 +103,42 @@ export default function ChallanForm({
   useEffect(() => {
     setSelectedMonths((prev) => prev.filter((month) => selectableMonths.includes(month)));
   }, [formData.member_id, formData.type, includeUpcomingMonths, selectableMonths.join("|")]);
+
+  useEffect(() => {
+  if (!memberSearch) {
+    setMemberOptions([]);
+    return;
+  }
+
+  const delay = setTimeout(async () => {
+    try {
+      setLoadingMembers(true);
+
+      const res = await charityClient.members.list({
+        search: memberSearch,
+      });
+
+      setMemberOptions(res || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingMembers(false);
+    }
+  }, 400);
+
+  return () => clearTimeout(delay);
+}, [memberSearch]);
+
+useEffect(() => {
+  const handleClickOutside = (e) => {
+    if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+      setShowDropdown(false);
+    }
+  };
+
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => document.removeEventListener("mousedown", handleClickOutside);
+}, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -166,30 +208,46 @@ await onSubmit({
           </div>
 
           {isAdmin ? (
-            <div className="space-y-2">
+            <div className="space-y-2 relative" ref={dropdownRef}>
               <Label>Member *</Label>
-              <Select
-                value={formData.member_id}
-                onValueChange={(value) => {
-                  setFormData({...formData, member_id: value});
-                  setSelectedMonths([]);
-                  setIncludeUpcomingMonths(false);
+
+              <Input
+                placeholder="Search member..."
+                value={memberSearch}
+                onChange={(e) => {
+                  setMemberSearch(e.target.value);
+                  setShowDropdown(true);
                 }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select member" />
-                </SelectTrigger>
-                <SelectContent>
-                  {members
-                    .filter(m => m.status === 'active')
-                    .map(member => (
-                      <SelectItem key={member.id} value={normalizeId(member.id)}>
+              />
+
+              {showDropdown && (
+                <div className="absolute z-50 w-full bg-white border rounded-md shadow max-h-60 overflow-y-auto">
+                  {loadingMembers ? (
+                    <div className="p-2 text-sm text-gray-500">Searching...</div>
+                  ) : memberOptions.length === 0 ? (
+                    <div className="p-2 text-sm text-gray-500">No members found</div>
+                  ) : (
+                    memberOptions.map((member) => (
+                      <div
+                        key={member.id}
+                        className="p-2 hover:bg-gray-100 cursor-pointer"
+                        onClick={() => {
+                          setFormData({
+                            ...formData,
+                            member_id: String(member.id),
+                          });
+                          setMemberSearch(`${member.full_name} (${member.member_id})`);
+                          setShowDropdown(false);
+                          setSelectedMonths([]);
+                          setIncludeUpcomingMonths(false);
+                        }}
+                      >
                         {member.full_name} ({member.member_id})
-                      </SelectItem>
+                      </div>
                     ))
-                  }
-                </SelectContent>
-              </Select>
+                  )}
+                </div>
+              )}
             </div>
           ) : myMember ? (
             <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border">
