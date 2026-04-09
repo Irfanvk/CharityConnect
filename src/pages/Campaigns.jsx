@@ -476,8 +476,8 @@ export default function Campaigns() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Campaigns</h1>
           <p className="text-slate-500 dark:text-slate-400">Donation campaigns for special causes</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Tabs value={viewMode} onValueChange={setViewMode}>
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-3 w-full">
+          <Tabs value={viewMode} onValueChange={setViewMode} className="flex-1">
             <TabsList>
               <TabsTrigger value="campaigns">
                 <Heart className="w-4 h-4 mr-2" />
@@ -492,7 +492,7 @@ export default function Campaigns() {
           {isAdmin && viewMode === "campaigns" && (
             <Button 
               onClick={() => { setEditingCampaign(null); setFormOpen(true); }}
-              className="bg-emerald-600 hover:bg-emerald-700 select-none"
+              className="bg-emerald-600 hover:bg-emerald-700 select-none w-full md:w-auto"
             >
               <Plus className="w-4 h-4 mr-2" />
               Create Campaign
