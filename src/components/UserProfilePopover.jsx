@@ -30,10 +30,11 @@ function AvatarCircle({ avatarUrl, name, size = "lg" }) {
 export default function UserProfilePopover({ user, children }) {
   if (!user) return children || null;
 
+  const fullName = user.full_name?.trim() || user.name?.trim() || null;
+  const username = user.username?.trim() || null;
   const displayName =
-    user.full_name?.trim() ||
-    user.username?.trim() ||
-    user.name?.trim() ||
+    fullName ||
+    username ||
     user.email?.split("@")[0] ||
     "User";
 
@@ -66,6 +67,9 @@ export default function UserProfilePopover({ user, children }) {
               <p className="font-semibold text-slate-900 dark:text-white truncate">
                 {displayName}
               </p>
+              {username && (
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">@{username}</p>
+              )}
               {user.role && (
                 <Badge variant="secondary" className="mt-1 capitalize text-xs">
                   {user.role}
@@ -80,6 +84,12 @@ export default function UserProfilePopover({ user, children }) {
               <BadgeCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span className="font-medium text-slate-700 dark:text-slate-300">ID:</span>
               <span className="truncate">{memberCode}</span>
+            </div>
+          )}
+          {fullName && username && fullName !== username && (
+            <div className="flex items-center gap-2 truncate">
+              <span className="font-medium text-slate-700 dark:text-slate-300">Full Name:</span>
+              <span className="truncate">{fullName}</span>
             </div>
           )}
           {user.email && (

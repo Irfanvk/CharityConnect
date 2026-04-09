@@ -24,6 +24,7 @@ import { Info, Loader2 } from "lucide-react";
 const getInitialFormData = (member, suggestedId) => ({
   member_id: member?.member_id || suggestedId || '',
   full_name: member?.full_name || '',
+  username: member?.username || '',
   phone: member?.phone || '',
   email: member?.email || '',
   address: member?.address || '',
@@ -110,6 +111,16 @@ export default function MemberForm({ open, onOpenChange, member, onSubmit, sugge
                 onChange={(e) => setFormData({...formData, full_name: e.target.value})}
                 placeholder="John Doe"
                 required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                value={formData.username}
+                onChange={(e) => setFormData({...formData, username: e.target.value})}
+                placeholder="john_doe"
               />
             </div>
 

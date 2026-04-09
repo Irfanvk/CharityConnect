@@ -925,7 +925,7 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
                           <AvatarCircle avatarUrl={member.avatar_url} name={member.full_name} size="sm" />
                           <div>
                             <p className="font-medium text-slate-900">{member.full_name}</p>
-                            <p className="text-sm text-slate-500">{member.member_id}</p>
+                            <p className="text-sm text-slate-500">{member.member_id}{member.username ? ` · @${member.username}` : ''}</p>
                           </div>
                         </div>
                       </UserProfilePopover>

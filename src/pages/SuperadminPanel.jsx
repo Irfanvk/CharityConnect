@@ -235,7 +235,12 @@ export default function SuperadminPanel() {
                 <TableBody>
                   {filteredUsers.map((u) => (
                     <TableRow key={u.id}>
-                      <TableCell className="font-medium">{u.username || u.full_name}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="leading-tight">
+                          <p>{u.full_name || u.username || 'User'}</p>
+                          <p className="text-xs text-slate-500">{u.username ? `@${u.username}` : (u.member_code || u.member_id || u.id)}</p>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-slate-600">{u.email || '—'}</TableCell>
                       <TableCell className="text-slate-600">{u.phone || '—'}</TableCell>
                       <TableCell>
