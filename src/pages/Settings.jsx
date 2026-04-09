@@ -311,9 +311,14 @@ export default function Settings() {
 
                               <AvatarCircle avatarUrl={u.avatar_url} name={u.full_name || u.email} size="sm" />
 
-                              <span className="font-medium">
-                                {u.full_name || 'User'}
-                              </span>
+                              <div className="leading-tight">
+                                <p className="font-medium">
+                                  {u.full_name || 'User'}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  {u.username || u.member_id || u.id}
+                                </p>
+                              </div>
 
                             </div>
                           </UserProfilePopover>

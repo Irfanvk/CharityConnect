@@ -22,6 +22,7 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|---------|
+| 2.14 | 2026-04-08 | Minor | Backfilled audit for 2026-03-19..2026-04-08: request-folder fix, API/docs corrections, iPhone/responsive passes, notifications/API-call enhancements, collection-stats visibility controls, campaign/challan fixes, avatar rollout, WhatsApp invite sharing, member selector combo-box + server-side filtering, and member profile popover enrichment (avatar/full name/id/address/phone/direct message). |
 | 2.13 | 2026-03-18 | Minor | Integrated backend notification feed/read patch APIs with shared React notifications context (items + unread count + polling refresh), added UI mark-all-read support, and wired superadmin dashboard charts to `GET /admin/dashboard/charts` (monthly donations, campaign progress, top donors). |
 | 2.12 | 2026-03-18 | Minor | Implemented v2.12 member requests lifecycle in frontend: dedicated member/admin request pages and routes, profile request workflows (`monthly_amount_change`, `profile_update`, `complaint/suggestion/general`), request pending badges in navigation, and request outcome icons in notifications. |
 | 2.11 | 2026-03-18 | Minor | Complete PWA support hardening: iOS install prompt, Android install prompt, PWA update notifications, device utility library, health check banner, offline detection, token security (in-memory + session expiry event), query keys factory. Import wizard 3-step UI (CSV upload/preview/progress). Backend CORS environment configuration. Netlify deployment support. Member dashboard Upcoming Dues section. Add Member dialog invite reminder. |
@@ -48,6 +49,47 @@ This document records all technical changes, implementations, and decisions made
 | 1.0 | 2026-02-24 | Release | Phase 1 MVP complete |
 
 ---
+
+## Post-March Audit Backfill (2026-03-19 to 2026-04-08)
+
+This section backfills changes identified from repository history that were not explicitly listed in this changelog yet.
+
+### 2026-03-24
+- Fixed request-folder integration issue to restore request flow stability (`3a94188`).
+
+### 2026-03-25
+- Corrected README and API documentation alignment (`6adf1b1`).
+
+### 2026-03-26
+- Applied iPhone-specific UI/runtime compatibility fixes (attempt set 1) (`e8fcca6`).
+
+### 2026-03-28
+- Enhanced notifications behavior and related UX handling (`5e621e8`).
+
+### 2026-03-30
+- Added member collection-stats visibility option and associated controls (`a289c44`).
+- Applied additional iPhone rendering/layout compatibility adjustments (`4591a66`).
+
+### 2026-03-31
+- Updated campaign behavior/handling fixes (`cd5351d`).
+- Resolved challan CORS integration issue (`4819dfb`).
+- Implemented profile avatar/photo support (`006367d`).
+
+### 2026-04-01
+- Added WhatsApp invite-code sharing flow for admin workflows (`515157c`, `354422a`).
+
+### 2026-04-07
+- Replaced members dropdown with combo-box UX (`fe5cec0`).
+
+### 2026-04-08
+- Enriched member popover details on admin-facing member identity triggers (Members/Challans and other shared popover surfaces):
+  - avatar
+  - full name
+  - member id
+  - address
+  - phone
+  - direct-message action (WhatsApp/email fallback)
+
 
 
 ## 📅 March 18, 2026 - Member Requests v2.12 Frontend Rollout (Version 2.12)

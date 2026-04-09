@@ -3,7 +3,7 @@
 **Project:** CharityConnect  
 **Purpose:** Decisions, meeting minutes, and action items  
 **Owner:** Integration Lead  
-**Last Updated:** 2026-03-18
+**Last Updated:** 2026-04-08
 
 ---
 
@@ -11,6 +11,17 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-04-08 | Member identity popover standardized to include avatar/full name/member id/address/phone/direct-message action | Frontend | ✅ | Shared `UserProfilePopover` enhanced and used by admin-facing identity triggers (Members/Challans/Settings user tables where popover is already present) |
+| 2026-04-07 | Members selector moved from basic dropdown to combo-box pattern with improved searchability | Both | ✅ | Frontend switched control type; backend follow-up added server-side filtering support for combo-box query behavior |
+| 2026-04-01 | Invite-code sharing expanded with WhatsApp-first workflow | Both | ✅ | Added WhatsApp share flow for admin invites; backend/frontend message composition and invocation aligned |
+| 2026-03-31 | Profile avatar support implemented end-to-end | Both | ✅ | Avatar fields surfaced in user/member UI and backend responses/storage handling updated |
+| 2026-03-31 | Challan CORS and campaign update regressions resolved | Both | ✅ | Addressed integration breakages affecting challan actions and campaign update consistency |
+| 2026-03-30 | Collection-stats visibility control added for member-facing dashboards | Frontend | ✅ | Added admin preference toggle and member visibility gating for collection stats widgets |
+| 2026-03-30 | iPhone-specific layout compatibility pass (attempt 2) | Frontend | ✅ | Additional responsive fixes for iOS viewport and interaction edge cases |
+| 2026-03-28 | Notifications/API call reliability enhancement pass | Both | ✅ | Improved notification behavior and API-call resilience/consistency |
+| 2026-03-26 | iPhone runtime/layout compatibility pass (attempt 1) | Frontend | ✅ | Early iOS fixes applied prior to later cleanup pass |
+| 2026-03-25 | API and README contract documentation corrected | Both | ✅ | Updated docs to match active runtime contract and integration flow |
+| 2026-03-24 | Request-folder structural issue fixed | Frontend | ✅ | Restored correct request module wiring and folder flow |
 | 2026-03-18 | Frontend notification state moved to shared React context | Frontend | ✅ | Added provider for `notifications`, `unreadCount`, polling refresh, and read actions to avoid duplicate per-page unread logic |
 | 2026-03-18 | Notifications page aligned to backend feed and patch-read contracts | Both | ✅ | Consumes `GET /notifications/feed`; uses `PATCH /notifications/read` for selective and mark-all read updates |
 | 2026-03-18 | Superadmin chart widgets now consume backend dashboard aggregates | Both | ✅ | Dashboard wired to `GET /admin/dashboard/charts` for campaign progress, monthly donations, and top donors (`recharts` rendering) |

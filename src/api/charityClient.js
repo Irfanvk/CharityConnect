@@ -101,8 +101,10 @@ function extractAuthToken(data) {
 function parseErrorMessage(data, fallback = 'Unexpected error occurred') {
   if (!data) return fallback;
   if (typeof data === 'string') return data;
+  if (typeof data?.msg === 'string' && data.msg.trim()) return data.msg;
   if (typeof data?.message === 'string' && data.message.trim()) return data.message;
   if (typeof data?.detail === 'string' && data.detail.trim()) return data.detail;
+  if (typeof data?.detail === 'object' && data.detail !== null && typeof data.detail.msg === 'string') return data.detail.msg;
   if (Array.isArray(data?.detail) && data.detail.length > 0) {
     const messages = data.detail
       .map((item) => item?.msg || item?.message || item?.detail)
@@ -290,15 +292,6 @@ async function apiFetch(path, options = {}, query = {}) {
     const response = await fetch(buildUrl(path, query), finalOptions);
     clearTimeout(timeoutId);
 
-    if (response.status === 401) {
-      handleUnauthorized(path);
-      throw {
-        status: 401,
-        message: 'Unauthorized',
-        data: null,
-      };
-    }
-
     const text = await response.text();
     let data = null;
 
@@ -306,6 +299,15 @@ async function apiFetch(path, options = {}, query = {}) {
       data = text ? JSON.parse(text) : null;
     } catch {
       data = text;
+    }
+
+    if (response.status === 401) {
+      handleUnauthorized(path);
+      throw {
+        status: 401,
+        message: parseErrorMessage(data, 'Unauthorized'),
+        data,
+      };
     }
 
     if (!response.ok) {
@@ -554,7 +556,7 @@ const charityClient = {
     logout: async () => {
       try {
         await apiFetch(API_PATHS.auth.logout, { method: 'POST' });
-      } catch {}
+      } catch { }
       tokenManager.clear();
       localStorage.removeItem(AUTH_TOKEN_KEY);
       window.location.href = APP_PATHS.LOGIN;
@@ -593,13 +595,13 @@ const charityClient = {
         active_members: Number(data?.active_members || 0),
       };
     },
-    
+
     me: async () => normalizeMember(await apiFetch(API_PATHS.members.me, { method: 'GET' })),
-    
+
     get: async (id) => normalizeMember(await apiFetch(API_PATHS.members.byId(id), { method: 'GET' })),
-    
+
     getByCode: async (code) => normalizeMember(await apiFetch(API_PATHS.members.byCode(code), { method: 'GET' })),
-    
+
     create: async (data) =>
       normalizeMember(await apiFetch(API_PATHS.members.list, {
         method: 'POST',
@@ -620,13 +622,13 @@ const charityClient = {
         onUploadProgress,
       });
     },
-    
+
     update: async (id, data) =>
       normalizeMember(await apiFetch(API_PATHS.members.byId(id), {
         method: 'PUT',
         body: JSON.stringify(data),
       })),
-    
+
     delete: (id) =>
       apiFetch(API_PATHS.members.byId(id), { method: 'DELETE' }),
   },
@@ -681,14 +683,14 @@ const charityClient = {
         all_months: Array.isArray(data?.all_months) ? data.all_months : [],
       };
     },
-    
+
     get: async (id) => normalizeChallan(await apiFetch(API_PATHS.challans.byId(id), { method: 'GET' })),
-    
+
     getByMember: async (memberId, query = {}) => {
       const data = await apiFetch(API_PATHS.challans.byMember(memberId), { method: 'GET' }, query);
       return extractArray(data).map(normalizeChallan);
     },
-    
+
     create: async (data) =>
       normalizeChallan(await apiFetch(API_PATHS.challans.list, {
         method: 'POST',
@@ -697,7 +699,7 @@ const charityClient = {
           type: data?.type === 'donation' ? 'campaign' : data?.type,
         }),
       })),
-    
+
     update: async (id, data) => {
       try {
         return normalizeChallan(await apiFetch(API_PATHS.challans.byId(id), {
@@ -714,18 +716,18 @@ const charityClient = {
         throw error;
       }
     },
-    
+
     uploadProof: async (id, file) => {
       const formData = new FormData();
       formData.append('file', file);
-      
+
       return normalizeChallan(await apiFetch(API_PATHS.challans.uploadProof(id), {
         method: 'POST',
         headers: {}, // Let browser set Content-Type for FormData
         body: formData,
       }));
     },
-    
+
     approve: async (id, payload = {}) => {
       const requestBody = {
         ...payload,
@@ -745,17 +747,17 @@ const charityClient = {
         throw error;
       }
     },
-    
+
     reject: async (id, reasonOrPayload) => {
       const requestBody = typeof reasonOrPayload === 'string'
         ? { rejection_reason: reasonOrPayload }
         : {
-            ...(reasonOrPayload || {}),
-            rejection_reason:
-              reasonOrPayload?.rejection_reason ||
-              reasonOrPayload?.reason ||
-              '',
-          };
+          ...(reasonOrPayload || {}),
+          rejection_reason:
+            reasonOrPayload?.rejection_reason ||
+            reasonOrPayload?.reason ||
+            '',
+        };
       try {
         return normalizeChallan(await apiFetch(API_PATHS.challans.reject(id), {
           method: 'PATCH',
@@ -873,22 +875,22 @@ const charityClient = {
       const data = await apiFetch(API_PATHS.campaigns.list, { method: 'GET' }, query);
       return extractArray(data).map(normalizeCampaign);
     },
-    
+
     get: async (id) => normalizeCampaign(await apiFetch(API_PATHS.campaigns.byId(id), { method: 'GET' })),
-    
+
     create: async (data) =>
       normalizeCampaign(await apiFetch(API_PATHS.campaigns.list, {
         method: 'POST',
         body: JSON.stringify(data),
       })),
-    
+
     update: async (id, data) => {
       return normalizeCampaign(await apiFetch(API_PATHS.campaigns.byId(id), {
         method: 'PATCH',
         body: JSON.stringify(data),
       }));
     },
-    
+
     delete: (id) =>
       apiFetch(API_PATHS.campaigns.byId(id), { method: 'DELETE' }),
 
@@ -1028,9 +1030,9 @@ const charityClient = {
       const data = await apiFetch(API_PATHS.notifications.list, { method: 'GET' }, query);
       return extractArray(data).map(normalizeNotification);
     },
-    
+
     get: async (id) => normalizeNotification(await apiFetch(API_PATHS.notifications.byId(id), { method: 'GET' })),
-    
+
     send: (data) => {
       const payload = {
         ...data,
@@ -1064,17 +1066,17 @@ const charityClient = {
 
     delete: (id) =>
       apiFetch(API_PATHS.notifications.byId(id), { method: 'DELETE' }),
-    
+
     markAsRead: (id) =>
       apiFetch(API_PATHS.notifications.read(id), { method: 'PUT' }),
-    
+
     markAllAsRead: () =>
       apiFetch(API_PATHS.notifications.markAllRead, { method: 'POST' }),
-    
+
     subscribe: (callback) => {
       // SSE or websocket subscription logic if needed
       void callback;
-      return () => {}; // Return unsubscribe function
+      return () => { }; // Return unsubscribe function
     },
   },
 
@@ -1152,33 +1154,33 @@ const charityClient = {
         throw error;
       }
     },
-    
+
     getPending: async () => {
       const data = await apiFetch(API_PATHS.invites.pending, { method: 'GET' });
       return extractArray(data).map(normalizeInvite);
     },
-    
+
     get: async (id) => normalizeInvite(await apiFetch(API_PATHS.invites.byId(id), { method: 'GET' })),
-    
+
     create: (data) =>
       apiFetch(API_PATHS.invites.list, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
-    
+
     validate: (emailOrPhone, inviteCode) =>
       apiFetch(
         API_PATHS.invites.validate,
         { method: 'POST' },
         { email_or_phone: emailOrPhone, invite_code: inviteCode }
       ),
-    
+
     update: (id, data) =>
       apiFetch(API_PATHS.invites.byId(id), {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
-    
+
     delete: (id) =>
       apiFetch(API_PATHS.invites.byId(id), { method: 'DELETE' }),
   },
@@ -1187,7 +1189,7 @@ const charityClient = {
     upload: async (file) => {
       const formData = new FormData();
       formData.append('file', file);
-      
+
       return await apiFetch(API_PATHS.files.upload, {
         method: 'POST',
         headers: {}, // Let browser set Content-Type for FormData
@@ -1231,9 +1233,9 @@ const charityClient = {
       const data = await apiFetch(API_PATHS.auditLogs.list, { method: 'GET' }, query);
       return extractArray(data).map(normalizeAuditLog);
     },
-    
+
     get: async (id) => normalizeAuditLog(await apiFetch(API_PATHS.auditLogs.byId(id), { method: 'GET' })),
-    
+
     create: (data) => {
       const payload = {
         action: data?.action || data?.action_type || 'update',
@@ -1262,9 +1264,9 @@ const charityClient = {
       const data = await apiFetch(API_PATHS.users.list, { method: 'GET' }, query);
       return extractArray(data).map(normalizeUser);
     },
-    
+
     get: async (id) => normalizeUser(await apiFetch(API_PATHS.users.byId(id), { method: 'GET' })),
-    
+
     update: (id, data) =>
       apiFetch(API_PATHS.users.byId(id), {
         method: 'PUT',
@@ -1281,7 +1283,7 @@ const charityClient = {
       // Map old entity names to new resource methods
       const entityMap = {
         Member: 'members',
-        Challan: 'challans',  
+        Challan: 'challans',
         Campaign: 'campaigns',
         Notification: 'notifications',
         Invite: 'invites',
@@ -1297,18 +1299,18 @@ const charityClient = {
         `charityClient.entities.${entityName} is deprecated. ` +
         `Use charityClient.${resourceName || entityName.toLowerCase()} instead.`
       );
-      
+
       if (resourceName === null) {
         throw new Error(
           `Entity ${entityName} is not available in Phase 1. ` +
           `It will be implemented in Phase 2.`
         );
       }
-      
+
       if (resourceName && charityClient[resourceName]) {
         return charityClient[resourceName];
       }
-      
+
       throw new Error(`Unknown entity: ${entityName}`);
     },
   }),

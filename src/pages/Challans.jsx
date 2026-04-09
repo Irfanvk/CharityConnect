@@ -553,6 +553,16 @@ export default function Challans() {
                   normalisedChallans.map((challan) => {
                     const status = getDisplayStatus(challan);
                     const isApprovingThis = approvingId === challan.id;
+                    const linkedMember = members.find(
+                      (m) => normalizeId(m.id) === normalizeId(challan.member_id)
+                    );
+                    const popoverMember = linkedMember || {
+                      full_name: challan.member_name,
+                      member_id: challan.member_id,
+                      phone: challan.member_phone || challan.phone,
+                      address: challan.member_address || challan.address,
+                      avatar_url: challan.member_avatar_url,
+                    };
                     return (
                       <TableRow
                         key={challan.id}
@@ -570,14 +580,17 @@ export default function Challans() {
 
                         {/* Member */}
                         <TableCell>
-                          <UserProfilePopover
-                            user={members.find(
-                              (m) => normalizeId(m.id) === normalizeId(challan.member_id)
-                            ) || { full_name: challan.member_name }}
-                          >
-                            <span className="font-medium text-slate-900">
-                              {challan.member_name}
-                            </span>
+                          <UserProfilePopover user={popoverMember}>
+                            <div className="leading-tight">
+                              <p className="font-medium text-slate-900">
+                                {challan.member_name}
+                              </p>
+                              {challan.member_id && (
+                                <p className="text-xs text-slate-500">
+                                  {challan.member_id}
+                                </p>
+                              )}
+                            </div>
                           </UserProfilePopover>
                         </TableCell>
 

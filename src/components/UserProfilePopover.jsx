@@ -1,7 +1,7 @@
 import React from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Phone, Calendar } from "lucide-react";
+import { Mail, Phone, Calendar, MapPin, MessageCircle, BadgeCheck } from "lucide-react";
 import { format } from "date-fns";
 
 function AvatarCircle({ avatarUrl, name, size = "lg" }) {
@@ -37,6 +37,17 @@ export default function UserProfilePopover({ user, children }) {
     user.email?.split("@")[0] ||
     "User";
 
+  const memberCode = user.member_id || user.member_code || user.id || null;
+  const addressLine = [user.address, user.city].filter(Boolean).join(", ");
+  const phoneDigits = String(user.phone || "").replace(/\D/g, "");
+  const hasDirectMessage = phoneDigits.length >= 8 || Boolean(user.email);
+  const directMessageHref =
+    phoneDigits.length >= 8
+      ? `https://wa.me/${phoneDigits}?text=${encodeURIComponent(`Hello ${displayName},`)}`
+      : user.email
+        ? `mailto:${user.email}`
+        : null;
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -64,6 +75,13 @@ export default function UserProfilePopover({ user, children }) {
           </div>
         </div>
         <div className="border-t border-slate-100 dark:border-slate-800 px-4 py-3 space-y-2 text-sm text-slate-600 dark:text-slate-400">
+          {memberCode && (
+            <div className="flex items-center gap-2">
+              <BadgeCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="font-medium text-slate-700 dark:text-slate-300">ID:</span>
+              <span className="truncate">{memberCode}</span>
+            </div>
+          )}
           {user.email && (
             <div className="flex items-center gap-2 truncate">
               <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -74,6 +92,12 @@ export default function UserProfilePopover({ user, children }) {
             <div className="flex items-center gap-2">
               <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span>{user.phone}</span>
+            </div>
+          )}
+          {addressLine && (
+            <div className="flex items-start gap-2">
+              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+              <span>{addressLine}</span>
             </div>
           )}
           {(user.join_date || user.created_at) && (
@@ -89,6 +113,19 @@ export default function UserProfilePopover({ user, children }) {
             </div>
           )}
         </div>
+        {hasDirectMessage && directMessageHref && (
+          <div className="border-t border-slate-100 dark:border-slate-800 p-3">
+            <a
+              href={directMessageHref}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
+            >
+              <MessageCircle className="w-4 h-4" />
+              Direct Message Member
+            </a>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
