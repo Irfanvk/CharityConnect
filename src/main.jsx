@@ -7,6 +7,7 @@ import { registerSW } from 'virtual:pwa-register'
 import { isIOSDevice } from '@/lib/device'
 
 const IOS_SW_RESET_KEY = 'ios_sw_reset_v2';
+let hasMountedReactApp = false;
 
 function showBootstrapError(message) {
   const root = document.getElementById('root');
@@ -64,13 +65,22 @@ function registerServiceWorker() {
 
 document.title = APP_BRAND.TITLE;
 
-window.addEventListener('error', () => {
+const handleWindowError = () => {
+  if (hasMountedReactApp) {
+    return;
+  }
   showBootstrapError('A startup error occurred while loading resources.');
-});
+};
 
-window.addEventListener('unhandledrejection', () => {
+const handleUnhandledRejection = () => {
+  if (hasMountedReactApp) {
+    return;
+  }
   showBootstrapError('The app encountered an unexpected startup issue.');
-});
+};
+
+window.addEventListener('error', handleWindowError);
+window.addEventListener('unhandledrejection', handleUnhandledRejection);
 
 cleanupIOSServiceWorkers()
   .finally(() => {
@@ -80,6 +90,9 @@ cleanupIOSServiceWorkers()
       ReactDOM.createRoot(document.getElementById('root')).render(
         <App />
       );
+      hasMountedReactApp = true;
+      window.removeEventListener('error', handleWindowError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
     } catch {
       showBootstrapError('The app failed to initialize.');
     }

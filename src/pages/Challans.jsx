@@ -362,16 +362,6 @@ export default function Challans() {
         }
       }
 
-      await charityClient.auditLogs.create({
-        action_type: "challan_approved",
-        performed_by: user?.email,
-        performed_by_name: user?.full_name,
-        target_type: "Challan",
-        target_id: challan.id,
-        target_name: challan.challan_number,
-        details: { amount: challan.amount, member: challan.member_name },
-      });
-
       await refreshChallanData();
       toast({ title: "Challan approved successfully." });
     } catch (error) {
@@ -395,20 +385,6 @@ export default function Challans() {
         approved_by_admin_id: user?.id,
       });
 
-      await charityClient.auditLogs.create({
-        action_type: "challan_rejected",
-        performed_by: user?.email,
-        performed_by_name: user?.full_name,
-        target_type: "Challan",
-        target_id: selectedChallan.id,
-        target_name: selectedChallan.challan_number,
-        details: {
-          amount: selectedChallan.amount,
-          member: selectedChallan.member_name,
-          reason: rejectReason,
-        },
-      });
-
       await refreshChallanData();
       setRejectReason("");
       toast({ title: "Challan rejected." });
@@ -425,20 +401,6 @@ export default function Challans() {
   const handleRevert = async (challan) => {
     try {
       await charityClient.challans.revert(challan.id, {});
-
-      await charityClient.auditLogs.create({
-        action_type: "challan_reverted",
-        performed_by: user?.email,
-        performed_by_name: user?.full_name,
-        target_type: "Challan",
-        target_id: challan.id,
-        target_name: challan.challan_number,
-        details: {
-          amount: challan.amount,
-          member: challan.member_name,
-          previous_status: challan.status,
-        },
-      });
 
       await refreshChallanData();
       toast({ title: "Challan reverted to pending." });

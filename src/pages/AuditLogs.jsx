@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,17 +17,75 @@ import { Search, Shield, Calendar, User, Activity } from "lucide-react";
 import { format } from "date-fns";
 
 const actionConfig = {
+  app_settings_update: { label: "App Settings Updated", color: "bg-indigo-100 text-indigo-700", icon: "⚙" },
+  campaign_create: { label: "Campaign Created", color: "bg-emerald-100 text-emerald-700", icon: "+" },
   member_created: { label: "Member Created", color: "bg-emerald-100 text-emerald-700", icon: "+" },
+  member_create: { label: "Member Created", color: "bg-emerald-100 text-emerald-700", icon: "+" },
   member_updated: { label: "Member Updated", color: "bg-blue-100 text-blue-700", icon: "✎" },
+  member_update: { label: "Member Updated", color: "bg-blue-100 text-blue-700", icon: "✎" },
   member_deleted: { label: "Member Deleted", color: "bg-rose-100 text-rose-700", icon: "✕" },
+  member_delete: { label: "Member Deleted", color: "bg-rose-100 text-rose-700", icon: "✕" },
   member_status_changed: { label: "Status Changed", color: "bg-amber-100 text-amber-700", icon: "⟳" },
+  members_import: { label: "Members Imported", color: "bg-sky-100 text-sky-700", icon: "⇪" },
+  challan_history_import: { label: "Challan History Imported", color: "bg-sky-100 text-sky-700", icon: "⇪" },
+  campaign_payments_import: { label: "Campaign Payments Imported", color: "bg-sky-100 text-sky-700", icon: "⇪" },
   campaign_created: { label: "Campaign Created", color: "bg-emerald-100 text-emerald-700", icon: "+" },
   campaign_updated: { label: "Campaign Updated", color: "bg-blue-100 text-blue-700", icon: "✎" },
+  campaign_update: { label: "Campaign Updated", color: "bg-blue-100 text-blue-700", icon: "✎" },
   campaign_deleted: { label: "Campaign Deleted", color: "bg-rose-100 text-rose-700", icon: "✕" },
+  campaign_delete: { label: "Campaign Deleted", color: "bg-rose-100 text-rose-700", icon: "✕" },
+  challan_create: { label: "Challan Created", color: "bg-emerald-100 text-emerald-700", icon: "+" },
+  challan_update: { label: "Challan Updated", color: "bg-blue-100 text-blue-700", icon: "✎" },
+  challan_approve: { label: "Challan Approved", color: "bg-green-100 text-green-700", icon: "✓" },
   challan_approved: { label: "Challan Approved", color: "bg-green-100 text-green-700", icon: "✓" },
+  challan_reject: { label: "Challan Rejected", color: "bg-red-100 text-red-700", icon: "✕" },
   challan_rejected: { label: "Challan Rejected", color: "bg-red-100 text-red-700", icon: "✕" },
+  challan_revert: { label: "Challan Reverted", color: "bg-amber-100 text-amber-700", icon: "⟲" },
+  challan_reverted: { label: "Challan Reverted", color: "bg-amber-100 text-amber-700", icon: "⟲" },
+  fund_utilization_create: { label: "Fund Utilization Created", color: "bg-emerald-100 text-emerald-700", icon: "+" },
+  fund_utilization_update: { label: "Fund Utilization Updated", color: "bg-blue-100 text-blue-700", icon: "✎" },
+  fund_utilization_delete: { label: "Fund Utilization Deleted", color: "bg-rose-100 text-rose-700", icon: "✕" },
+  invite_create: { label: "Invite Created", color: "bg-emerald-100 text-emerald-700", icon: "+" },
+  invite_update: { label: "Invite Updated", color: "bg-blue-100 text-blue-700", icon: "✎" },
+  invite_delete: { label: "Invite Deleted", color: "bg-rose-100 text-rose-700", icon: "✕" },
+  notification_create: { label: "Notification Created", color: "bg-indigo-100 text-indigo-700", icon: "🔔" },
+  notification_update: { label: "Notification Updated", color: "bg-blue-100 text-blue-700", icon: "✎" },
+  notification_delete: { label: "Notification Deleted", color: "bg-rose-100 text-rose-700", icon: "✕" },
+  notification_delete_batch: { label: "Notification Batch Deleted", color: "bg-slate-100 text-slate-700", icon: "🔔" },
   report_generated: { label: "Report Generated", color: "bg-purple-100 text-purple-700", icon: "📊" },
-  notification_deleted: { label: "Notification Deleted", color: "bg-slate-100 text-slate-700", icon: "🔔" },
+  request_approved: { label: "Request Approved", color: "bg-green-100 text-green-700", icon: "✓" },
+  request_rejected: { label: "Request Rejected", color: "bg-red-100 text-red-700", icon: "✕" },
+  system_wipe: { label: "System Wiped", color: "bg-rose-100 text-rose-700", icon: "⚠" },
+  user_update: { label: "User Updated", color: "bg-blue-100 text-blue-700", icon: "✎" },
+};
+
+const roleBadgeClass = {
+  admin: "bg-blue-100 text-blue-700",
+  superadmin: "bg-purple-100 text-purple-700",
+  member: "bg-slate-100 text-slate-700",
+};
+
+const formatActionLabel = (actionType = "") => {
+  if (actionConfig[actionType]?.label) {
+    return actionConfig[actionType].label;
+  }
+
+  return String(actionType || "Unknown Action")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const formatDetailLabel = (key = "") =>
+  String(key || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const formatDetailValue = (value) => {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (Array.isArray(value)) return value.map(formatDetailValue).join(", ");
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
 };
 
 export default function AuditLogs() {
@@ -36,32 +94,65 @@ export default function AuditLogs() {
 
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ['auditLogs'],
-    queryFn: () => charityClient.auditLogs.list({ order: '-created_date', limit: 500 }),
+    queryFn: () => charityClient.auditLogs.list({ order: '-created_date', limit: 1000 }),
   });
 
-  const filteredLogs = logs.filter(log => {
-    const performedByName = String(log.performed_by_name || '').toLowerCase();
-    const targetName = String(log.target_name || '').toLowerCase();
-    const performedBy = String(log.performed_by || '').toLowerCase();
-    const searchText = search.toLowerCase();
+  const availableActions = useMemo(
+    () => [...new Set(logs.map((log) => log.action_type).filter(Boolean))].sort((left, right) => {
+      return formatActionLabel(left).localeCompare(formatActionLabel(right));
+    }),
+    [logs]
+  );
 
-    const matchesSearch = 
-      performedByName.includes(searchText) ||
-      targetName.includes(searchText) ||
-      performedBy.includes(searchText);
-    
-    const matchesAction = actionFilter === "all" || log.action_type === actionFilter;
-    
-    return matchesSearch && matchesAction;
-  });
+  const filteredLogs = useMemo(() => {
+    const searchText = search.toLowerCase().trim();
 
-  // Group logs by date
-  const groupedLogs = filteredLogs.reduce((groups, log) => {
-    const date = format(new Date(log.created_date), 'yyyy-MM-dd');
+    return logs.filter((log) => {
+      const performedByName = String(log.performed_by_name || '').toLowerCase();
+      const targetName = String(log.target_name || '').toLowerCase();
+      const performedBy = String(log.performed_by || '').toLowerCase();
+      const actionLabel = formatActionLabel(log.action_type).toLowerCase();
+      const entityType = String(log.entity_type || '').toLowerCase();
+      const detailsText = JSON.stringify(log.details || {}).toLowerCase();
+      const previousDetailsText = JSON.stringify(log.previous_details || {}).toLowerCase();
+
+      const matchesSearch = !searchText ||
+        performedByName.includes(searchText) ||
+        targetName.includes(searchText) ||
+        performedBy.includes(searchText) ||
+        actionLabel.includes(searchText) ||
+        entityType.includes(searchText) ||
+        detailsText.includes(searchText) ||
+        previousDetailsText.includes(searchText);
+
+      const matchesAction = actionFilter === "all" || log.action_type === actionFilter;
+
+      return matchesSearch && matchesAction;
+    });
+  }, [actionFilter, logs, search]);
+
+  const groupedLogs = useMemo(() => filteredLogs.reduce((groups, log) => {
+    const rawDate = log.created_date || log.created_at;
+    const date = rawDate ? format(new Date(rawDate), 'yyyy-MM-dd') : 'Unknown';
     if (!groups[date]) groups[date] = [];
     groups[date].push(log);
     return groups;
-  }, {});
+  }, {}), [filteredLogs]);
+
+  const uniqueActorCount = useMemo(
+    () => new Set(logs.map((log) => log.user_id || log.performed_by || log.performed_by_name).filter(Boolean)).size,
+    [logs]
+  );
+
+  const adminActionCount = useMemo(
+    () => logs.filter((log) => log.performed_by_role === 'admin').length,
+    [logs]
+  );
+
+  const superadminActionCount = useMemo(
+    () => logs.filter((log) => log.performed_by_role === 'superadmin').length,
+    [logs]
+  );
 
   return (
     <div className="space-y-6">
@@ -72,7 +163,7 @@ export default function AuditLogs() {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Audit Logs</h1>
-          <p className="text-slate-500">Track all administrative actions and changes</p>
+          <p className="text-slate-500">Track admin and superadmin actions across their platform workflows</p>
         </div>
       </div>
 
@@ -98,10 +189,34 @@ export default function AuditLogs() {
                 <User className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-slate-900">
-                  {[...new Set(logs.map(l => l.performed_by))].length}
-                </p>
-                <p className="text-sm text-slate-500">Unique Admins</p>
+                <p className="text-2xl font-bold text-slate-900">{uniqueActorCount}</p>
+                <p className="text-sm text-slate-500">Unique Actors</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                <Shield className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900">{adminActionCount}</p>
+                <p className="text-sm text-slate-500">Admin Actions</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                <Shield className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900">{superadminActionCount}</p>
+                <p className="text-sm text-slate-500">Superadmin Actions</p>
               </div>
             </div>
           </CardContent>
@@ -127,15 +242,9 @@ export default function AuditLogs() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Actions</SelectItem>
-                <SelectItem value="member_created">Member Created</SelectItem>
-                <SelectItem value="member_updated">Member Updated</SelectItem>
-                <SelectItem value="member_deleted">Member Deleted</SelectItem>
-                <SelectItem value="member_status_changed">Status Changed</SelectItem>
-                <SelectItem value="campaign_created">Campaign Created</SelectItem>
-                <SelectItem value="campaign_updated">Campaign Updated</SelectItem>
-                <SelectItem value="challan_approved">Challan Approved</SelectItem>
-                <SelectItem value="challan_rejected">Challan Rejected</SelectItem>
-                <SelectItem value="report_generated">Report Generated</SelectItem>
+                {availableActions.map((action) => (
+                  <SelectItem key={action} value={action}>{formatActionLabel(action)}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -167,10 +276,15 @@ export default function AuditLogs() {
                           <div className="flex items-start justify-between gap-4 mb-1">
                             <div>
                               <Badge className={actionConfig[log.action_type]?.color || "bg-slate-100"}>
-                                {actionConfig[log.action_type]?.label || log.action_type}
+                                {formatActionLabel(log.action_type)}
                               </Badge>
                               <p className="text-sm text-slate-900 mt-1">
                                 <span className="font-medium">{log.performed_by_name || log.performed_by}</span>
+                                {log.performed_by_role && (
+                                  <Badge variant="outline" className={`ml-2 border-0 ${roleBadgeClass[log.performed_by_role] || 'bg-slate-100 text-slate-700'}`}>
+                                    {log.performed_by_role}
+                                  </Badge>
+                                )}
                                 {log.target_name && (
                                   <>
                                     <span className="text-slate-500"> • </span>
@@ -183,13 +297,33 @@ export default function AuditLogs() {
                               {format(new Date(log.created_date), 'h:mm a')}
                             </span>
                           </div>
-                          {log.details && Object.keys(log.details).length > 0 && (
-                            <div className="text-xs text-slate-500 mt-2 p-2 bg-white rounded border">
-                              {log.details.old_status && log.details.new_status && (
-                                <span>Status: {log.details.old_status} → {log.details.new_status}</span>
+                          {((log.previous_details && Object.keys(log.previous_details).length > 0) || (log.details && Object.keys(log.details).length > 0)) && (
+                            <div className="text-xs text-slate-500 mt-2 p-2 bg-white rounded border space-y-2">
+                              {log.previous_details && Object.keys(log.previous_details).length > 0 && (
+                                <div>
+                                  <p className="font-medium text-slate-600 mb-1">Before</p>
+                                  <div className="space-y-1">
+                                    {Object.entries(log.previous_details).slice(0, 6).map(([key, value]) => (
+                                      <div key={`${log.id}-before-${key}`} className="flex flex-wrap gap-1">
+                                        <span className="font-medium text-slate-600">{formatDetailLabel(key)}:</span>
+                                        <span>{formatDetailValue(value)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               )}
-                              {log.details.report_type && (
-                                <span>Report Type: {log.details.report_type}</span>
+                              {log.details && Object.keys(log.details).length > 0 && (
+                                <div>
+                                  <p className="font-medium text-slate-600 mb-1">After</p>
+                                  <div className="space-y-1">
+                                    {Object.entries(log.details).slice(0, 6).map(([key, value]) => (
+                                      <div key={`${log.id}-after-${key}`} className="flex flex-wrap gap-1">
+                                        <span className="font-medium text-slate-600">{formatDetailLabel(key)}:</span>
+                                        <span>{formatDetailValue(value)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               )}
                             </div>
                           )}

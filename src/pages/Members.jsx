@@ -196,18 +196,7 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
 
   const createMutation = useMutation({
     mutationFn: async (/** @type {any} */ data) => {
-      const member = await charityClient.members.create(data);
-      // Log audit
-      await charityClient.auditLogs.create({
-        action_type: "member_created",
-        performed_by: user?.email,
-        performed_by_name: user?.full_name,
-        target_type: "Member",
-        target_id: member?.['id'],
-        target_name: data.full_name,
-        details: { member_id: data.member_id }
-      });
-      return member;
+      return charityClient.members.create(data);
     },
     onSuccess: () => {
       refreshMemberData();
@@ -218,20 +207,7 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
   const updateMutation = useMutation({
     mutationFn: async (/** @type {any} */ payload) => {
       const { id, data, logStatusChange = false, oldStatus = null } = payload || {};
-      const member = await charityClient.members.update(id, data);
-      // Log audit
-      const actionType = logStatusChange ? "member_status_changed" : "member_updated";
-      const details = logStatusChange ? { old_status: oldStatus, new_status: data.status } : {};
-      await charityClient.auditLogs.create({
-        action_type: actionType,
-        performed_by: user?.email,
-        performed_by_name: user?.full_name,
-        target_type: "Member",
-        target_id: id,
-        target_name: member?.['full_name'],
-        details
-      });
-      return member;
+      return charityClient.members.update(id, data);
     },
     onSuccess: () => {
       refreshMemberData();
@@ -244,15 +220,6 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
     mutationFn: async (/** @type {any} */ payload) => {
       const { id, name } = payload || {};
       await charityClient.members.delete(id);
-      // Log audit
-      await charityClient.auditLogs.create({
-        action_type: "member_deleted",
-        performed_by: user?.email,
-        performed_by_name: user?.full_name,
-        target_type: "Member",
-        target_id: id,
-        target_name: name
-      });
     },
     onSuccess: () => {
       refreshMemberData();

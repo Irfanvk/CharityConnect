@@ -24,6 +24,9 @@ import { NotificationsProvider } from '@/context/NotificationContext';
 const { Pages, PUBLIC_PAGES, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
 const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
+const PUBLIC_ROUTE_PATHS = new Set(
+  Object.keys(PUBLIC_PAGES || {}).map((path) => `/${String(path).toLowerCase()}`)
+);
 
 const ADMIN_PAGES = new Set(['Members', 'Reports', 'AuditLogs', 'Settings', 'AdminRequests', 'FundUtilization']);
 const SUPERADMIN_PAGES = new Set(['SuperadminPanel']);
@@ -42,7 +45,13 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   <Layout currentPageName={currentPageName}>{children}</Layout>
   : <>{children}</>;
 
-const isLoginPath = (pathname = '') => pathname.toLowerCase() === APP_PATHS.LOGIN;
+const normalizePathname = (pathname = '') => String(pathname || '').split('?')[0].split('#')[0].toLowerCase();
+const isLoginPath = (pathname = '') => normalizePathname(pathname) === APP_PATHS.LOGIN;
+const isPublicPath = (pathname = '') => PUBLIC_ROUTE_PATHS.has(normalizePathname(pathname));
+const buildLoginRedirectPath = (location) => {
+  const returnTo = `${location.pathname}${location.search}${location.hash}`;
+  return `${APP_PATHS.LOGIN}?returnTo=${encodeURIComponent(returnTo)}`;
+};
 
 const SessionExpiredToastBridge = () => {
   const location = useLocation();
@@ -70,13 +79,15 @@ const SessionExpiredToastBridge = () => {
 };
 
 const AuthenticatedApp = () => {
-  const { user: authUser, isLoadingAuth, isLoadingPublicSettings, isAuthenticated, authError, navigateToLogin, checkAppState } = useAuth();
+  const { user: authUser, isLoadingAuth, isLoadingPublicSettings, isAuthenticated, authError, checkAppState } = useAuth();
   const location = useLocation();
   const isOnLoginPage = isLoginPath(location.pathname);
+  const isOnPublicPage = isPublicPath(location.pathname);
   const returnToParam = new URLSearchParams(location.search).get('returnTo');
+  const loginRedirectPath = buildLoginRedirectPath(location);
 
-  if (isAuthenticated && isOnLoginPage) {
-    const target = returnToParam && !isLoginPath(returnToParam) ? returnToParam : APP_PATHS.HOME;
+  if (isAuthenticated && isOnPublicPage) {
+    const target = returnToParam && !isPublicPath(returnToParam) ? returnToParam : APP_PATHS.HOME;
     return <Navigate to={target} replace />;
   }
 
@@ -110,13 +121,15 @@ const AuthenticatedApp = () => {
         </div>
       );
     } else if (authError.type === 'auth_required') {
-      // Redirect to login automatically only when truly unauthenticated
-      if (!isAuthenticated && !isOnLoginPage) {
-        const returnTo = `${location.pathname}${location.search}${location.hash}`;
-        navigateToLogin(returnTo);
+      if (!isAuthenticated && !isOnPublicPage) {
+        return <Navigate to={loginRedirectPath} replace />;
       }
       return null;
     }
+  }
+
+  if (!isAuthenticated && !isOnPublicPage) {
+    return <Navigate to={loginRedirectPath} replace />;
   }
 
   // Render the main app

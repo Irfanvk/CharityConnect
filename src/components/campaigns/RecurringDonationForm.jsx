@@ -30,16 +30,44 @@ export default function RecurringDonationForm({ open, onOpenChange, campaign, on
   const [member, setMember] = useState(null);
 
   useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    let isActive = true;
+
     const loadUser = async () => {
-      const currentUser = await charityClient.auth.me();
-      setUser(currentUser);
-      
-      const members = await charityClient.members.list();
-      const userMember = members.find(m => m.email === currentUser.email);
-      setMember(userMember);
+      try {
+        const currentUser = await charityClient.auth.me();
+        if (!isActive) return;
+
+        setUser(currentUser);
+
+        let currentMember = null;
+
+        if (currentUser?.role === 'admin' || currentUser?.role === 'superadmin') {
+          const members = await charityClient.members.list({ skip: 0, limit: 200 });
+          if (!isActive) return;
+          currentMember = members.find((item) => item.email === currentUser.email) || null;
+        } else {
+          currentMember = await charityClient.members.me().catch(() => null);
+          if (!isActive) return;
+        }
+
+        setMember(currentMember);
+      } catch {
+        if (!isActive) return;
+        setUser(null);
+        setMember(null);
+      }
     };
+
     loadUser();
-  }, []);
+
+    return () => {
+      isActive = false;
+    };
+  }, [open]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

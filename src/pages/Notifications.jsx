@@ -153,14 +153,6 @@ export default function Notifications() {
     try {
       if (isAdmin) {
         await charityClient.notifications.delete(notification.id);
-        await charityClient.auditLogs.create({
-          action_type: "notification_deleted_record",
-          performed_by: user?.email,
-          performed_by_name: user?.full_name,
-          target_type: "Notification",
-          target_id: notification.id,
-          target_name: notification.title,
-        });
         await queryClient.invalidateQueries({ queryKey: ['notifications'] });
         await refreshNotifications();
         emitNotificationsChanged('deleted');

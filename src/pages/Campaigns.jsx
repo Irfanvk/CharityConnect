@@ -200,17 +200,7 @@ export default function Campaigns() {
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
-      const campaign = await charityClient.campaigns.create(data);
-      // Log audit
-      await charityClient.auditLogs.create({
-        action_type: "campaign_created",
-        performed_by: user?.email,
-        performed_by_name: user?.full_name,
-        target_type: "Campaign",
-        target_id: campaign.id,
-        target_name: data.title
-      });
-      return campaign;
+      return charityClient.campaigns.create(data);
     },
     onMutate: async (newCampaignData) => {
       // Cancel outgoing refetches
@@ -246,17 +236,7 @@ export default function Campaigns() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      const campaign = await charityClient.campaigns.update(id, data);
-      // Log audit
-      await charityClient.auditLogs.create({
-        action_type: "campaign_updated",
-        performed_by: user?.email,
-        performed_by_name: user?.full_name,
-        target_type: "Campaign",
-        target_id: id,
-        target_name: data.title || campaign.title
-      });
-      return campaign;
+      return charityClient.campaigns.update(id, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
@@ -268,15 +248,6 @@ export default function Campaigns() {
   const deleteMutation = useMutation({
     mutationFn: async ({ id, title }) => {
       await charityClient.campaigns.delete(id);
-      // Log audit
-      await charityClient.auditLogs.create({
-        action_type: "campaign_deleted",
-        performed_by: user?.email,
-        performed_by_name: user?.full_name,
-        target_type: "Campaign",
-        target_id: id,
-        target_name: title
-      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });

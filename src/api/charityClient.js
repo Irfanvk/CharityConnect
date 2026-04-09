@@ -208,6 +208,14 @@ function normalizeAuditLog(log) {
   const normalized = withDateAliases(log || {});
 
   let parsedDetails = {};
+  let parsedPreviousDetails = {};
+  if (typeof normalized.old_values === 'string' && normalized.old_values.trim()) {
+    try {
+      parsedPreviousDetails = JSON.parse(normalized.old_values);
+    } catch {
+      parsedPreviousDetails = { raw: normalized.old_values };
+    }
+  }
   if (typeof normalized.new_values === 'string' && normalized.new_values.trim()) {
     try {
       parsedDetails = JSON.parse(normalized.new_values);
@@ -221,6 +229,7 @@ function normalizeAuditLog(log) {
     action_type: normalized.action || normalized.action_type || 'update',
     performed_by: normalized.performed_by || (normalized.user_id ? `User #${normalized.user_id}` : 'System'),
     performed_by_name: normalized.performed_by_name || (normalized.user_id ? `User #${normalized.user_id}` : 'System'),
+    performed_by_role: normalized.performed_by_role || null,
     target_name:
       normalized.target_name ||
       (normalized.entity_type && normalized.entity_id !== undefined
@@ -230,6 +239,7 @@ function normalizeAuditLog(log) {
       normalized.details && typeof normalized.details === 'object'
         ? normalized.details
         : parsedDetails,
+    previous_details: parsedPreviousDetails,
   };
 }
 
@@ -1240,7 +1250,7 @@ const charityClient = {
       const payload = {
         action: data?.action || data?.action_type || 'update',
         entity_type: data?.entity_type || data?.target_type || 'Unknown',
-        entity_id: data?.entity_id || data?.target_id,
+        entity_id: data?.entity_id ?? data?.target_id ?? 0,
       };
 
       if (data?.old_values !== undefined) payload.old_values = data.old_values;
