@@ -93,8 +93,10 @@ export default function Campaigns() {
     },
   });
 
+  // ✅ Lazy-load challans only when analytics view is opened
   const { data: challans = [] } = useQuery({
     queryKey: ['challans'],
+    enabled: viewMode === "analytics", // Only fetch when analytics is open
     queryFn: async () => {
       let allChallans = [];
       let skip = 0;
