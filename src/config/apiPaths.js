@@ -11,6 +11,9 @@ export const API_PATHS = {
     logout: '/auth/logout',
     uploadAvatar: '/auth/me/avatar',
     removeAvatar: '/auth/me/avatar',
+    forgotPassword: '/auth/forgot-password',
+    verifyResetToken: '/auth/reset-password/verify',
+    resetPassword: '/auth/reset-password',
   },
   members: {
     list: '/members/',
@@ -48,6 +51,9 @@ export const API_PATHS = {
     wipeData: '/admin/system/wipe',
     dashboardCharts: '/admin/dashboard/charts',
     settings: '/admin/settings',
+    passwordResetRequests: '/admin/password-reset-requests',
+    approvePasswordReset: (id) => `/admin/password-reset-requests/${id}/approve`,
+    rejectPasswordReset: (id) => `/admin/password-reset-requests/${id}/reject`,
   },
   campaigns: {
     list: '/campaigns/',

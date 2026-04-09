@@ -590,6 +590,24 @@ const charityClient = {
         method: 'DELETE',
       });
     },
+
+    forgotPassword: async (identifier) => {
+      return apiFetch(API_PATHS.auth.forgotPassword, {
+        method: 'POST',
+        body: JSON.stringify({ identifier }),
+      });
+    },
+
+    verifyResetToken: async (token) => {
+      return apiFetch(API_PATHS.auth.verifyResetToken, { method: 'GET' }, { token });
+    },
+
+    resetPassword: async (token, new_password) => {
+      return apiFetch(API_PATHS.auth.resetPassword, {
+        method: 'POST',
+        body: JSON.stringify({ token, new_password }),
+      });
+    },
   },
 
   members: {
@@ -876,6 +894,25 @@ const charityClient = {
       return apiFetch(API_PATHS.admin.settings, {
         method: 'PUT',
         body: JSON.stringify(payload),
+      });
+    },
+
+    listPasswordResetRequests: async (query = {}) => {
+      const data = await apiFetch(API_PATHS.admin.passwordResetRequests, { method: 'GET' }, query);
+      return Array.isArray(data) ? data : [];
+    },
+
+    approvePasswordReset: async (id, admin_notes = '') => {
+      return apiFetch(API_PATHS.admin.approvePasswordReset(id), {
+        method: 'POST',
+        body: JSON.stringify({ admin_notes: admin_notes || undefined }),
+      });
+    },
+
+    rejectPasswordReset: async (id, rejection_reason, admin_notes = '') => {
+      return apiFetch(API_PATHS.admin.rejectPasswordReset(id), {
+        method: 'POST',
+        body: JSON.stringify({ rejection_reason, admin_notes: admin_notes || undefined }),
       });
     },
   },

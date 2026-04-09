@@ -65,6 +65,8 @@ import Requests from './pages/Requests';
 import Settings from './pages/Settings';
 import SuperadminPanel from './pages/SuperadminPanel';
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import __Layout from './Layout.jsx';
 
 
@@ -91,6 +93,8 @@ export const PAGES = {
 export const PUBLIC_PAGES = {
     "Login": Login,
     "Register": Register,
+    "ForgotPassword": ForgotPassword,
+    "ResetPassword": ResetPassword,
 }
 
 export const pagesConfig = {
