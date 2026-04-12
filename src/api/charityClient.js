@@ -941,6 +941,15 @@ const charityClient = {
     delete: (id) =>
       apiFetch(API_PATHS.campaigns.byId(id), { method: 'DELETE' }),
 
+    uploadImage: async (id, file) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return normalizeCampaign(await apiFetch(`${API_PATHS.campaigns.byId(id)}/upload-image`, {
+        method: 'POST',
+        body: formData,
+      }));
+    },
+
     importPaymentsFromFile: async (file, options = {}) => {
       const onUploadProgress = options?.onUploadProgress;
       const formData = new FormData();

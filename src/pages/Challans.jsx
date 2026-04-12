@@ -452,8 +452,8 @@ export default function Challans() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex flex-col gap-3">
+          <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
               placeholder="Search challans..."
@@ -462,16 +462,18 @@ export default function Challans() {
               className="pl-10"
             />
           </div>
-          <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-            <TabsList>
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="generated">Generated</TabsTrigger>
-              <TabsTrigger value="proof_uploaded">Uploaded</TabsTrigger>
-              {isAdmin && <TabsTrigger value="pending">Pending</TabsTrigger>}
-              <TabsTrigger value="approved">Approved</TabsTrigger>
-              <TabsTrigger value="rejected">Rejected</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <Tabs value={statusFilter} onValueChange={setStatusFilter}>
+              <TabsList className="flex w-max sm:w-full">
+                <TabsTrigger value="all" className="flex-1 text-xs sm:text-sm whitespace-nowrap">All</TabsTrigger>
+                <TabsTrigger value="generated" className="flex-1 text-xs sm:text-sm whitespace-nowrap">Generated</TabsTrigger>
+                <TabsTrigger value="proof_uploaded" className="flex-1 text-xs sm:text-sm whitespace-nowrap">Uploaded</TabsTrigger>
+                {isAdmin && <TabsTrigger value="pending" className="flex-1 text-xs sm:text-sm whitespace-nowrap">Pending</TabsTrigger>}
+                <TabsTrigger value="approved" className="flex-1 text-xs sm:text-sm whitespace-nowrap">Approved</TabsTrigger>
+                <TabsTrigger value="rejected" className="flex-1 text-xs sm:text-sm whitespace-nowrap">Rejected</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
         </div>
 
         {/* Challans Table */}

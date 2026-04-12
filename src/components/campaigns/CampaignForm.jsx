@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +20,8 @@ import {
 import DatePickerField from "@/components/ui/date-picker-field";
 import { getCampaignEndDateMode, getCampaignTargetMode } from "@/lib/campaigns";
 import { format } from "date-fns";
-import { Loader2 } from "lucide-react";
+import { ImagePlus, Loader2, X } from "lucide-react";
+import { charityClient } from "@/api/charityClient";
 
 const toDateInputValue = (value) => {
   if (!value) return '';
@@ -63,11 +64,17 @@ export default function CampaignForm({ open, onOpenChange, campaign, onSubmit })
   const [formData, setFormData] = useState(getInitialFormData(campaign));
   const [loading, setLoading] = useState(false);
   const [dateError, setDateError] = useState("");
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState(campaign?.image_url || null);
+  const [uploadedCampaignId, setUploadedCampaignId] = useState(campaign?.id || null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (!open) return;
     setFormData(getInitialFormData(campaign));
     setDateError("");
+    setImagePreview(campaign?.image_url || null);
+    setUploadedCampaignId(campaign?.id || null);
   }, [open, campaign]);
 
   const handleSubmit = async (e) => {
@@ -80,7 +87,7 @@ export default function CampaignForm({ open, onOpenChange, campaign, onSubmit })
 
     setDateError("");
     setLoading(true);
-    await onSubmit({
+    const result = await onSubmit({
       ...formData,
       target_amount: formData.target_mode === 'unlimited'
         ? null
@@ -88,9 +95,58 @@ export default function CampaignForm({ open, onOpenChange, campaign, onSubmit })
       min_amount: parseFloat(formData.min_amount) || 100,
       end_date: formData.end_date_mode === 'open' ? null : (formData.end_date || null),
       collected_amount: campaign?.collected_amount || 0,
-      participants_count: campaign?.participants_count || 0
+      participants_count: campaign?.participants_count || 0,
+      image_url: imagePreview || formData.image_url || undefined,
     });
+
+    // If a file was staged for a new campaign, upload it now that we have the ID
+    if (result?.id && pendingImageFile) {
+      await _uploadImageFile(pendingImageFile, result.id);
+    }
     setLoading(false);
+  };
+
+  // Staged file for new campaigns (we need the campaign ID first)
+  const [pendingImageFile, setPendingImageFile] = useState(null);
+
+  const _uploadImageFile = async (file, campaignId) => {
+    try {
+      setImageUploading(true);
+      const formPayload = new FormData();
+      formPayload.append("file", file);
+      const updated = await charityClient.campaigns.uploadImage(campaignId, file);
+      if (updated?.image_url) {
+        setImagePreview(updated.image_url);
+        setFormData((prev) => ({ ...prev, image_url: updated.image_url }));
+      }
+    } catch {
+      // silently skip — form submission already succeeded
+    } finally {
+      setImageUploading(false);
+      setPendingImageFile(null);
+    }
+  };
+
+  const handleImageFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Show local preview immediately
+    setImagePreview(URL.createObjectURL(file));
+
+    if (campaign?.id) {
+      // Edit mode: upload immediately
+      await _uploadImageFile(file, campaign.id);
+    } else {
+      // Create mode: stage for after submission
+      setPendingImageFile(file);
+    }
+    e.target.value = '';
+  };
+
+  const handleClearImage = () => {
+    setImagePreview(null);
+    setPendingImageFile(null);
+    setFormData((prev) => ({ ...prev, image_url: '' }));
   };
 
   const isTargeted = formData.target_mode === 'targeted';
@@ -267,13 +323,69 @@ export default function CampaignForm({ open, onOpenChange, campaign, onSubmit })
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="image_url">Image URL (Optional)</Label>
-            <Input
-              id="image_url"
-              value={formData.image_url}
-              onChange={(e) => setFormData({...formData, image_url: e.target.value})}
-              placeholder="https://..."
+            <Label>Campaign Image (Optional)</Label>
+
+            {/* Preview */}
+            {imagePreview && (
+              <div className="relative w-full h-36 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                <img
+                  src={imagePreview}
+                  alt="Campaign preview"
+                  className="w-full h-full object-cover"
+                  onError={() => setImagePreview(null)}
+                />
+                <button
+                  type="button"
+                  onClick={handleClearImage}
+                  className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition"
+                  title="Remove image"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+                {imageUploading && (
+                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 text-white animate-spin" />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Upload button */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleImageFileChange}
             />
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={imageUploading}
+            >
+              {imageUploading
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Uploading…</>
+                : <><ImagePlus className="w-4 h-4 mr-2" />{imagePreview ? 'Change Photo' : 'Upload Photo'}</>
+              }
+            </Button>
+
+            {/* OR URL input */}
+            {!imagePreview && (
+              <>
+                <p className="text-xs text-center text-slate-400">or paste an image URL</p>
+                <Input
+                  id="image_url"
+                  value={formData.image_url}
+                  onChange={(e) => {
+                    setFormData({ ...formData, image_url: e.target.value });
+                    setImagePreview(e.target.value || null);
+                  }}
+                  placeholder="https://example.com/image.jpg"
+                />
+              </>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
