@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -7,8 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Plus, Heart, Calendar, Users, Target, 
+import {
+  Plus, Heart, Calendar, Users, Target,
   MoreVertical, Pencil, Trash2, TrendingUp, BarChart3, ArrowLeft
 } from "lucide-react";
 import {
@@ -42,6 +42,8 @@ import {
 const CAMPAIGN_LIST_BATCH_SIZE = 200;
 const CHALLAN_LIST_BATCH_SIZE = 200;
 const DONOR_DETAIL_PAGE_THRESHOLD = 10;
+// FIX #11: Keep inline slice in sync with threshold — show up to threshold rows inline.
+const DONOR_INLINE_DISPLAY_LIMIT = DONOR_DETAIL_PAGE_THRESHOLD - 2; // 8, clearly intentional subset
 
 const statusConfig = {
   active: { label: "Active", color: "bg-emerald-100 text-emerald-700" },
@@ -56,12 +58,12 @@ export default function Campaigns() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState(null);
   const [user, setUser] = useState(null);
-  const [viewMode, setViewMode] = useState("campaigns"); // "campaigns" or "analytics"
+  const [viewMode, setViewMode] = useState("campaigns");
   const [recurringFormOpen, setRecurringFormOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [expandedCampaignId, setExpandedCampaignId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null); // { id, title }
-  
+
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -69,9 +71,8 @@ export default function Campaigns() {
     charityClient.auth.me().then(setUser).catch(() => {});
   }, []);
 
-  // REPLACE the campaigns useQuery
   const { data: campaigns = [], isLoading } = useQuery({
-    queryKey: ['campaigns'],  // ✅ Remove statusFilter from key
+    queryKey: ['campaigns'],
     queryFn: async () => {
       let allCampaigns = [];
       let skip = 0;
@@ -81,7 +82,6 @@ export default function Campaigns() {
           order: '-created_date',
           skip,
           limit: CAMPAIGN_LIST_BATCH_SIZE,
-          // No status param here — fetch all, filter below
         });
 
         allCampaigns = allCampaigns.concat(chunk);
@@ -107,11 +107,7 @@ export default function Campaigns() {
         });
 
         allChallans = allChallans.concat(chunk);
-
-        if (chunk.length < CHALLAN_LIST_BATCH_SIZE) {
-          break;
-        }
-
+        if (chunk.length < CHALLAN_LIST_BATCH_SIZE) break;
         skip += CHALLAN_LIST_BATCH_SIZE;
       }
 
@@ -132,11 +128,7 @@ export default function Campaigns() {
         });
 
         allMembers = allMembers.concat(chunk);
-
-        if (chunk.length < CAMPAIGN_LIST_BATCH_SIZE) {
-          break;
-        }
-
+        if (chunk.length < CAMPAIGN_LIST_BATCH_SIZE) break;
         skip += CAMPAIGN_LIST_BATCH_SIZE;
       }
 
@@ -144,155 +136,74 @@ export default function Campaigns() {
     },
   });
 
-  const memberMapById = members.reduce((acc, member) => {
-    acc[String(member.id)] = member;
-    return acc;
-  }, {});
-
-  const campaignDonationsById = challans.reduce((acc, challan) => {
-    const challanType = challan?.backend_type || challan?.type;
-    if (challanType !== 'campaign' || !challan?.campaign_id || challan?.status !== 'approved') {
+  // Memoized member lookup map
+  const memberMapById = useMemo(() => {
+    return members.reduce((acc, member) => {
+      acc[String(member.id)] = member;
       return acc;
-    }
+    }, {});
+  }, [members]);
 
-    const campaignId = String(challan.campaign_id);
-    if (!acc[campaignId]) {
-      acc[campaignId] = [];
-    }
+  // FIX #2: Use String() consistently for all campaign ID keys in both reducers
+  const campaignDonationsById = useMemo(() => {
+    return challans.reduce((acc, challan) => {
+      const challanType = challan?.backend_type || challan?.type;
+      if (challanType !== 'campaign' || !challan?.campaign_id || challan?.status !== 'approved') {
+        return acc;
+      }
 
-    acc[campaignId].push(challan);
-    return acc;
-  }, {});
+      const campaignId = String(challan.campaign_id);
+      if (!acc[campaignId]) {
+        acc[campaignId] = [];
+      }
 
-  const campaignStatsById = challans.reduce((acc, challan) => {
-    const challanType = challan?.backend_type || challan?.type;
-    if (challanType !== 'campaign' || !challan?.campaign_id || challan?.status !== 'approved') {
+      acc[campaignId].push(challan);
       return acc;
-    }
+    }, {});
+  }, [challans]);
 
-    const campaignId = challan.campaign_id;
-    if (!acc[campaignId]) {
-      acc[campaignId] = {
-        collected_amount: 0,
-        donorIds: new Set(),
+  // FIX #2 + #12: Use String() for campaign key; stringify member_id before Set insertion
+  const campaignStatsById = useMemo(() => {
+    return challans.reduce((acc, challan) => {
+      const challanType = challan?.backend_type || challan?.type;
+      if (challanType !== 'campaign' || !challan?.campaign_id || challan?.status !== 'approved') {
+        return acc;
+      }
+
+      const campaignId = String(challan.campaign_id); // FIX: was using raw number
+      if (!acc[campaignId]) {
+        acc[campaignId] = {
+          collected_amount: 0,
+          donorIds: new Set(),
+        };
+      }
+
+      acc[campaignId].collected_amount += Number(challan.amount || 0);
+      if (challan.member_id != null) {
+        acc[campaignId].donorIds.add(String(challan.member_id)); // FIX #12: stringify for Set consistency
+      }
+
+      return acc;
+    }, {});
+  }, [challans]);
+
+  // FIX #6: Remove misleading fallback to donations length for donor count
+  const campaignsWithStats = useMemo(() => {
+    return campaigns.map((campaign) => {
+      const stats = campaignStatsById[String(campaign.id)]; // FIX #2: use String()
+      const computedCollected = stats?.collected_amount ?? 0;
+      const computedDonors = stats?.donorIds?.size ?? 0; // FIX #6: don't fall back to raw donations count
+
+      return {
+        ...campaign,
+        collected_amount: campaign.collected_amount ?? computedCollected,
+        participants_count: campaign.participants_count ?? computedDonors,
       };
-    }
+    });
+  }, [campaigns, campaignStatsById]);
 
-    acc[campaignId].collected_amount += Number(challan.amount || 0);
-    if (challan.member_id) {
-      acc[campaignId].donorIds.add(challan.member_id);
-    }
-
-    return acc;
-  }, {});
-
-  const campaignsWithStats = campaigns.map((campaign) => {
-    const stats = campaignStatsById[campaign.id];
-    const computedCollected = stats?.collected_amount ?? 0;
-    const computedDonors = stats?.donorIds?.size ?? (campaignDonationsById[String(campaign.id)]?.length || 0);
-
-    return {
-      ...campaign,
-      collected_amount: campaign.collected_amount ?? computedCollected,
-      participants_count: campaign.participants_count ?? computedDonors,
-    };
-  });
-
-  const createMutation = useMutation({
-    mutationFn: async (data) => {
-      return charityClient.campaigns.create(data);
-    },
-    onMutate: async (newCampaignData) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['campaigns'] });
-      
-      // Snapshot previous value
-      const previousCampaigns = queryClient.getQueryData(['campaigns']);
-      
-      // Optimistically add new campaign with temporary ID
-      const optimisticCampaign = {
-        ...newCampaignData,
-        id: 'temp-' + Date.now(),
-        collected_amount: 0,
-        participants_count: 0,
-        created_date: new Date().toISOString(),
-      };
-      
-      queryClient.setQueryData(['campaigns'], (old) => 
-        [...(old || []), optimisticCampaign]
-      );
-      
-      return { previousCampaigns };
-    },
-    onError: (err, variables, context) => {
-      // Rollback on error
-      queryClient.setQueryData(['campaigns'], context.previousCampaigns);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
-      setFormOpen(false);
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }) => {
-      return charityClient.campaigns.update(id, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
-      setFormOpen(false);
-      setEditingCampaign(null);
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async ({ id, title }) => {
-      await charityClient.campaigns.delete(id);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
-      toast({
-        title: "Campaign deleted",
-        description: "Campaign was deleted successfully.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Delete failed",
-        description: error?.message || "Unable to delete campaign.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const createRecurringMutation = useMutation({
-    mutationFn: (data) => charityClient.entities.RecurringDonation.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['recurringDonations'] });
-      setRecurringFormOpen(false);
-      setSelectedCampaign(null);
-    },
-  });
-
-  const handleSubmit = async (data) => {
-    if (editingCampaign) {
-      await updateMutation.mutateAsync({ id: editingCampaign.id, data });
-    } else {
-      await createMutation.mutateAsync(data);
-    }
-  };
-
-  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
-  const selectedCampaignId = searchParams.get('campaign');
-  const selectedCampaignDetails = selectedCampaignId
-    ? campaignsWithStats.find((campaign) => String(campaign.id) === String(selectedCampaignId))
-    : null;
-
-  const closeCampaignDetails = () => {
-    setSearchParams({});
-  };
-
-  const formatDonationRow = (challan) => {
+  // FIX #3: Memoize formatDonationRow as a stable callback
+  const formatDonationRow = useCallback((challan) => {
     const memberId = challan?.member_id != null ? String(challan.member_id) : '';
     const member = memberMapById[memberId];
     const fullName =
@@ -311,16 +222,156 @@ export default function Campaigns() {
       month: challan?.month || 'N/A',
       notes: challan?.notes || '—',
     };
+  }, [memberMapById]);
+
+  // FIX #3: Memoize donation rows per campaign to avoid recomputing on every render
+  const donationRowsByCampaignId = useMemo(() => {
+    const result = {};
+    for (const [campaignId, entries] of Object.entries(campaignDonationsById)) {
+      result[campaignId] = entries.map(formatDonationRow);
+    }
+    return result;
+  }, [campaignDonationsById, formatDonationRow]);
+
+  const getCampaignDonations = useCallback((campaignId) => {
+    return donationRowsByCampaignId[String(campaignId)] || [];
+  }, [donationRowsByCampaignId]);
+
+  const createMutation = useMutation({
+    mutationFn: async (data) => {
+      return charityClient.campaigns.create(data);
+    },
+    onMutate: async (newCampaignData) => {
+      await queryClient.cancelQueries({ queryKey: ['campaigns'] });
+
+      const previousCampaigns = queryClient.getQueryData(['campaigns']);
+
+      const optimisticCampaign = {
+        ...newCampaignData,
+        id: 'temp-' + Date.now(),
+        collected_amount: 0,
+        participants_count: 0,
+        created_date: new Date().toISOString(),
+      };
+
+      queryClient.setQueryData(['campaigns'], (old) =>
+        [...(old || []), optimisticCampaign]
+      );
+
+      return { previousCampaigns };
+    },
+    onError: (err, variables, context) => {
+      queryClient.setQueryData(['campaigns'], context.previousCampaigns);
+      toast({
+        title: "Failed to create campaign",
+        description: err?.message || "An error occurred while creating the campaign.",
+        variant: "destructive",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      setFormOpen(false);
+    },
+  });
+
+  // FIX #8: Add onError handler to updateMutation
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }) => {
+      return charityClient.campaigns.update(id, data);
+    },
+    onError: (err) => {
+      toast({
+        title: "Failed to update campaign",
+        description: err?.message || "An error occurred while updating the campaign.",
+        variant: "destructive",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      setFormOpen(false);
+      setEditingCampaign(null);
+    },
+  });
+
+  // FIX #1: Add optimistic delete with rollback; FIX #13: isPending used to disable button
+  const deleteMutation = useMutation({
+    mutationFn: async ({ id }) => {
+      await charityClient.campaigns.delete(id);
+    },
+    onMutate: async ({ id }) => {
+      await queryClient.cancelQueries({ queryKey: ['campaigns'] });
+      const previousCampaigns = queryClient.getQueryData(['campaigns']);
+      queryClient.setQueryData(['campaigns'], (old) =>
+        (old || []).filter((c) => String(c.id) !== String(id))
+      );
+      return { previousCampaigns };
+    },
+    onError: (error, variables, context) => {
+      queryClient.setQueryData(['campaigns'], context.previousCampaigns);
+      toast({
+        title: "Delete failed",
+        description: error?.message || "Unable to delete campaign.",
+        variant: "destructive",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      toast({
+        title: "Campaign deleted",
+        description: "Campaign was deleted successfully.",
+      });
+    },
+  });
+
+  // FIX #4: Add onError handler to createRecurringMutation
+  const createRecurringMutation = useMutation({
+    mutationFn: (data) => charityClient.entities.RecurringDonation.create(data),
+    onError: (err) => {
+      toast({
+        title: "Failed to set up recurring donation",
+        description: err?.message || "An error occurred.",
+        variant: "destructive",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recurringDonations'] });
+      setRecurringFormOpen(false);
+      setSelectedCampaign(null);
+    },
+  });
+
+  // FIX #9: Wrap mutateAsync calls in try/catch
+  const handleSubmit = async (data) => {
+    try {
+      if (editingCampaign) {
+        await updateMutation.mutateAsync({ id: editingCampaign.id, data });
+      } else {
+        await createMutation.mutateAsync(data);
+      }
+    } catch {
+      // Errors are already handled in onError handlers above; prevent unhandled rejection
+    }
   };
 
-  const getCampaignDonations = (campaignId) => {
-    const entries = campaignDonationsById[String(campaignId)] || [];
-    return entries.map(formatDonationRow);
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  const selectedCampaignId = searchParams.get('campaign');
+
+  // FIX #10: Only compute selectedCampaignDetails when selectedCampaignId is present
+  const selectedCampaignDetails = useMemo(() => {
+    if (!selectedCampaignId) return null;
+    return campaignsWithStats.find(
+      (campaign) => String(campaign.id) === String(selectedCampaignId)
+    ) || null;
+  }, [selectedCampaignId, campaignsWithStats]);
+
+  const closeCampaignDetails = () => {
+    setSearchParams({});
   };
 
   const handleViewDonors = (campaign) => {
     const donations = getCampaignDonations(campaign.id);
     if (donations.length > DONOR_DETAIL_PAGE_THRESHOLD) {
+      // FIX #5: Clear expanded state before navigating to detail page
       setExpandedCampaignId(null);
       setSearchParams({ campaign: String(campaign.id) });
       return;
@@ -332,17 +383,17 @@ export default function Campaigns() {
   };
 
   const openCampaignInReports = (campaign) => {
-    if (!campaign?.id) {
-      return;
-    }
-
+    if (!campaign?.id) return;
     navigate(`${PAGE_PATHS.REPORTS}?tab=donations&campaign=${encodeURIComponent(String(campaign.id))}`);
   };
 
-  const filteredCampaigns = campaignsWithStats.filter(c => 
-    statusFilter === 'all' || c.status === statusFilter
-  );
+  const filteredCampaigns = useMemo(() => {
+    return campaignsWithStats.filter(c =>
+      statusFilter === 'all' || c.status === statusFilter
+    );
+  }, [campaignsWithStats, statusFilter]);
 
+  // Campaign detail view
   if (selectedCampaignId && viewMode === 'campaigns') {
     const detailCampaign = selectedCampaignDetails;
 
@@ -461,7 +512,7 @@ export default function Campaigns() {
     );
   }
 
-  // Stats
+  // Summary stats for active campaigns
   const activeCampaigns = campaignsWithStats.filter(c => c.status === 'active');
   const totalTarget = activeCampaigns.reduce((sum, c) => sum + (isUnlimitedTarget(c) ? 0 : (c.target_amount || 0)), 0);
   const totalCollected = activeCampaigns.reduce((sum, c) => sum + (c.collected_amount || 0), 0);
@@ -488,7 +539,7 @@ export default function Campaigns() {
             </TabsList>
           </Tabs>
           {isAdmin && viewMode === "campaigns" && (
-            <Button 
+            <Button
               onClick={() => { setEditingCampaign(null); setFormOpen(true); }}
               className="bg-emerald-600 hover:bg-emerald-700 select-none"
             >
@@ -506,218 +557,221 @@ export default function Campaigns() {
         <>
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-rose-50 to-pink-50">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-rose-100 flex items-center justify-center">
-                <Heart className="w-6 h-6 text-rose-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900">{activeCampaigns.length}</p>
-                <p className="text-sm text-slate-500">Active Campaigns</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-teal-50">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900">₹{totalCollected.toLocaleString()}</p>
-                <p className="text-sm text-slate-500">Total Collected</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-indigo-50">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-                <Target className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900">₹{totalTarget.toLocaleString()}</p>
-                <p className="text-sm text-slate-500">Total Targeted</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-        <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="active">Active</TabsTrigger>
-          <TabsTrigger value="completed">Completed</TabsTrigger>
-          <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      {/* Campaigns Grid */}
-      {isLoading ? (
-        <div className="text-center py-12 text-slate-500">Loading campaigns...</div>
-      ) : filteredCampaigns.length === 0 ? (
-        <Card className="border-0 shadow-sm">
-          <CardContent className="text-center py-12">
-            <Heart className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-500">No campaigns found</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCampaigns.map((campaign) => {
-            const progress = getCampaignProgress(campaign);
-            const status = statusConfig[campaign.status];
-
-            return (
-              <Card key={campaign.id} className="border-0 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
-                {campaign.image_url ? (
-                  <div className="h-40 bg-cover bg-center" style={{ backgroundImage: `url(${campaign.image_url})` }} />
-                ) : (
-                  <div className="h-40 bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center">
-                    <Heart className="w-16 h-16 text-white/30" />
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-rose-50 to-pink-50">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-rose-100 flex items-center justify-center">
+                    <Heart className="w-6 h-6 text-rose-600" />
                   </div>
-                )}
-                
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <Badge className={status?.color}>{status?.label}</Badge>
-                    {isAdmin && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => { setEditingCampaign(campaign); setFormOpen(true); }}>
-                            <Pencil className="w-4 h-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => setDeleteTarget({ id: campaign.id, title: campaign.title })}
-                            className="text-rose-600"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                  <div>
+                    <p className="text-2xl font-bold text-slate-900">{activeCampaigns.length}</p>
+                    <p className="text-sm text-slate-500">Active Campaigns</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-teal-50">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-slate-900">₹{totalCollected.toLocaleString()}</p>
+                    <p className="text-sm text-slate-500">Total Collected</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-indigo-50">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+                    <Target className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-slate-900">₹{totalTarget.toLocaleString()}</p>
+                    <p className="text-sm text-slate-500">Total Targeted</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filters */}
+          <Tabs value={statusFilter} onValueChange={setStatusFilter}>
+            <TabsList>
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="active">Active</TabsTrigger>
+              <TabsTrigger value="completed">Completed</TabsTrigger>
+              <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {/* Campaigns Grid */}
+          {isLoading ? (
+            <div className="text-center py-12 text-slate-500">Loading campaigns...</div>
+          ) : filteredCampaigns.length === 0 ? (
+            <Card className="border-0 shadow-sm">
+              <CardContent className="text-center py-12">
+                <Heart className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-500">No campaigns found</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredCampaigns.map((campaign) => {
+                const progress = getCampaignProgress(campaign);
+                const status = statusConfig[campaign.status];
+                // FIX #3: Use memoized getter — no repeated recomputation per card render
+                const campaignDonations = getCampaignDonations(campaign.id);
+
+                return (
+                  <Card key={campaign.id} className="border-0 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
+                    {campaign.image_url ? (
+                      <div className="h-40 bg-cover bg-center" style={{ backgroundImage: `url(${campaign.image_url})` }} />
+                    ) : (
+                      <div className="h-40 bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center">
+                        <Heart className="w-16 h-16 text-white/30" />
+                      </div>
                     )}
-                  </div>
 
-                  <h3 className="font-semibold text-lg text-slate-900 mb-2">{campaign.title}</h3>
-                  {campaign.description && (
-                    <p className="text-sm text-slate-500 mb-4 line-clamp-2">{campaign.description}</p>
-                  )}
+                    <CardContent className="p-5">
+                      <div className="flex items-start justify-between mb-3">
+                        <Badge className={status?.color}>{status?.label}</Badge>
+                        {isAdmin && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => { setEditingCampaign(campaign); setFormOpen(true); }}>
+                                <Pencil className="w-4 h-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setDeleteTarget({ id: campaign.id, title: campaign.title })}
+                                className="text-rose-600"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
 
-                  {progress !== null ? (
-                    <Progress value={progress} className="h-2 mb-3" />
-                  ) : (
-                    <div className="h-2 mb-3 rounded-full border border-dashed border-slate-200 bg-slate-50" />
-                  )}
-                  
-                  <div className="flex items-center justify-between text-sm mb-4">
-                    <span className="text-emerald-600 font-medium">
-                      ₹{(campaign.collected_amount || 0).toLocaleString()}
-                    </span>
-                    <span className="text-slate-500">
-                      of {formatCampaignTargetText(campaign)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs text-slate-500">
-                    <div className="flex items-center gap-1">
-                      <Users className="w-3 h-3" />
-                      {campaign.participants_count || 0} donors
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      {getCampaignRelativeEndLabel(campaign)}
-                    </div>
-                  </div>
-
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleViewDonors(campaign)}
-                    className="w-full mt-2"
-                  >
-                    {String(expandedCampaignId) === String(campaign.id)
-                      ? "Hide Donor List"
-                      : (getCampaignDonations(campaign.id).length > DONOR_DETAIL_PAGE_THRESHOLD
-                        ? "View Donors in Detail Page"
-                        : "View Donor List")}
-                  </Button>
-
-                  {String(expandedCampaignId) === String(campaign.id) && (
-                    <div className="mt-2 rounded-lg border bg-slate-50 p-3 space-y-2">
-                      {getCampaignDonations(campaign.id).length === 0 ? (
-                        <p className="text-xs text-slate-500">No approved donations for this campaign yet.</p>
-                      ) : (
-                        <>
-                          {getCampaignDonations(campaign.id).slice(0, 8).map((row) => (
-                            <div key={row.id} className="flex items-center justify-between text-xs">
-                              <div className="min-w-0 pr-2">
-                                <p className="font-medium text-slate-800 truncate">{row.fullName}</p>
-                                <p className="text-slate-500 truncate">{row.memberCode} • {row.paymentMethod}</p>
-                              </div>
-                              <span className="font-semibold text-emerald-700">₹{row.amount.toLocaleString()}</span>
-                            </div>
-                          ))}
-
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="link"
-                            className="px-0 text-xs"
-                            onClick={() => openCampaignInReports(campaign)}
-                          >
-                            Open filtered report for this campaign
-                          </Button>
-
-                          {getCampaignDonations(campaign.id).length > 8 && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="link"
-                              className="px-0 text-xs"
-                              onClick={() => setSearchParams({ campaign: String(campaign.id) })}
-                            >
-                              View full donor details ({getCampaignDonations(campaign.id).length})
-                            </Button>
-                          )}
-                        </>
+                      <h3 className="font-semibold text-lg text-slate-900 mb-2">{campaign.title}</h3>
+                      {campaign.description && (
+                        <p className="text-sm text-slate-500 mb-4 line-clamp-2">{campaign.description}</p>
                       )}
-                    </div>
-                  )}
 
-                  {campaign.status === 'active' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => { setSelectedCampaign(campaign); setRecurringFormOpen(true); }}
-                      className="w-full mt-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50"
-                    >
-                      <Heart className="w-3 h-3 mr-1" />
-                      Set Up Recurring Donation
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                      {progress !== null ? (
+                        <Progress value={progress} className="h-2 mb-3" />
+                      ) : (
+                        <div className="h-2 mb-3 rounded-full border border-dashed border-slate-200 bg-slate-50" />
+                      )}
+
+                      <div className="flex items-center justify-between text-sm mb-4">
+                        <span className="text-emerald-600 font-medium">
+                          ₹{(campaign.collected_amount || 0).toLocaleString()}
+                        </span>
+                        <span className="text-slate-500">
+                          of {formatCampaignTargetText(campaign)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-slate-500">
+                        <div className="flex items-center gap-1">
+                          <Users className="w-3 h-3" />
+                          {campaign.participants_count || 0} donors
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {getCampaignRelativeEndLabel(campaign)}
+                        </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleViewDonors(campaign)}
+                        className="w-full mt-2"
+                      >
+                        {String(expandedCampaignId) === String(campaign.id)
+                          ? "Hide Donor List"
+                          : (campaignDonations.length > DONOR_DETAIL_PAGE_THRESHOLD
+                            ? "View Donors in Detail Page"
+                            : "View Donor List")}
+                      </Button>
+
+                      {String(expandedCampaignId) === String(campaign.id) && (
+                        <div className="mt-2 rounded-lg border bg-slate-50 p-3 space-y-2">
+                          {campaignDonations.length === 0 ? (
+                            <p className="text-xs text-slate-500">No approved donations for this campaign yet.</p>
+                          ) : (
+                            <>
+                              {/* FIX #11: Use DONOR_INLINE_DISPLAY_LIMIT constant, consistent with threshold */}
+                              {campaignDonations.slice(0, DONOR_INLINE_DISPLAY_LIMIT).map((row) => (
+                                <div key={row.id} className="flex items-center justify-between text-xs">
+                                  <div className="min-w-0 pr-2">
+                                    <p className="font-medium text-slate-800 truncate">{row.fullName}</p>
+                                    <p className="text-slate-500 truncate">{row.memberCode} • {row.paymentMethod}</p>
+                                  </div>
+                                  <span className="font-semibold text-emerald-700">₹{row.amount.toLocaleString()}</span>
+                                </div>
+                              ))}
+
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="link"
+                                className="px-0 text-xs"
+                                onClick={() => openCampaignInReports(campaign)}
+                              >
+                                Open filtered report for this campaign
+                              </Button>
+
+                              {campaignDonations.length > DONOR_INLINE_DISPLAY_LIMIT && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="link"
+                                  className="px-0 text-xs"
+                                  onClick={() => setSearchParams({ campaign: String(campaign.id) })}
+                                >
+                                  View full donor details ({campaignDonations.length})
+                                </Button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      {campaign.status === 'active' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => { setSelectedCampaign(campaign); setRecurringFormOpen(true); }}
+                          className="w-full mt-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                        >
+                          <Heart className="w-3 h-3 mr-1" />
+                          Set Up Recurring Donation
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </>
       )}
 
-      {/* Delete Confirmation Dialog */}
+      {/* FIX #13: Disable confirm button while delete is pending */}
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader className="space-y-2">
@@ -727,15 +781,16 @@ export default function Campaigns() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-rose-600 hover:bg-rose-700 focus:ring-rose-600"
+              disabled={deleteMutation.isPending}
               onClick={() => {
                 deleteMutation.mutate(deleteTarget);
                 setDeleteTarget(null);
               }}
             >
-              Yes, Delete
+              {deleteMutation.isPending ? "Deleting..." : "Yes, Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
