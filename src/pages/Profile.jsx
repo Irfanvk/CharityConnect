@@ -17,6 +17,8 @@ import { format } from "date-fns";
 import ContributionHistory from "@/components/profile/ContributionHistory";
 import ReminderSettings from "@/components/profile/ReminderSettings";
 import RecurringDonations from "@/components/profile/RecurringDonations";
+import AvatarCropUpload from "@/components/profile/AvatarCropUpload";
+import AvatarLightbox from "@/components/profile/AvatarLightbox";
 import { useToast } from "@/components/ui/use-toast";
 import {
   AlertDialog,
@@ -65,6 +67,8 @@ export default function Profile() {
   const [generalRequestMessage, setGeneralRequestMessage] = useState('');
   const [submittingGeneralRequest, setSubmittingGeneralRequest] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -81,17 +85,7 @@ export default function Profile() {
     });
   };
 
-  const handleAvatarUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      toast({ title: "Invalid file", description: "Please select an image file (JPG or PNG).", variant: "destructive" });
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Maximum size is 2 MB.", variant: "destructive" });
-      return;
-    }
+  const handleAvatarSave = async (file) => {
     setUploadingAvatar(true);
     try {
       const updated = await charityClient.auth.uploadAvatar(file);
@@ -101,7 +95,6 @@ export default function Profile() {
       toast({ title: "Upload failed", description: error?.message || "Please try again.", variant: "destructive" });
     } finally {
       setUploadingAvatar(false);
-      e.target.value = '';
     }
   };
 
@@ -406,46 +399,72 @@ export default function Profile() {
         <Card className="border-0 shadow-sm lg:col-span-1">
           <CardContent className="p-6">
             <div className="text-center">
-              <div className="relative w-24 h-24 mx-auto mb-4 group">
-                {user.avatar_url ? (
-                  <img
-                    src={user.avatar_url}
-                    alt={user.full_name || 'Avatar'}
-                    className="w-24 h-24 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-3xl font-bold">
-                    {user.full_name?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase()}
-                  </div>
-                )}
-                <label
-                  className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                  title="Change photo"
+              {/* Avatar – click to enlarge; edit controls only shown when editing */}
+              <div className="relative w-24 h-24 mx-auto mb-4">
+                {/* Clickable avatar — opens lightbox when NOT editing */}
+                <button
+                  type="button"
+                  className={`w-24 h-24 rounded-full overflow-hidden focus:outline-none ${user.avatar_url && !editing ? 'cursor-zoom-in' : 'cursor-default'}`}
+                  onClick={() => { if (user.avatar_url && !editing) setLightboxOpen(true); }}
+                  tabIndex={user.avatar_url && !editing ? 0 : -1}
+                  aria-label={user.avatar_url && !editing ? 'View profile photo' : undefined}
                 >
-                  {uploadingAvatar ? (
-                    <Loader2 className="w-6 h-6 text-white animate-spin" />
+                  {user.avatar_url ? (
+                    <img
+                      src={user.avatar_url}
+                      alt={user.full_name || 'Avatar'}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
-                    <Camera className="w-6 h-6 text-white" />
+                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-3xl font-bold">
+                      {user.full_name?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase()}
+                    </div>
                   )}
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png"
-                    className="hidden"
-                    onChange={handleAvatarUpload}
-                    disabled={uploadingAvatar}
-                  />
-                </label>
-                {user.avatar_url && (
-                  <button
-                    onClick={handleRemoveAvatar}
-                    disabled={uploadingAvatar}
-                    className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"
-                    title="Remove photo"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+                </button>
+
+                {/* Edit controls — only in edit mode */}
+                {editing && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setCropOpen(true)}
+                      disabled={uploadingAvatar}
+                      className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center transition cursor-pointer hover:bg-black/55"
+                      title="Change photo"
+                    >
+                      {uploadingAvatar
+                        ? <Loader2 className="w-6 h-6 text-white animate-spin" />
+                        : <Camera className="w-6 h-6 text-white" />}
+                    </button>
+                    {user.avatar_url && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveAvatar}
+                        disabled={uploadingAvatar}
+                        className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center hover:bg-rose-600 transition"
+                        title="Remove photo"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
+
+              {/* Crop-upload dialog */}
+              <AvatarCropUpload
+                open={cropOpen}
+                onOpenChange={setCropOpen}
+                onSave={handleAvatarSave}
+              />
+
+              {/* Lightbox */}
+              <AvatarLightbox
+                open={lightboxOpen}
+                onClose={() => setLightboxOpen(false)}
+                avatarUrl={user.avatar_url}
+                name={user.full_name || user.email}
+              />
               
               {editing ? (
                 <div className="space-y-3 text-left">
