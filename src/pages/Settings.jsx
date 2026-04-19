@@ -105,7 +105,7 @@ export default function Settings() {
 
     if (shareMethod === 'whatsapp' && result?.invite_code) {
       const rawPhone = (inviteData.phone || '').replace(/\D/g, '');
-      const registrationUrl = result.registration_url || `${window.location.origin}/register?invite_code=${encodeURIComponent(result.invite_code)}`;
+      const registrationUrl = `${window.location.origin}/register?invite_code=${encodeURIComponent(result.invite_code)}`;
       const shareMessage = result.share_message || [
         'Assalamu Alaikum',
         '',
@@ -215,16 +215,19 @@ export default function Settings() {
                             <code className="px-2 py-1 bg-slate-100 rounded text-sm font-mono inline-block">
                               {invite.invite_code}
                             </code>
-                            {invite.registration_url && (
-                              <a
-                                href={invite.registration_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block text-xs text-emerald-700 hover:text-emerald-800 hover:underline break-all"
-                              >
-                                {invite.registration_url}
-                              </a>
-                            )}
+                            {invite.invite_code && (() => {
+                              const regUrl = `${window.location.origin}/register?invite_code=${encodeURIComponent(invite.invite_code)}`;
+                              return (
+                                <a
+                                  href={regUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block text-xs text-emerald-700 hover:text-emerald-800 hover:underline break-all"
+                                >
+                                  {regUrl}
+                                </a>
+                              );
+                            })()}
                           </div>
                         </TableCell>
 
