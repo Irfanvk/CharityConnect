@@ -26,8 +26,10 @@ export const ROUTE_KEYS = {
 
 export const APP_PATHS = {
   LOGIN: '/login',
-  HOME: '/',
+  HOME: '/dashboard',
+  LANDING: '/',
 };
+
 
 export const PAGE_PATHS = {
   DASHBOARD: createPageUrl(ROUTE_KEYS.DASHBOARD),

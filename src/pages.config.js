@@ -64,6 +64,7 @@ import Reports from './pages/Reports';
 import Requests from './pages/Requests';
 import Settings from './pages/Settings';
 import SuperadminPanel from './pages/SuperadminPanel';
+import Landing from './pages/Landing';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -91,6 +92,7 @@ export const PAGES = {
 }
 
 export const PUBLIC_PAGES = {
+    "Landing": Landing,
     "Login": Login,
     "Register": Register,
     "ForgotPassword": ForgotPassword,

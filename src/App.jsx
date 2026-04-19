@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
@@ -20,6 +20,8 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { IOSInstallPrompt } from '@/components/IOSInstallPrompt';
 import { AndroidInstallPrompt } from '@/components/AndroidInstallPrompt';
 import { NotificationsProvider } from '@/context/NotificationContext';
+
+const LandingPage = lazy(() => import('./pages/Landing'));
 
 const { Pages, PUBLIC_PAGES, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -47,7 +49,8 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
 
 const normalizePathname = (pathname = '') => String(pathname || '').split('?')[0].split('#')[0].toLowerCase();
 const isLoginPath = (pathname = '') => normalizePathname(pathname) === APP_PATHS.LOGIN;
-const isPublicPath = (pathname = '') => PUBLIC_ROUTE_PATHS.has(normalizePathname(pathname));
+const isRootPath = (pathname = '') => normalizePathname(pathname) === '/';
+const isPublicPath = (pathname = '') => PUBLIC_ROUTE_PATHS.has(normalizePathname(pathname)) || isRootPath(pathname);
 const buildLoginRedirectPath = (location) => {
   const returnTo = `${location.pathname}${location.search}${location.hash}`;
   return `${APP_PATHS.LOGIN}?returnTo=${encodeURIComponent(returnTo)}`;
@@ -86,7 +89,7 @@ const AuthenticatedApp = () => {
   const returnToParam = new URLSearchParams(location.search).get('returnTo');
   const loginRedirectPath = buildLoginRedirectPath(location);
 
-  if (isAuthenticated && isOnPublicPage) {
+  if (isAuthenticated && isOnPublicPage && !isRootPath(location.pathname)) {
     const target = returnToParam && !isPublicPath(returnToParam) ? returnToParam : APP_PATHS.HOME;
     return <Navigate to={target} replace />;
   }
@@ -152,8 +155,23 @@ const AuthenticatedApp = () => {
         return routes;
       })}
       
-      {/* Protected routes - authentication required */}
+      {/* Landing page - public root route */}
       <Route path="/" element={
+        isAuthenticated ? (
+          <Navigate to={APP_PATHS.HOME} replace />
+        ) : (
+          <Suspense fallback={
+            <div className="fixed inset-0 flex items-center justify-center">
+              <div className="w-8 h-8 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin"></div>
+            </div>
+          }>
+            <LandingPage />
+          </Suspense>
+        )
+      } />
+
+      {/* Protected routes - authentication required */}
+      <Route path="/dashboard" element={
         <LayoutWrapper currentPageName={mainPageKey}>
           <MainPage />
         </LayoutWrapper>
