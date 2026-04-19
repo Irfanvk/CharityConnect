@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, Inbox, KeyRound } from "lucide-react";
+import { Loader2, Inbox, KeyRound, MessageCircle, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { useMemo } from "react";
 
@@ -40,6 +40,7 @@ export default function AdminRequests() {
   const [selectedPrRequest, setSelectedPrRequest] = useState(null);
   const [prAdminNotes, setPrAdminNotes] = useState("");
   const [prRejectionReason, setPrRejectionReason] = useState("");
+  const [prApprovedResult, setPrApprovedResult] = useState(null); // holds approval response for WhatsApp share
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -112,12 +113,10 @@ export default function AdminRequests() {
 
   const prApproveMutation = useMutation({
     mutationFn: ({ id, notes }) => charityClient.admin.approvePasswordReset(id, notes),
-    onSuccess: async () => {
+    onSuccess: async (data) => {
       await queryClient.invalidateQueries({ queryKey: ["admin", "password-reset-requests"] });
-      toast({ title: "Reset approved", description: "A WhatsApp message with the reset link has been sent." });
-      setPrReviewOpen(false);
-      setSelectedPrRequest(null);
-      setPrAdminNotes("");
+      // Store result so dialog can show WhatsApp share button instead of closing
+      setPrApprovedResult(data);
     },
     onError: (error) => {
       toast({ title: "Approval failed", description: error?.message || "Please try again.", variant: "destructive" });
@@ -413,61 +412,124 @@ export default function AdminRequests() {
       </Dialog>
 
       {/* Password reset review dialog */}
-      <Dialog open={prReviewOpen} onOpenChange={setPrReviewOpen}>
+      <Dialog
+        open={prReviewOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPrReviewOpen(false);
+            setSelectedPrRequest(null);
+            setPrAdminNotes("");
+            setPrRejectionReason("");
+            setPrApprovedResult(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Password Reset Request</DialogTitle>
           </DialogHeader>
 
-          {selectedPrRequest && (
+          {/* ── Post-approval: WhatsApp share state ── */}
+          {prApprovedResult ? (
             <div className="space-y-4">
-              <div className="rounded-md border p-3 text-sm space-y-1">
-                <p><span className="text-slate-500">Name:</span> {selectedPrRequest.user_full_name || "—"}</p>
-                <p><span className="text-slate-500">Username:</span> {selectedPrRequest.user_username ? `@${selectedPrRequest.user_username}` : "—"}</p>
-                <p><span className="text-slate-500">Phone:</span> {selectedPrRequest.user_phone || "—"}</p>
-                <p><span className="text-slate-500">Email:</span> {selectedPrRequest.user_email || "—"}</p>
-                <p><span className="text-slate-500">Identifier submitted:</span> {selectedPrRequest.identifier}</p>
+              <div className="flex items-center gap-2 rounded-md bg-emerald-50 border border-emerald-200 p-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-emerald-800">Request approved!</p>
+                  <p className="text-xs text-emerald-700 mt-0.5">
+                    Send the reset link to{" "}
+                    <strong>{prApprovedResult.user_full_name || prApprovedResult.user_username || prApprovedResult.identifier}</strong>{" "}
+                    via WhatsApp.
+                  </p>
+                </div>
               </div>
 
-              {!selectedPrRequest.user_id && (
+              {prApprovedResult.whatsapp_chat_url ? (
+                <a
+                  href={prApprovedResult.whatsapp_chat_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center justify-center gap-2 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2.5 transition-colors"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Send Reset Link via WhatsApp
+                </a>
+              ) : (
                 <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
-                  Warning: No matching account found for this identifier. Approval is not possible.
+                  No phone number on file — copy the reset link manually from admin logs.
                 </div>
               )}
 
-              {selectedPrRequest.user_id && (
-                <>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700">Admin notes (optional)</label>
-                    <Textarea value={prAdminNotes} onChange={(e) => setPrAdminNotes(e.target.value)} rows={2} placeholder="Internal notes..." />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700">Rejection reason (required to reject)</label>
-                    <Textarea value={prRejectionReason} onChange={(e) => setPrRejectionReason(e.target.value)} rows={2} placeholder="Reason for rejection..." />
-                  </div>
-                  <div className="flex gap-3">
-                    <Button
-                      variant="destructive"
-                      className="flex-1"
-                      disabled={prRejectMutation.isPending || !prRejectionReason.trim()}
-                      onClick={() => prRejectMutation.mutate({ id: selectedPrRequest.id, reason: prRejectionReason, notes: prAdminNotes })}
-                    >
-                      {prRejectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Reject"}
-                    </Button>
-                    <Button
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                      disabled={prApproveMutation.isPending}
-                      onClick={() => prApproveMutation.mutate({ id: selectedPrRequest.id, notes: prAdminNotes })}
-                    >
-                      {prApproveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Approve & Send Link"}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-slate-400 text-center">
-                    Approving will generate a reset link and send it to the member's WhatsApp.
-                  </p>
-                </>
-              )}
+              <p className="text-xs text-slate-400 text-center">
+                Clicking the button opens WhatsApp with a pre-filled message containing the reset link.
+              </p>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setPrReviewOpen(false);
+                  setSelectedPrRequest(null);
+                  setPrAdminNotes("");
+                  setPrRejectionReason("");
+                  setPrApprovedResult(null);
+                }}
+              >
+                Done
+              </Button>
             </div>
+          ) : (
+            /* ── Normal review state ── */
+            selectedPrRequest && (
+              <div className="space-y-4">
+                <div className="rounded-md border p-3 text-sm space-y-1">
+                  <p><span className="text-slate-500">Name:</span> {selectedPrRequest.user_full_name || "—"}</p>
+                  <p><span className="text-slate-500">Username:</span> {selectedPrRequest.user_username ? `@${selectedPrRequest.user_username}` : "—"}</p>
+                  <p><span className="text-slate-500">Phone:</span> {selectedPrRequest.user_phone || "—"}</p>
+                  <p><span className="text-slate-500">Email:</span> {selectedPrRequest.user_email || "—"}</p>
+                  <p><span className="text-slate-500">Identifier submitted:</span> {selectedPrRequest.identifier}</p>
+                </div>
+
+                {!selectedPrRequest.user_id && (
+                  <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+                    Warning: No matching account found for this identifier. Approval is not possible.
+                  </div>
+                )}
+
+                {selectedPrRequest.user_id && (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-700">Admin notes (optional)</label>
+                      <Textarea value={prAdminNotes} onChange={(e) => setPrAdminNotes(e.target.value)} rows={2} placeholder="Internal notes..." />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-700">Rejection reason (required to reject)</label>
+                      <Textarea value={prRejectionReason} onChange={(e) => setPrRejectionReason(e.target.value)} rows={2} placeholder="Reason for rejection..." />
+                    </div>
+                    <div className="flex gap-3">
+                      <Button
+                        variant="destructive"
+                        className="flex-1"
+                        disabled={prRejectMutation.isPending || !prRejectionReason.trim()}
+                        onClick={() => prRejectMutation.mutate({ id: selectedPrRequest.id, reason: prRejectionReason, notes: prAdminNotes })}
+                      >
+                        {prRejectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Reject"}
+                      </Button>
+                      <Button
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                        disabled={prApproveMutation.isPending}
+                        onClick={() => prApproveMutation.mutate({ id: selectedPrRequest.id, notes: prAdminNotes })}
+                      >
+                        {prApproveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Approve & Get Link"}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-slate-400 text-center">
+                      Approving will generate a reset link. You can then send it to the member via WhatsApp.
+                    </p>
+                  </>
+                )}
+              </div>
+            )
           )}
         </DialogContent>
       </Dialog>
