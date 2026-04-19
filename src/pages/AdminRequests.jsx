@@ -320,15 +320,28 @@ export default function AdminRequests() {
                         {req.user_email && <p className="text-sm text-slate-500">Email: {req.user_email}</p>}
                         <p className="text-xs text-slate-400">{format(new Date(req.created_at), "MMM d, yyyy 'at' h:mm a")}</p>
                       </div>
-                      {req.status === "pending" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => { setSelectedPrRequest(req); setPrReviewOpen(true); }}
-                        >
-                          Review
-                        </Button>
-                      )}
+                      <div className="flex flex-col items-end gap-1.5 shrink-0">
+                        {req.status === "pending" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => { setSelectedPrRequest(req); setPrReviewOpen(true); }}
+                          >
+                            Review
+                          </Button>
+                        )}
+                        {req.status === "approved" && req.whatsapp_chat_url && (
+                          <a
+                            href={req.whatsapp_chat_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-3 py-1.5 transition-colors"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            Send Link
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
