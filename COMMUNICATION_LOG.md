@@ -3,7 +3,7 @@
 **Project:** CharityConnect  
 **Purpose:** Decisions, meeting minutes, and action items  
 **Owner:** Integration Lead  
-**Last Updated:** 2026-04-08
+**Last Updated:** 2026-04-20
 
 ---
 
@@ -11,6 +11,7 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-04-20 | Cloudinary integrated as primary file storage for uploads, avatars, and payment proofs; replaces previous Cloudflare R2/local-disk approach | Both | ✅ | Backend: `cloudinary==1.44.2` installed; `file_handler.py` rewritten to use Cloudinary SDK with local-disk fallback for dev; `config.py` extended with `CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET/CLOUDINARY_FOLDER`; `file_routes.py` gains `POST /files/upload/avatar` and `DELETE /files/delete`. Frontend: `apiPaths.js` updated with `files.uploadAvatar` and `files.deleteFile` paths; `filesApi.js` exports `uploadAvatar()` and `deleteFile()`; `charityClient.js` `files` namespace extended with matching methods |
 | 2026-04-08 | Member identity popover standardized to include avatar/full name/member id/address/phone/direct-message action | Frontend | ✅ | Shared `UserProfilePopover` enhanced and used by admin-facing identity triggers (Members/Challans/Settings user tables where popover is already present) |
 | 2026-04-07 | Members selector moved from basic dropdown to combo-box pattern with improved searchability | Both | ✅ | Frontend switched control type; backend follow-up added server-side filtering support for combo-box query behavior |
 | 2026-04-01 | Invite-code sharing expanded with WhatsApp-first workflow | Both | ✅ | Added WhatsApp share flow for admin invites; backend/frontend message composition and invocation aligned |

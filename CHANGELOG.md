@@ -21,7 +21,9 @@ This document records all technical changes, implementations, and decisions made
 ## 🔍 Version History
 
 | Version | Date | Status | Changes |
-|---------|------|--------|---------|
+|---------|------|--------|----------|
+| 2.15 | 2026-04-20 | Minor | Cloudinary file storage integration (uploads, avatars, payment proofs) — full-stack |
+| 2.14 | 2026-04-08 | Minor | Backfilled audit for 2026-03-19..2026-04-08: request-folder fix, API/docs corrections, iPhone/responsive passes, notifications/API-call enhancements, collection-stats visibility controls, campaign/challan fixes, avatar rollout, WhatsApp invite sharing, member selector combo-box + server-side filtering, and member profile popover enrichment (avatar/full name/id/address/phone/direct message). |
 | 2.14 | 2026-04-08 | Minor | Backfilled audit for 2026-03-19..2026-04-08: request-folder fix, API/docs corrections, iPhone/responsive passes, notifications/API-call enhancements, collection-stats visibility controls, campaign/challan fixes, avatar rollout, WhatsApp invite sharing, member selector combo-box + server-side filtering, and member profile popover enrichment (avatar/full name/id/address/phone/direct message). |
 | 2.13 | 2026-03-18 | Minor | Integrated backend notification feed/read patch APIs with shared React notifications context (items + unread count + polling refresh), added UI mark-all-read support, and wired superadmin dashboard charts to `GET /admin/dashboard/charts` (monthly donations, campaign progress, top donors). |
 | 2.12 | 2026-03-18 | Minor | Implemented v2.12 member requests lifecycle in frontend: dedicated member/admin request pages and routes, profile request workflows (`monthly_amount_change`, `profile_update`, `complaint/suggestion/general`), request pending badges in navigation, and request outcome icons in notifications. |
@@ -77,6 +79,64 @@ This section backfills changes identified from repository history that were not 
 
 ### 2026-04-01
 - Added WhatsApp invite-code sharing flow for admin workflows (`515157c`, `354422a`).
+
+---
+
+## v2.15 — 2026-04-20 · Cloudinary File Storage Integration
+
+### Summary
+Replaced the previous Cloudflare R2 / local-disk file storage with **Cloudinary** as the single unified file store for all uploads (payment proofs, avatars, documents). Both backend and frontend were updated together.
+
+### Backend (`charity-connect-backend`)
+
+**New dependency**
+- `cloudinary==1.44.2` added to `requirements.txt`.
+
+**`app/config.py`**
+- Added settings: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_FOLDER` (default `charity-connect`).
+- Added `cloudinary_configured` property — returns `True` only when all three credential fields are set.
+
+**`app/utils/file_handler.py`** (full rewrite)
+- Replaced `boto3` S3/R2 logic with Cloudinary SDK (`cloudinary.uploader.upload`).
+- Upload path: `{CLOUDINARY_FOLDER}/{subfolder}/{uuid}.{ext}` (e.g. `charity-connect/avatars/...`).
+- Images → Cloudinary `resource_type=image`; PDFs/binaries → `resource_type=raw`.
+- Returns Cloudinary `secure_url` (HTTPS) directly — no path normalisation needed in callers.
+- Added `delete_file(url)` — parses public_id from URL and calls `cloudinary.uploader.destroy`.
+- **Fallback:** if Cloudinary env vars are absent (dev/offline), saves to local `app/uploads/` and returns a relative path — no code change required for local dev.
+
+**`app/routes/file_routes.py`**
+- Added `POST /files/upload/avatar` — dedicated avatar endpoint (JPG/PNG only, 3 MB max); returns `{file_url, filename}`.
+- Added `DELETE /files/delete?file_url=...` — deletes a Cloudinary asset by URL; returns `{deleted: bool}`.
+- Existing `POST /files/upload` unchanged.
+
+**`.env`**
+- Added `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_FOLDER`.
+
+**`.env.example`**
+- Replaced R2 placeholder block with Cloudinary placeholder block.
+
+### Frontend (`CharityConnect`)
+
+**`src/config/apiPaths.js`**
+- `files.uploadAvatar` → `/files/upload/avatar`
+- `files.deleteFile` → `/files/delete`
+
+**`src/api/charityClient.js`** — `files` namespace extended:
+- `files.uploadAvatar(file)` — `POST /files/upload/avatar` with `FormData`.
+- `files.deleteFile(fileUrl)` — `DELETE /files/delete?file_url={url}`.
+
+**`src/api/filesApi.js`**
+- Added `uploadAvatar(file)` export → delegates to `charityClient.files.uploadAvatar`.
+- Added `deleteFile(fileUrl)` export → delegates to `charityClient.files.deleteFile`.
+
+### Upload surface map (post-integration)
+
+| Use case | Frontend call | Backend route | Cloudinary folder |
+|---|---|---|---|
+| Payment proofs / documents | `charityClient.files.upload(file)` | `POST /files/upload` | `charity-connect/proofs/` |
+| Profile avatar (saves to DB) | `charityClient.auth.uploadAvatar(file)` | `POST /auth/me/avatar` | `charity-connect/avatars/` |
+| Standalone avatar upload | `charityClient.files.uploadAvatar(file)` | `POST /files/upload/avatar` | `charity-connect/avatars/` |
+| Delete file | `charityClient.files.deleteFile(url)` | `DELETE /files/delete` | — |
 
 ### 2026-04-07
 - Replaced members dropdown with combo-box UX (`fe5cec0`).

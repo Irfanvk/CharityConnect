@@ -1252,6 +1252,23 @@ const charityClient = {
         body: formData,
       });
     },
+
+    uploadAvatar: async (file) => {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      return await apiFetch(API_PATHS.files.uploadAvatar, {
+        method: 'POST',
+        headers: {}, // Let browser set Content-Type for FormData
+        body: formData,
+      });
+    },
+
+    deleteFile: async (fileUrl) => {
+      return await apiFetch(API_PATHS.files.deleteFile, {
+        method: 'DELETE',
+      }, { file_url: fileUrl });
+    },
   },
 
   // Fund Utilizations (admin CRUD)

@@ -88,6 +88,8 @@ export const API_PATHS = {
   },
   files: {
     upload: '/files/upload',
+    uploadAvatar: '/files/upload/avatar',
+    deleteFile: '/files/delete',
   },
   auditLogs: {
     list: '/audit-logs/',
