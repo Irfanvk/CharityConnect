@@ -42,6 +42,13 @@ export default function AdminRequests() {
   const [prRejectionReason, setPrRejectionReason] = useState("");
   const [prApprovedResult, setPrApprovedResult] = useState(null); // holds approval response for WhatsApp share
 
+  // Fix any localhost URLs in WhatsApp links — replace with current origin
+  const fixWhatsAppUrl = (url) => {
+    if (!url) return url;
+    return url.replace(/http%3A%2F%2Flocalhost%3A\d+/gi, encodeURIComponent(window.location.origin))
+              .replace(/http:\/\/localhost:\d+/gi, window.location.origin);
+  };
+
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -113,10 +120,10 @@ export default function AdminRequests() {
 
   const prApproveMutation = useMutation({
     mutationFn: ({ id, notes }) => charityClient.admin.approvePasswordReset(id, notes),
-    onSuccess: async (data) => {
-      await queryClient.invalidateQueries({ queryKey: ["admin", "password-reset-requests"] });
-      // Store result so dialog can show WhatsApp share button instead of closing
+    onSuccess: (data) => {
+      // Show WhatsApp share dialog FIRST, then refresh list in background
       setPrApprovedResult(data);
+      queryClient.invalidateQueries({ queryKey: ["admin", "password-reset-requests"] });
     },
     onError: (error) => {
       toast({ title: "Approval failed", description: error?.message || "Please try again.", variant: "destructive" });
@@ -332,7 +339,7 @@ export default function AdminRequests() {
                         )}
                         {req.status === "approved" && req.whatsapp_chat_url && (
                           <a
-                            href={req.whatsapp_chat_url}
+                            href={fixWhatsAppUrl(req.whatsapp_chat_url)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-3 py-1.5 transition-colors"
@@ -459,7 +466,7 @@ export default function AdminRequests() {
 
               {prApprovedResult.whatsapp_chat_url ? (
                 <a
-                  href={prApprovedResult.whatsapp_chat_url}
+                  href={fixWhatsAppUrl(prApprovedResult.whatsapp_chat_url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex w-full items-center justify-center gap-2 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2.5 transition-colors"
