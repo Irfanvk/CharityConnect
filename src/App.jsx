@@ -1,4 +1,5 @@
 import { useEffect, lazy, Suspense } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
@@ -137,6 +138,15 @@ const AuthenticatedApp = () => {
 
   // Render the main app
   return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={location.key}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -6 }}
+        transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+        style={{ willChange: 'opacity, transform' }}
+      >
     <Routes>
       {/* Public routes - no authentication required */}
       {PUBLIC_PAGES && Object.entries(PUBLIC_PAGES).flatMap(([path, Page]) => {
@@ -216,6 +226,8 @@ const AuthenticatedApp = () => {
 
       <Route path="*" element={<PageNotFound />} />
     </Routes>
+      </motion.div>
+    </AnimatePresence>
   );
 };
 
