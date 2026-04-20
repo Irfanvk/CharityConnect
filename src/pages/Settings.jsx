@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { emitNotificationsChanged } from "@/lib/notificationState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,10 +24,32 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import { UserPlus, Shield, Loader2, Eye, EyeOff, Settings2, MessageCircle, Share2 } from "lucide-react";
+import { UserPlus, Shield, Loader2, Eye, EyeOff, Settings2, MessageCircle, Share2, Copy, Check } from "lucide-react";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
 import UserProfilePopover, { AvatarCircle } from "@/components/UserProfilePopover";
+import { useToast } from "@/components/ui/use-toast";
+
+function CopyButton({ text, label }) {
+  const [copied, setCopied] = React.useState(false);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard API may fail in non-secure contexts */ }
+  };
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      title={`Copy ${label}`}
+      className="shrink-0 inline-flex items-center justify-center rounded p-1 text-slate-400 hover:text-emerald-600 hover:bg-slate-100 transition-colors"
+    >
+      {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+    </button>
+  );
+}
 
 export default function Settings() {
 
@@ -42,7 +65,7 @@ export default function Settings() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    charityClient.auth.me().then(setUser).catch(() => {});
+    charityClient.auth.me().then(setUser).catch(() => { });
   }, []);
 
   // App Settings API
@@ -58,11 +81,12 @@ export default function Settings() {
     mutationFn: (data) => charityClient.admin.updateSettings(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'settings'] });
+      emitNotificationsChanged('updated');
     },
   });
 
   useEffect(() => {
-    charityClient.auth.me().then(setUser).catch(() => {});
+    charityClient.auth.me().then(setUser).catch(() => { });
   }, []);
 
   // INVITES API
@@ -83,6 +107,7 @@ export default function Settings() {
     mutationFn: (data) => charityClient.invites.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invites'] });
+      emitNotificationsChanged('updated');
       setInviteOpen(false);
       setInviteData({ phone: '', email: '' });
       setShareMethod('offline');
@@ -212,20 +237,26 @@ export default function Settings() {
 
                         <TableCell>
                           <div className="space-y-1">
-                            <code className="px-2 py-1 bg-slate-100 rounded text-sm font-mono inline-block">
-                              {invite.invite_code}
-                            </code>
+                            <div className="flex items-center gap-1.5">
+                              <code className="px-2 py-1 bg-slate-100 rounded text-sm font-mono inline-block">
+                                {invite.invite_code}
+                              </code>
+                              <CopyButton text={invite.invite_code} label="Code" />
+                            </div>
                             {invite.invite_code && (() => {
                               const regUrl = `${window.location.origin}/register?invite_code=${encodeURIComponent(invite.invite_code)}`;
                               return (
-                                <a
-                                  href={regUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="block text-xs text-emerald-700 hover:text-emerald-800 hover:underline break-all"
-                                >
-                                  {regUrl}
-                                </a>
+                                <div className="flex items-start gap-1.5">
+                                  <a
+                                    href={regUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-emerald-700 hover:text-emerald-800 hover:underline break-all"
+                                  >
+                                    {regUrl}
+                                  </a>
+                                  <CopyButton text={regUrl} label="Link" />
+                                </div>
                               );
                             })()}
                           </div>
@@ -243,8 +274,8 @@ export default function Settings() {
                             invite.status === 'pending'
                               ? 'bg-amber-100 text-amber-700'
                               : invite.status === 'used'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-slate-100 text-slate-700'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-slate-100 text-slate-700'
                           }>
                             {invite.status}
                           </Badge>
@@ -383,11 +414,10 @@ export default function Settings() {
                     <p className="text-sm text-slate-500 mt-1">
                       When enabled, members will see the collection overview (today, this week, this month, this year, all-time) on their dashboard.
                     </p>
-                    <Badge className={`mt-2 text-xs border-0 ${
-                      memberStatsEnabled
+                    <Badge className={`mt-2 text-xs border-0 ${memberStatsEnabled
                         ? 'bg-emerald-100 text-emerald-700'
                         : 'bg-slate-100 text-slate-600'
-                    }`}>
+                      }`}>
                       {memberStatsEnabled ? 'Visible to members' : 'Hidden from members'}
                     </Badge>
                   </div>
@@ -435,11 +465,10 @@ export default function Settings() {
                 <button
                   type="button"
                   onClick={() => setShareMethod('offline')}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium transition-colors ${
-                    shareMethod === 'offline'
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium transition-colors ${shareMethod === 'offline'
                       ? 'bg-slate-800 text-white'
                       : 'bg-white text-slate-600 hover:bg-slate-50'
-                  }`}
+                    }`}
                 >
                   <Share2 className="w-4 h-4" />
                   Offline / Manual
@@ -447,11 +476,10 @@ export default function Settings() {
                 <button
                   type="button"
                   onClick={() => setShareMethod('whatsapp')}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium transition-colors border-l border-slate-200 ${
-                    shareMethod === 'whatsapp'
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium transition-colors border-l border-slate-200 ${shareMethod === 'whatsapp'
                       ? 'bg-green-600 text-white'
                       : 'bg-white text-slate-600 hover:bg-slate-50'
-                  }`}
+                    }`}
                 >
                   <MessageCircle className="w-4 h-4" />
                   WhatsApp

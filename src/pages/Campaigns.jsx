@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { emitNotificationsChanged } from "@/lib/notificationState";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -272,6 +273,7 @@ export default function Campaigns() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      emitNotificationsChanged('updated');
       setFormOpen(false);
     },
   });
@@ -290,6 +292,7 @@ export default function Campaigns() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      emitNotificationsChanged('updated');
       setFormOpen(false);
       setEditingCampaign(null);
     },
@@ -318,6 +321,7 @@ export default function Campaigns() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      emitNotificationsChanged('updated');
       toast({
         title: "Campaign deleted",
         description: "Campaign was deleted successfully.",

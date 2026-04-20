@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { emitNotificationsChanged } from "@/lib/notificationState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -200,6 +201,7 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
     },
     onSuccess: () => {
       refreshMemberData();
+      emitNotificationsChanged('updated');
       setFormOpen(false);
     },
   });
@@ -223,6 +225,7 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
     },
     onSuccess: () => {
       refreshMemberData();
+      emitNotificationsChanged('updated');
       toast({
         title: "Member deleted",
         description: "Member was deleted successfully.",
@@ -248,6 +251,7 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
     onSuccess: (summary) => {
       finalizeImportProgress(setMemberImportProgress, "success");
       refreshMemberData();
+      emitNotificationsChanged('updated');
       const total = summary?.total_rows ?? 0;
       const created = summary?.members_created ?? 0;
       const linked = summary?.members_linked_existing ?? 0;
@@ -285,6 +289,7 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
     onSuccess: (summary) => {
       finalizeImportProgress(setChallanImportProgress, "success");
       queryClient.invalidateQueries({ queryKey: ['challans'] });
+      emitNotificationsChanged('updated');
       const total = summary?.total_rows ?? 0;
       const created = summary?.challans_created ?? 0;
       const linked = summary?.members_linked_existing ?? 0;
@@ -322,6 +327,7 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
       finalizeImportProgress(setCampaignImportProgress, "success");
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       queryClient.invalidateQueries({ queryKey: ['challans'] });
+      emitNotificationsChanged('updated');
       const total = summary?.total_rows ?? 0;
       const campaigns = summary?.campaigns_created ?? 0;
       const challans = summary?.challans_created ?? 0;

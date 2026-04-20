@@ -13,6 +13,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Loader2, Inbox, KeyRound, MessageCircle, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { useMemo } from "react";
+import { emitNotificationsChanged } from "@/lib/notificationState";
 
 const typeLabel = {
   monthly_amount_change: "Monthly Change",
@@ -84,6 +85,7 @@ export default function AdminRequests() {
     mutationFn: ({ requestId, notes }) => charityClient.requests.approve(requestId, notes),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["requests"] });
+      emitNotificationsChanged('updated');
       toast({ title: "Request approved", description: "Member has been notified." });
       setReviewOpen(false);
       setSelectedRequest(null);
@@ -103,6 +105,7 @@ export default function AdminRequests() {
     mutationFn: ({ requestId, reason, notes }) => charityClient.requests.reject(requestId, reason, notes),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["requests"] });
+      emitNotificationsChanged('updated');
       toast({ title: "Request rejected", description: "Member has been notified." });
       setReviewOpen(false);
       setSelectedRequest(null);
@@ -124,6 +127,7 @@ export default function AdminRequests() {
       // Show WhatsApp share dialog FIRST, then refresh list in background
       setPrApprovedResult(data);
       queryClient.invalidateQueries({ queryKey: ["admin", "password-reset-requests"] });
+      emitNotificationsChanged('updated');
     },
     onError: (error) => {
       toast({ title: "Approval failed", description: error?.message || "Please try again.", variant: "destructive" });
@@ -134,6 +138,7 @@ export default function AdminRequests() {
     mutationFn: ({ id, reason, notes }) => charityClient.admin.rejectPasswordReset(id, reason, notes),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin", "password-reset-requests"] });
+      emitNotificationsChanged('updated');
       toast({ title: "Reset request rejected." });
       setPrReviewOpen(false);
       setSelectedPrRequest(null);

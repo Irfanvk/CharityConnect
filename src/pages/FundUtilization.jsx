@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { emitNotificationsChanged } from "@/lib/notificationState";
 import { charityClient } from "@/api/charityClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -112,6 +113,7 @@ export default function FundUtilization() {
     mutationFn: (data) => charityClient.fundUtilizations.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fund-utilizations"] });
+      emitNotificationsChanged('updated');
       toast({ title: "Fund utilization recorded successfully." });
       closeDialog();
     },
@@ -124,6 +126,7 @@ export default function FundUtilization() {
     mutationFn: ({ id, data }) => charityClient.fundUtilizations.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fund-utilizations"] });
+      emitNotificationsChanged('updated');
       toast({ title: "Record updated successfully." });
       closeDialog();
     },
@@ -136,6 +139,7 @@ export default function FundUtilization() {
     mutationFn: (id) => charityClient.fundUtilizations.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fund-utilizations"] });
+      emitNotificationsChanged('updated');
       toast({ title: "Record deleted." });
       setDeleteTarget(null);
     },

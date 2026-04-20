@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { emitNotificationsChanged } from "@/lib/notificationState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -91,6 +92,7 @@ export default function SuperadminPanel() {
     mutationFn: ({ userId, role }) => charityClient.users.update(userId, { role }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
+      emitNotificationsChanged('updated');
       setConfirmDialog({ open: false, userId: null, targetRole: null, userName: null });
     },
   });

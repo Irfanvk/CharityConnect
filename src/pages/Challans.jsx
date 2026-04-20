@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { emitNotificationsChanged } from "@/lib/notificationState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -326,6 +327,7 @@ export default function Challans() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["challans"] });
+      emitNotificationsChanged('updated');
       setFormOpen(false);
     },
     onError: (error) => {
@@ -363,6 +365,7 @@ export default function Challans() {
       }
 
       await refreshChallanData();
+      emitNotificationsChanged('updated');
       toast({ title: "Challan approved successfully." });
     } catch (error) {
       toast({
@@ -387,6 +390,7 @@ export default function Challans() {
 
       await refreshChallanData();
       setRejectReason("");
+      emitNotificationsChanged('updated');
       toast({ title: "Challan rejected." });
     } catch (error) {
       toast({

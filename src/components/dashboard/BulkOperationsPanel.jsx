@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { CheckCircle2, Layers, Loader2, XCircle } from "lucide-react";
 import { format } from "date-fns";
+import { emitNotificationsChanged } from "@/lib/notificationState";
 
 export default function BulkOperationsPanel() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -45,6 +46,7 @@ export default function BulkOperationsPanel() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bulk-operations", "pending"] });
       queryClient.invalidateQueries({ queryKey: ["challans"] });
+      emitNotificationsChanged('updated');
       toast({
         title: "Bulk operation approved",
         description: "All linked challans were approved.",
@@ -68,6 +70,7 @@ export default function BulkOperationsPanel() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bulk-operations", "pending"] });
       queryClient.invalidateQueries({ queryKey: ["challans"] });
+      emitNotificationsChanged('updated');
       setRejectDialogOpen(false);
       setRejectReason("");
       setSelectedBulkGroupId(null);
