@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -18,9 +17,9 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -32,9 +31,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { 
-  Plus, Bell, Info, CheckCircle, AlertTriangle, 
-  Receipt, Heart, Trash2, Loader2, CheckCircle2 
+import {
+  Bell, BellOff, Plus, Trash2, Loader2,
+  Info, CheckCircle, AlertTriangle, Receipt, Heart,
+  CheckCircle2, Clock, Users, Megaphone,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/components/ui/use-toast";
@@ -45,421 +45,432 @@ import {
 } from "@/lib/notificationState";
 import { useNotifications } from "@/context/NotificationContext";
 
-const typeConfig = {
-  info: { label: "Info", color: "bg-blue-100 text-blue-700", icon: Info },
-  success: { label: "Success", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle },
-  warning: { label: "Warning", color: "bg-amber-100 text-amber-700", icon: AlertTriangle },
+const TYPE_CONFIG = {
+  info: { label: "General", color: "bg-blue-100 text-blue-700", icon: Info },
+  success: { label: "Good News", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle },
+  warning: { label: "Important", color: "bg-amber-100 text-amber-700", icon: AlertTriangle },
   payment: { label: "Payment", color: "bg-purple-100 text-purple-700", icon: Receipt },
   campaign: { label: "Campaign", color: "bg-rose-100 text-rose-700", icon: Heart },
 };
 
+function resolveAudience(label) {
+  if (!label || label === "unknown") return "All Members";
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export default function Notifications() {
   const [formOpen, setFormOpen] = useState(false);
   const [user, setUser] = useState(null);
-  const [formData, setFormData] = useState({
-    title: '',
-    message: '',
-    type: 'info',
-    target_type: 'all',
-  });
   const [loading, setLoading] = useState(false);
-  const [isDeletingSentBatch, setIsDeletingSentBatch] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  
+  const [deleteTarget, setDeleteTarget] = useState(null);      // individual notification
+  const [batchTarget, setBatchTarget] = useState(null);      // sent batch
+  const [isDeletingBatch, setIsDeletingBatch] = useState(false);
+  const [formData, setFormData] = useState({
+    title: "", message: "", type: "info", target_type: "all",
+  });
+
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const {
-    notifications,
-    unreadCount,
-    isLoading,
-    refreshNotifications,
-    markReadByIds,
-    markAllRead,
-  } = useNotifications();
+  const { notifications, unreadCount, isLoading, refreshNotifications, markReadByIds, markAllRead } =
+    useNotifications();
 
   useEffect(() => {
-    charityClient.auth.me().then(setUser).catch(() => {});
+    charityClient.auth.me().then(setUser).catch(() => { });
   }, []);
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
 
   const { data: sentBatches = [], isLoading: isLoadingSentBatches } = useQuery({
-    queryKey: ['notifications', 'sent-batches'],
+    queryKey: ["notifications", "sent-batches"],
     queryFn: () => charityClient.notifications.listSentBatches({ minutes: 10080, limit: 25 }),
     enabled: isAdmin,
   });
 
-  const handleCreateNotification = async (payload) => {
-    await charityClient.notifications.send(payload);
-    await queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    await refreshNotifications();
-    setFormOpen(false);
-    setFormData({ title: '', message: '', type: 'info', target_type: 'all' });
-  };
-
-  const handleDeleteSentBatch = async (payload) => {
-    try {
-      setIsDeletingSentBatch(true);
-      await charityClient.notifications.deleteSentBatch(payload);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['notifications', 'sent-batches'] }),
-        queryClient.invalidateQueries({ queryKey: ['notifications'] }),
-      ]);
-      await refreshNotifications();
-      emitNotificationsChanged('deleted');
-      toast({
-        title: 'Sent batch deleted',
-        description: 'Selected sent notification batch has been removed.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Batch delete failed',
-        description: error?.message || 'Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDeletingSentBatch(false);
-    }
-  };
-
-  // Filter notifications for current user
-  const userNotifications = notifications.filter(n => {
+  const userNotifications = notifications.filter((n) => {
     if (isNotificationDismissed(user?.email, n.id)) return false;
-    if (!n.target_type) return true;
-    if (n.target_type === 'all') return true;
-    if (n.target_type === 'member' && n.target_member_id === user?.email) return true;
-    if (n.target_type === 'admins' && isAdmin) return true;
+    if (!n.target_type || n.target_type === "all") return true;
+    if (n.target_type === "member" && n.target_member_id === user?.email) return true;
+    if (n.target_type === "admins" && isAdmin) return true;
     return false;
   });
 
-  const isRead = (notification) => {
-    if (notification?.is_read) return true;
-    return Boolean(notification?.read_by?.includes(user?.email));
-  };
+  const isRead = (n) => n?.is_read || Boolean(n?.read_by?.includes(user?.email));
 
-  const markAsRead = async (notification) => {
-    if (!isRead(notification)) {
-      await markReadByIds([notification.id]);
-      emitNotificationsChanged('read');
+  const markAsRead = async (n) => {
+    if (!isRead(n)) {
+      await markReadByIds([n.id]);
+      emitNotificationsChanged("read");
     }
   };
 
   const handleMarkAllAsRead = async () => {
     await markAllRead();
-    emitNotificationsChanged('read');
-  };
-
-  const handleDeleteNotification = async (notification) => {
-    try {
-      if (isAdmin) {
-        await charityClient.notifications.delete(notification.id);
-        await queryClient.invalidateQueries({ queryKey: ['notifications'] });
-        await refreshNotifications();
-        emitNotificationsChanged('deleted');
-        toast({
-          title: 'Notification deleted',
-          description: 'Notification has been removed.',
-        });
-        return;
-      }
-
-      // Members can only remove from their own list (local dismiss), not globally delete.
-      dismissNotificationForUser(user?.email, notification.id);
-      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      await refreshNotifications();
-      emitNotificationsChanged('dismissed');
-      toast({
-        title: 'Notification removed',
-        description: 'This notification was removed from your list.',
-      });
-    } catch (error) {
-      const isForbidden = error?.status === 403;
-      toast({
-        title: isForbidden ? 'Action not allowed' : 'Could not remove notification',
-        description: isForbidden
-          ? 'Only admins can delete notifications for everyone.'
-          : (error?.message || 'Please try again.'),
-        variant: 'destructive',
-      });
-    }
+    emitNotificationsChanged("read");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await handleCreateNotification({ ...formData });
+      await charityClient.notifications.send({ ...formData });
+      await queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      await refreshNotifications();
+      setFormOpen(false);
+      setFormData({ title: "", message: "", type: "info", target_type: "all" });
+      toast({ title: "Announcement sent!" });
+    } catch (err) {
+      toast({ title: "Failed to send", description: err?.message || "Please try again.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
+  const handleDeleteNotification = async (notification) => {
+    try {
+      if (isAdmin) {
+        await charityClient.notifications.delete(notification.id);
+        await queryClient.invalidateQueries({ queryKey: ["notifications"] });
+        await refreshNotifications();
+        emitNotificationsChanged("deleted");
+        toast({ title: "Notification deleted" });
+        return;
+      }
+      dismissNotificationForUser(user?.email, notification.id);
+      await queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      await refreshNotifications();
+      emitNotificationsChanged("dismissed");
+      toast({ title: "Removed from your inbox" });
+    } catch (err) {
+      toast({
+        title: err?.status === 403 ? "Not allowed" : "Could not remove",
+        description: err?.message || "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteBatch = async (batch) => {
+    setIsDeletingBatch(true);
+    try {
+      await charityClient.notifications.deleteSentBatch({
+        batch_created_at: batch.batch_created_at,
+        title: batch.title,
+        message: batch.message,
+        recipient_scope: "all",
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["notifications", "sent-batches"] }),
+        queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+      ]);
+      await refreshNotifications();
+      emitNotificationsChanged("deleted");
+      toast({ title: "Announcement deleted" });
+    } catch (err) {
+      toast({ title: "Delete failed", description: err?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setIsDeletingBatch(false);
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+    <div className="max-w-2xl mx-auto space-y-8">
+
+      {/* ── Header ──────────────────────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
-          <p className="text-slate-500">Stay updated with latest announcements</p>
+          <p className="text-sm text-slate-500 mt-0.5">
+            {isAdmin
+              ? "Send announcements to members and review your inbox"
+              : "Your latest updates and announcements"}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="bg-slate-100 text-slate-700 border border-slate-200">Unread: {unreadCount}</Badge>
-          <Button variant="outline" onClick={handleMarkAllAsRead} disabled={unreadCount === 0}>
-            Mark all read
+        {isAdmin && (
+          <Button
+            onClick={() => setFormOpen(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 shrink-0"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Send Announcement
           </Button>
-          {isAdmin && (
-            <Button
-              onClick={() => setFormOpen(true)}
-              className="bg-emerald-600 hover:bg-emerald-700"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Post Notification
-            </Button>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* Notifications List */}
+      {/* ── Send History (admin only) ────────────────────────────────── */}
       {isAdmin && (
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Sent Batches</h2>
-              <p className="text-xs text-slate-500">Last 7 days</p>
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Megaphone className="w-4 h-4 text-slate-400" />
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Send History
+              </span>
             </div>
+            <span className="text-xs text-slate-400">Last 7 days</span>
+          </div>
 
-            {isLoadingSentBatches ? (
-              <div className="text-sm text-slate-500">Loading sent batches...</div>
-            ) : sentBatches.length === 0 ? (
-              <div className="text-sm text-slate-500">No sent batches found.</div>
-            ) : (
-              <div className="space-y-3">
-                {sentBatches.map((batch) => {
-                  const key = `${batch.batch_created_at}|${batch.title}|${batch.message}`;
-                  return (
-                    <div key={key} className="rounded-lg border border-slate-200 p-3 bg-slate-50">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-1 min-w-0">
-                          <p className="font-medium text-slate-900 truncate">{batch.title}</p>
-                          <p className="text-sm text-slate-600 line-clamp-2">{batch.message}</p>
-                          <p className="text-xs text-slate-500">
-                            {format(new Date(batch.batch_created_at), "MMM d, yyyy 'at' h:mm a")} · {batch.audience_label} · {batch.total_recipients} recipients
-                          </p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={isDeletingSentBatch}
-                          onClick={() => handleDeleteSentBatch({
-                            batch_created_at: batch.batch_created_at,
-                            title: batch.title,
-                            message: batch.message,
-                            recipient_scope: 'all',
-                          })}
-                        >
-                          {isDeletingSentBatch ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete Batch'}
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {isLoading ? (
-        <div className="text-center py-12 text-slate-500">Loading notifications...</div>
-      ) : userNotifications.length === 0 ? (
-        <Card className="border-0 shadow-sm">
-          <CardContent className="text-center py-12">
-            <Bell className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-500">No notifications yet</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {userNotifications.map((notification) => {
-            const type = typeConfig[notification.type] || typeConfig.info;
-            const isRequestApproved = String(notification?.title || '').startsWith('Request Approved');
-            const isRequestUpdate = String(notification?.title || '').startsWith('Request Update');
-            const TypeIcon = isRequestApproved ? CheckCircle2 : isRequestUpdate ? Info : type.icon;
-            const iconColorClass = isRequestApproved
-              ? 'bg-emerald-100 text-emerald-700'
-              : isRequestUpdate
-              ? 'bg-amber-100 text-amber-700'
-              : type.color;
-            const read = isRead(notification);
-
-            return (
-              <Card 
-                key={notification.id} 
-                className={`border-0 shadow-sm hover:shadow-md transition-all cursor-pointer ${
-                  !read ? 'bg-emerald-50/50 border-l-4 border-l-emerald-500' : ''
-                }`}
-                onClick={() => markAsRead(notification)}
-              >
-                <CardContent className="p-5">
-                  <div className="flex items-start gap-4">
-                    <div className={`w-10 h-10 rounded-lg ${iconColorClass} flex items-center justify-center flex-shrink-0`}>
-                      <TypeIcon className="w-5 h-5" />
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-slate-900">{notification.title}</h3>
-                            {!read && (
-                              <Badge variant="secondary" className="bg-emerald-500 text-white text-xs">New</Badge>
-                            )}
-                          </div>
-                          <p className="text-slate-600">{notification.message}</p>
-                          <p className="text-xs text-slate-400 mt-2">
-                            {format(new Date(notification.created_date), "MMM d, yyyy 'at' h:mm a")}
-                          </p>
-                        </div>
-                        
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={(e) => { 
-                            e.stopPropagation(); 
-                            setDeleteTarget(notification);
-                          }}
-                          className="text-slate-400 hover:text-rose-500"
-                          title={isAdmin ? "Delete this notification record" : "Remove notification"}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+          {isLoadingSentBatches ? (
+            <div className="flex items-center gap-2 py-8 text-sm text-slate-400">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+            </div>
+          ) : sentBatches.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 py-10 text-center">
+              <Megaphone className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+              <p className="text-sm text-slate-400">No announcements sent this week</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {sentBatches.map((batch) => (
+                <div
+                  key={`${batch.batch_created_at}|${batch.title}`}
+                  className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 hover:bg-slate-50 transition-colors"
+                >
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="font-medium text-slate-900 truncate">{batch.title}</p>
+                    <p className="text-sm text-slate-500 line-clamp-1">{batch.message}</p>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-400 pt-0.5">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {format(new Date(batch.batch_created_at), "d MMM yyyy, h:mm a")}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Users className="w-3 h-3" />
+                        {batch.total_recipients} · {resolveAudience(batch.audience_label)}
+                      </span>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                  <button
+                    onClick={() => setBatchTarget(batch)}
+                    className="text-slate-300 hover:text-rose-500 transition-colors p-1 mt-0.5 rounded shrink-0"
+                    title="Delete this announcement"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       )}
 
-      {/* Delete/Remove Confirmation Dialog */}
-      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+      {/* ── My Inbox ─────────────────────────────────────────────────── */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Bell className="w-4 h-4 text-slate-400" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              My Inbox
+            </span>
+            {unreadCount > 0 && (
+              <Badge className="bg-emerald-500 text-white text-xs h-5 px-1.5 leading-none">
+                {unreadCount} new
+              </Badge>
+            )}
+          </div>
+          {unreadCount > 0 && (
+            <button
+              onClick={handleMarkAllAsRead}
+              className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+            >
+              Mark all as read
+            </button>
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center gap-2 py-8 text-sm text-slate-400">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+          </div>
+        ) : userNotifications.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-200 py-10 text-center">
+            <BellOff className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+            <p className="text-sm text-slate-400">You're all caught up — no notifications</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {userNotifications.map((notification) => {
+              const cfg = TYPE_CONFIG[notification.type] || TYPE_CONFIG.info;
+              const isApp = String(notification.title || "").startsWith("Request Approved");
+              const isUpd = String(notification.title || "").startsWith("Request Update");
+              const Icon = isApp ? CheckCircle2 : isUpd ? AlertTriangle : cfg.icon;
+              const iconClass = isApp
+                ? "bg-emerald-100 text-emerald-700"
+                : isUpd ? "bg-amber-100 text-amber-700"
+                  : cfg.color;
+              const read = isRead(notification);
+
+              return (
+                <div
+                  key={notification.id}
+                  onClick={() => markAsRead(notification)}
+                  className={`relative flex items-start gap-3 rounded-xl border p-4 cursor-pointer transition-all group
+                    ${read
+                      ? "border-slate-200 bg-white hover:bg-slate-50"
+                      : "border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50"
+                    }`}
+                >
+                  {/* Unread dot */}
+                  {!read && (
+                    <span className="absolute top-4 right-10 w-2 h-2 rounded-full bg-emerald-500" />
+                  )}
+
+                  <div className={`w-9 h-9 rounded-lg ${iconClass} flex items-center justify-center shrink-0`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+
+                  <div className="flex-1 min-w-0 pr-2">
+                    <p className={`font-medium leading-snug ${read ? "text-slate-700" : "text-slate-900"}`}>
+                      {notification.title}
+                    </p>
+                    <p className="text-sm text-slate-500 mt-0.5 line-clamp-2">{notification.message}</p>
+                    <p className="text-xs text-slate-400 mt-1.5">
+                      {format(new Date(notification.created_date), "d MMM yyyy, h:mm a")}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(notification); }}
+                    className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 transition-all p-1 rounded shrink-0 mt-0.5"
+                    title="Remove"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ── Delete Notification Confirm ─────────────────────────────── */}
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
         <AlertDialogContent>
-          <AlertDialogHeader className="space-y-2">
-            <AlertDialogTitle>{isAdmin ? "Delete Notification Record" : "Remove Notification"}</AlertDialogTitle>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this notification?</AlertDialogTitle>
             <AlertDialogDescription>
-              {isAdmin ? (
-                <>
-                  Are you sure you want to delete <strong>{deleteTarget?.title}</strong>?
-                </>
-              ) : (
-                <>
-                  Remove <strong>{deleteTarget?.title}</strong> from your notification list?
-                </>
-              )}
+              <strong>{deleteTarget?.title}</strong> will be{" "}
+              {isAdmin ? "permanently deleted for everyone." : "removed from your inbox."}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2">
+          <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-rose-600 hover:bg-rose-700 focus:ring-rose-600"
+              className="bg-rose-600 hover:bg-rose-700"
               onClick={async () => {
                 const target = deleteTarget;
                 setDeleteTarget(null);
-                if (target) {
-                  await handleDeleteNotification(target);
-                }
+                await handleDeleteNotification(target);
               }}
             >
-              Yes
+              Remove
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Create Notification Dialog */}
+      {/* ── Delete Batch Confirm ────────────────────────────────────── */}
+      <AlertDialog open={Boolean(batchTarget)} onOpenChange={(o) => { if (!o) setBatchTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this announcement?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{batchTarget?.title}</strong> will be removed from everyone's inbox.
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingBatch}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 hover:bg-rose-700"
+              disabled={isDeletingBatch}
+              onClick={async () => {
+                const target = batchTarget;
+                setBatchTarget(null);
+                await handleDeleteBatch(target);
+              }}
+            >
+              {isDeletingBatch ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Send Announcement Dialog ────────────────────────────────── */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-xl font-semibold">Post Notification</DialogTitle>
+            <DialogTitle>Send Announcement</DialogTitle>
             <DialogDescription>
-              Create and send a notification to members or admins.
+              Delivered immediately to the audience you choose.
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
+          <form onSubmit={handleSubmit} className="space-y-4 pt-1">
+            <div className="space-y-1.5">
               <Label htmlFor="title">Title *</Label>
               <Input
                 id="title"
                 value={formData.title}
-                onChange={(e) => setFormData({...formData, title: e.target.value})}
-                placeholder="Notification title"
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="e.g. Challan Due Reminder"
                 required
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="message">Message *</Label>
               <Textarea
                 id="message"
                 value={formData.message}
-                onChange={(e) => setFormData({...formData, message: e.target.value})}
-                placeholder="Write your message..."
+                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                placeholder="Write a clear, short message for your audience…"
                 rows={4}
                 required
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <Select
-                  value={formData.type}
-                  onValueChange={(value) => setFormData({...formData, type: value})}
-                >
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Category</Label>
+                <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="info">Info</SelectItem>
-                    <SelectItem value="success">Success</SelectItem>
-                    <SelectItem value="warning">Warning</SelectItem>
-                    <SelectItem value="payment">Payment</SelectItem>
-                    <SelectItem value="campaign">Campaign</SelectItem>
+                    <SelectItem value="info">📋 General</SelectItem>
+                    <SelectItem value="success">✅ Good News</SelectItem>
+                    <SelectItem value="warning">⚠️ Important</SelectItem>
+                    <SelectItem value="payment">💳 Payment</SelectItem>
+                    <SelectItem value="campaign">❤️ Campaign</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label>Target</Label>
-                <Select
-                  value={formData.target_type}
-                  onValueChange={(value) => setFormData({...formData, target_type: value})}
-                >
+              <div className="space-y-1.5">
+                <Label>Send To</Label>
+                <Select value={formData.target_type} onValueChange={(v) => setFormData({ ...formData, target_type: v })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Members</SelectItem>
-                    <SelectItem value="admins">Admins Only</SelectItem>
+                    <SelectItem value="all">👥 Everyone</SelectItem>
+                    <SelectItem value="admins">🔒 Admins only</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4">
+            <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
-                disabled={loading || !formData.title || !formData.message}
+              <Button
+                type="submit"
+                disabled={loading || !formData.title.trim() || !formData.message.trim()}
                 className="bg-emerald-600 hover:bg-emerald-700"
               >
                 {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Post Notification
+                Send Now
               </Button>
             </div>
           </form>
