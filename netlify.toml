@@ -2,6 +2,16 @@
   command = "npm run build"
   publish = "dist"
 
+# ── Production environment variables ─────────────────────────────────────────
+# Set VITE_CHARITY_APP_BASE_URL in Netlify dashboard:
+#   Site configuration → Environment variables → Add variable
+#   Key:   VITE_CHARITY_APP_BASE_URL
+#   Value: https://<your-app>.onrender.com          ← your Render backend URL
+#
+# Set VITE_WEB_PUSH_PUBLIC_KEY to the same VAPID public key configured on Render.
+# Both values are safe to expose publicly (they are not secrets).
+# ─────────────────────────────────────────────────────────────────────────────
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -17,6 +27,14 @@
   for = "/sw.js"
     [headers.values]
     Cache-Control = "no-cache"
+
+# Push notification service worker — must never be cached and must be
+# allowed to control the entire origin scope ("/").
+[[headers]]
+  for = "/push-sw.js"
+    [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Service-Worker-Allowed = "/"
 
 [[headers]]
   for = "/*.js"

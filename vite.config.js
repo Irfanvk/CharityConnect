@@ -83,6 +83,7 @@ export default defineConfig(({ mode }) => {
         injectRegister: 'null',
         manifestFilename: 'manifest.json',
         workbox: {
+          importScripts: ['/push-sw.js'],
           cleanupOutdatedCaches: true,
           // Don't force-take control on update — prevents cache mismatch blanks.
           skipWaiting: false,

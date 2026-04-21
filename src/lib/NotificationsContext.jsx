@@ -10,8 +10,10 @@ const NotificationsContext = createContext(null);
 const DEBOUNCE_MS = 500;
 // ✅ Minimum interval between auto-refreshes (not forced ones)
 const MIN_INTERVAL_MS = 5000;
-// ✅ Poll interval — 60s is sufficient; 30s was too aggressive for a charity app
-const POLL_INTERVAL_MS = 60_000;
+const VISIBLE_POLL_INTERVAL_MS = 15_000;
+const HIDDEN_POLL_INTERVAL_MS = 60_000;
+const NOTIFICATIONS_BROADCAST_CHANNEL = 'charityhub:notifications';
+const NOTIFICATIONS_STORAGE_KEY = 'charityhub:notifications:snapshot';
 
 export function NotificationsProvider({ children }) {
   const { isAuthenticated } = useAuth();
@@ -28,9 +30,48 @@ export function NotificationsProvider({ children }) {
   // ✅ Stable refs so event handlers never close over stale state
   const notificationsRef = useRef([]);
   const unreadCountRef = useRef(0);
+  const latestSnapshotAtRef = useRef(0);
 
   useEffect(() => { notificationsRef.current = notifications; }, [notifications]);
   useEffect(() => { unreadCountRef.current = unreadCount; }, [unreadCount]);
+
+  const applyFeed = useCallback((feed, options = {}) => {
+    const normalizedItems = Array.isArray(feed?.items) ? feed.items : [];
+    const normalizedUnreadCount = Number(feed?.unread_count ?? 0);
+    const snapshotAt = Number(feed?.snapshot_at ?? Date.now());
+
+    latestSnapshotAtRef.current = snapshotAt;
+    setNotifications(normalizedItems);
+    setUnreadCount(normalizedUnreadCount);
+
+    if (options?.broadcast === false || typeof window === 'undefined') {
+      return {
+        items: normalizedItems,
+        unread_count: normalizedUnreadCount,
+        snapshot_at: snapshotAt,
+      };
+    }
+
+    const snapshot = {
+      items: normalizedItems,
+      unread_count: normalizedUnreadCount,
+      snapshot_at: snapshotAt,
+    };
+
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel(NOTIFICATIONS_BROADCAST_CHANNEL);
+      channel.postMessage(snapshot);
+      channel.close();
+    }
+
+    try {
+      window.localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(snapshot));
+    } catch {
+      // Ignore storage quota/private-mode failures.
+    }
+
+    return snapshot;
+  }, []);
 
   // ─── Core fetch ────────────────────────────────────────────────────────────
 
@@ -61,14 +102,14 @@ export function NotificationsProvider({ children }) {
     inFlightPromiseRef.current = (async () => {
       try {
         const feed = await charityClient.notifications.feed(params);
-        setNotifications(Array.isArray(feed?.items) ? feed.items : []);
-        setUnreadCount(Number(feed?.unread_count ?? 0));
-        return feed;
+        return applyFeed(feed);
       } catch {
-        // Silently fail — notifications are non-critical
-        setNotifications([]);
-        setUnreadCount(0);
-        return { items: [], unread_count: 0 };
+        // Keep the last known state on transient failures instead of clearing UI badges.
+        return {
+          items: notificationsRef.current,
+          unread_count: unreadCountRef.current,
+          snapshot_at: latestSnapshotAtRef.current,
+        };
       } finally {
         inFlightPromiseRef.current = null;
         setIsLoading(false);
@@ -76,7 +117,7 @@ export function NotificationsProvider({ children }) {
     })();
 
     return inFlightPromiseRef.current;
-  }, []);
+  }, [applyFeed]);
 
   // ✅ Debounced public refresh — used by event handlers so rapid-fire events
   // (focus + visibilitychange + NOTIFICATIONS_CHANGED all at once) collapse into one call.
@@ -141,23 +182,71 @@ export function NotificationsProvider({ children }) {
       refresh(undefined, { force: true });
     };
 
-    // ✅ Slower poll — 60s is plenty for a charity management app.
-    const intervalId = window.setInterval(() => {
-      refresh();
-    }, POLL_INTERVAL_MS);
+    const onOnline = () => {
+      refresh(undefined, { force: true });
+    };
+
+    const applyIncomingSnapshot = (snapshot) => {
+      const snapshotAt = Number(snapshot?.snapshot_at || 0);
+      if (!snapshotAt || snapshotAt <= latestSnapshotAtRef.current) return;
+      applyFeed(snapshot, { broadcast: false });
+    };
+
+    let channel = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      channel = new BroadcastChannel(NOTIFICATIONS_BROADCAST_CHANNEL);
+      channel.onmessage = (event) => {
+        applyIncomingSnapshot(event?.data);
+      };
+    }
+
+    const onStorage = (event) => {
+      if (event.key !== NOTIFICATIONS_STORAGE_KEY || !event.newValue) return;
+
+      try {
+        applyIncomingSnapshot(JSON.parse(event.newValue));
+      } catch {
+        // Ignore malformed storage payloads.
+      }
+    };
+
+    const unsubscribeRealtime = charityClient.notifications.subscribe(() => {
+      refresh(undefined, { force: true });
+    });
+
+    let pollTimeoutId = 0;
+    const schedulePoll = () => {
+      window.clearTimeout(pollTimeoutId);
+      const pollInterval = document.visibilityState === 'visible'
+        ? VISIBLE_POLL_INTERVAL_MS
+        : HIDDEN_POLL_INTERVAL_MS;
+
+      pollTimeoutId = window.setTimeout(() => {
+        refresh();
+        schedulePoll();
+      }, pollInterval);
+    };
+
+    schedulePoll();
 
     window.addEventListener('focus', onVisibilityOrFocus);
+    window.addEventListener('online', onOnline);
     document.addEventListener('visibilitychange', onVisibilityOrFocus);
     window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, onNotificationsChanged);
+    window.addEventListener('storage', onStorage);
 
     return () => {
-      window.clearInterval(intervalId);
+      window.clearTimeout(pollTimeoutId);
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      unsubscribeRealtime();
+      if (channel) channel.close();
       window.removeEventListener('focus', onVisibilityOrFocus);
+      window.removeEventListener('online', onOnline);
       document.removeEventListener('visibilitychange', onVisibilityOrFocus);
       window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, onNotificationsChanged);
+      window.removeEventListener('storage', onStorage);
     };
-  }, [isAuthenticated, fetchFeed, refresh]);
+  }, [isAuthenticated, applyFeed, fetchFeed, refresh]);
 
   // ─── Context value ─────────────────────────────────────────────────────────
 

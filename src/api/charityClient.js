@@ -1129,10 +1129,60 @@ const charityClient = {
     markAllAsRead: () =>
       apiFetch(API_PATHS.notifications.markAllRead, { method: 'POST' }),
 
+    getPushPublicKey: () =>
+      apiFetch(API_PATHS.notifications.pushPublicKey, { method: 'GET' }),
+
+    pushSubscribe: (subscription) =>
+      apiFetch(API_PATHS.notifications.pushSubscribe, {
+        method: 'POST',
+        body: JSON.stringify(subscription),
+      }),
+
+    pushUnsubscribe: (endpoint) =>
+      apiFetch(API_PATHS.notifications.pushUnsubscribe, {
+        method: 'POST',
+        body: JSON.stringify({ endpoint }),
+      }),
+
     subscribe: (callback) => {
-      // SSE or websocket subscription logic if needed
-      void callback;
-      return () => { }; // Return unsubscribe function
+      if (typeof window === 'undefined' || typeof callback !== 'function') {
+        return () => {};
+      }
+
+      const configuredStreamUrl = String(import.meta.env.VITE_NOTIFICATIONS_STREAM_URL || '').trim();
+      const token = getAuthToken();
+
+      if (!token || typeof EventSource === 'undefined') {
+        return () => {};
+      }
+
+      const streamUrl = configuredStreamUrl
+        ? new URL(configuredStreamUrl, window.location.origin)
+        : new URL(buildUrl(API_PATHS.notifications.stream, { access_token: token }));
+
+      if (configuredStreamUrl) {
+        streamUrl.searchParams.set('access_token', token);
+      }
+
+      const eventSource = new EventSource(streamUrl.toString());
+
+      eventSource.onmessage = (event) => {
+        if (!event?.data) return;
+
+        try {
+          callback(JSON.parse(event.data));
+        } catch {
+          // Ignore malformed realtime payloads; polling fallback still keeps state fresh.
+        }
+      };
+
+      eventSource.onerror = () => {
+        // Native EventSource reconnects automatically; keep silent here.
+      };
+
+      return () => {
+        eventSource.close();
+      };
     },
   },
 

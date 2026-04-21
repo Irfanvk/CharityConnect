@@ -48,12 +48,6 @@ async function cleanupIOSServiceWorkers() {
 }
 
 function registerServiceWorker() {
-  // iOS browsers are more prone to stale-cache blank screens in installed/PWA mode.
-  // Skip registration on iOS entirely; the iOS cleanup above handles stale SWs.
-  if (isIOSDevice()) {
-    return;
-  }
-
   const updateSW = registerSW({
     immediate: true,
   });

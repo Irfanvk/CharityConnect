@@ -65,6 +65,10 @@ export const API_PATHS = {
   notifications: {
     list: '/notifications/',
     feed: '/notifications/feed',
+    stream: '/notifications/stream',
+    pushPublicKey: '/notifications/push/public-key',
+    pushSubscribe: '/notifications/push/subscribe',
+    pushUnsubscribe: '/notifications/push/unsubscribe',
     sendWhatsApp: '/notifications/send-whatsapp',
     byId: (id) => `/notifications/${id}`,
     read: (id) => `/notifications/${id}/read`,
