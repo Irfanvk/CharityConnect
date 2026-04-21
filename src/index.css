@@ -85,6 +85,20 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  @supports (min-height: 100dvh) {
+    html,
+    body,
+    #root {
+      min-height: 100dvh;
+    }
+  }
 }
 
 /* iOS Safari Compatibility Optimizations */
@@ -132,6 +146,7 @@ a {
 /* Disable elastic scroll bounce on iOS (while still allowing scroll) */
 html, body {
   overscroll-behavior-y: contain;
+  overscroll-behavior-x: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }

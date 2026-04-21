@@ -1,17 +1,17 @@
 // @ts-nocheck
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { charityClient } from "@/api/charityClient";
 import { useAuth } from "@/lib/AuthContext";
 import { APP_BRAND, APP_IMAGES, PAGE_PATHS, ROUTE_KEYS } from "@/config/appPaths";
 import { pagesConfig } from "@/pages.config";
-import { 
-  LayoutDashboard, 
-  Users, 
-  Receipt, 
-  Heart, 
-  Bell, 
-  Menu, 
+import {
+  LayoutDashboard,
+  Users,
+  Receipt,
+  Heart,
+  Bell,
+  Menu,
   LogOut,
   ChevronDown,
   User,
@@ -46,6 +46,8 @@ export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [logoLoadError, setLogoLoadError] = useState(false);
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
   const currentUser = authUser;
   const currentUserId = currentUser?.id ?? null;
   const currentUserRole = currentUser?.role ?? null;
@@ -85,6 +87,24 @@ export default function Layout({ children, currentPageName }) {
     };
   }, [currentUserId, loadPendingRequestsCount]);
 
+  useEffect(() => {
+    const isMobileViewport = window.matchMedia('(max-width: 1023px)').matches;
+    if (!isMobileViewport) return;
+
+    if (sidebarOpen) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    };
+  }, [sidebarOpen]);
+
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const isSuperadmin = currentUser?.role === 'superadmin';
   const displayName =
@@ -105,23 +125,23 @@ export default function Layout({ children, currentPageName }) {
     { name: "Fund Utilization", href: ROUTE_KEYS.FUND_UTILIZATION, path: PAGE_PATHS.FUND_UTILIZATION, icon: Wallet, adminOnly: true },
     ...(hasRequestsPage
       ? [
-          isAdmin
-            ? {
-                name: "Requests",
-                href: ROUTE_KEYS.ADMIN_REQUESTS,
-                path: PAGE_PATHS.ADMIN_REQUESTS,
-                icon: Inbox,
-                badge: pendingRequestsCount,
-                adminOnly: true,
-              }
-            : {
-                name: "My Requests",
-                href: ROUTE_KEYS.REQUESTS,
-                path: '/requests',
-                icon: MessageSquare,
-                badge: pendingRequestsCount,
-              },
-        ]
+        isAdmin
+          ? {
+            name: "Requests",
+            href: ROUTE_KEYS.ADMIN_REQUESTS,
+            path: PAGE_PATHS.ADMIN_REQUESTS,
+            icon: Inbox,
+            badge: pendingRequestsCount,
+            adminOnly: true,
+          }
+          : {
+            name: "My Requests",
+            href: ROUTE_KEYS.REQUESTS,
+            path: '/requests',
+            icon: MessageSquare,
+            badge: pendingRequestsCount,
+          },
+      ]
       : []),
     { name: "Notifications", href: ROUTE_KEYS.NOTIFICATIONS, path: PAGE_PATHS.NOTIFICATIONS, icon: Bell, badge: unreadCount },
     { name: "Documentation", href: ROUTE_KEYS.DOCUMENTATION, path: PAGE_PATHS.DOCUMENTATION, icon: FileText },
@@ -138,8 +158,31 @@ export default function Layout({ children, currentPageName }) {
   const mainPages = [ROUTE_KEYS.DASHBOARD, ROUTE_KEYS.MEMBERS, ROUTE_KEYS.CHALLANS, ROUTE_KEYS.CAMPAIGNS, ROUTE_KEYS.PROFILE];
   const isMainPage = mainPages.includes(currentPageName);
 
+  const handleSidebarTouchStart = useCallback((event) => {
+    const touch = event.touches?.[0];
+    if (!touch) return;
+    touchStartX.current = touch.clientX;
+    touchStartY.current = touch.clientY;
+  }, []);
+
+  const handleSidebarTouchEnd = useCallback((event) => {
+    if (!sidebarOpen) return;
+    if (!window.matchMedia('(max-width: 1023px)').matches) return;
+
+    const touch = event.changedTouches?.[0];
+    if (!touch) return;
+
+    const deltaX = touch.clientX - touchStartX.current;
+    const deltaY = touch.clientY - touchStartY.current;
+
+    // Close only on a deliberate horizontal left swipe.
+    if (deltaX < -56 && Math.abs(deltaY) < 72) {
+      setSidebarOpen(false);
+    }
+  }, [sidebarOpen]);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900" style={{ minHeight: '100dvh' }}>
       <NotificationManager user={currentUser} />
       <style>{`
         :root {
@@ -178,7 +221,7 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
@@ -186,36 +229,39 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Sidebar */}
       <aside className={`
-        fixed top-0 left-0 z-50 h-full w-72 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800
-        transform transition-transform duration-300 ease-out
+        fixed inset-y-0 left-0 z-50 h-[100dvh] w-72 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800
+        transform transition-transform duration-200 ease-out lg:duration-300
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0
-      `}>
-        <div className="flex flex-col h-full">
-                {/* Logo */}
-                <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-3">
-                    {logoLoadError ? (
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-                        <Heart className="w-5 h-5 text-white" />
-                      </div>
-                    ) : (
-                      <img
-                        src={APP_IMAGES.LOGOS.PRIMARY}
-                        alt={`${APP_BRAND.NAME} logo`}
-                        className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-emerald-500/30"
-                        onError={() => setLogoLoadError(true)}
-                      />
-                    )}
-                    <div>
-                      <h1 className="font-bold text-slate-800 dark:text-white text-lg tracking-tight">{APP_BRAND.NAME}</h1>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{APP_BRAND.TAGLINE}</p>
-                    </div>
-                  </div>
+      `}
+        onTouchStart={handleSidebarTouchStart}
+        onTouchEnd={handleSidebarTouchEnd}
+      >
+        <div className="flex h-full min-h-0 flex-col">
+          {/* Logo */}
+          <div className="p-6 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              {logoLoadError ? (
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                  <Heart className="w-5 h-5 text-white" />
                 </div>
+              ) : (
+                <img
+                  src={APP_IMAGES.LOGOS.PRIMARY}
+                  alt={`${APP_BRAND.NAME} logo`}
+                  className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-emerald-500/30"
+                  onError={() => setLogoLoadError(true)}
+                />
+              )}
+              <div>
+                <h1 className="font-bold text-slate-800 dark:text-white text-lg tracking-tight">{APP_BRAND.NAME}</h1>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{APP_BRAND.TAGLINE}</p>
+              </div>
+            </div>
+          </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
+          <nav className="flex-1 min-h-0 p-4 space-y-1.5 overflow-y-auto">
             {filteredNav.map((item) => {
               const isActive = currentPageName === item.href;
               return (
@@ -225,8 +271,8 @@ export default function Layout({ children, currentPageName }) {
                   onClick={() => setSidebarOpen(false)}
                   className={`
                     flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 select-none
-                    ${isActive 
-                      ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 shadow-sm' 
+                    ${isActive
+                      ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 shadow-sm'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'}
                   `}
                 >
@@ -244,7 +290,7 @@ export default function Layout({ children, currentPageName }) {
 
           {/* User section */}
           {currentUser && (
-            <div className="p-4 pb-20 lg:pb-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="sticky bottom-0 z-10 mt-auto border-t border-slate-100 bg-white/90 p-4 pb-20 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/90 lg:pb-4">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors select-none">
@@ -278,7 +324,7 @@ export default function Layout({ children, currentPageName }) {
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     onClick={() => {
                       logout();
                     }}
@@ -297,7 +343,7 @@ export default function Layout({ children, currentPageName }) {
       {/* Main content */}
       <div className="lg:pl-72 pb-16 lg:pb-0">
         {/* Top bar */}
-        <header 
+        <header
           className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800"
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
@@ -305,14 +351,14 @@ export default function Layout({ children, currentPageName }) {
             {!isMainPage ? (
               <BackButton />
             ) : (
-              <button 
+              <button
                 onClick={() => setSidebarOpen(true)}
                 className="lg:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 select-none"
               >
                 <Menu className="w-5 h-5 text-slate-600 dark:text-slate-400" />
               </button>
             )}
-            
+
             <div className="flex-1 lg:flex-none">
               <h2 className="text-lg font-semibold text-slate-800 dark:text-white hidden lg:block">
                 {currentPageName}
