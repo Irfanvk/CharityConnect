@@ -182,7 +182,7 @@ export default function Layout({ children, currentPageName }) {
   }, [sidebarOpen]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900" style={{ minHeight: '100dvh' }}>
+    <div className="min-h-screen lg:h-[100dvh] lg:overflow-hidden bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900" style={{ minHeight: '100dvh' }}>
       <NotificationManager user={currentUser} />
       <style>{`
         :root {
@@ -341,7 +341,7 @@ export default function Layout({ children, currentPageName }) {
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-72 pb-16 lg:pb-0">
+      <div className="lg:pl-72 pb-16 lg:pb-0 lg:h-[100dvh] lg:overflow-y-auto">
         {/* Top bar */}
         <header
           className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800"

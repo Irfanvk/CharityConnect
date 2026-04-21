@@ -745,6 +745,12 @@ const charityClient = {
       }
     },
 
+    delete: async (id) => {
+      return apiFetch(API_PATHS.challans.byId(id), {
+        method: 'DELETE',
+      });
+    },
+
     uploadProof: async (id, file) => {
       const formData = new FormData();
       formData.append('file', file);

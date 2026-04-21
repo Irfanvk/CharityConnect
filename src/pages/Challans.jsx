@@ -27,6 +27,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus,
@@ -42,6 +52,8 @@ import {
   Image as ImageIcon,
   Loader2,
   Undo2,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
 import ChallanForm from "@/components/challans/ChallanForm";
@@ -133,6 +145,10 @@ export default function Challans() {
   const [formOpen, setFormOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [selectedChallan, setSelectedChallan] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editChallan, setEditChallan] = useState(null);
+  const [editData, setEditData] = useState({ month: "", amount: "" });
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [proofViewOpen, setProofViewOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -159,10 +175,18 @@ export default function Challans() {
   const debouncedSearch = useDebounce(search, 400);
 
   // ── Supporting data ───────────────────────────────────────────────────────
+  // Admins can list all members; regular members cannot — they get 403 or []
+  // from the members list endpoint. Fetch own profile via /members/me instead.
   const { data: members = [] } = useQuery({
     queryKey: ["members"],
     queryFn: () => charityClient.members.list(),
-    enabled: !!user,
+    enabled: !!user && isAdmin,
+  });
+
+  const { data: myMemberFromApi } = useQuery({
+    queryKey: ["members", "me"],
+    queryFn: () => charityClient.members.me(),
+    enabled: !!user && !isAdmin,
   });
 
   const { data: campaigns = [] } = useQuery({
@@ -173,7 +197,14 @@ export default function Challans() {
 
   // The member record linked to the logged-in user.
   // Used to scope the challans API call for non-admin users.
-  const myMember = members.find((m) => m.email === user?.email);
+  const myMember = isAdmin
+    ? members.find((m) => m.email === user?.email)
+    : myMemberFromApi ?? null;
+
+  // Members array passed to ChallanForm:
+  // - Admins: full list (for member picker)
+  // - Members: single-item array so ChallanForm can resolve the name
+  const membersForForm = isAdmin ? members : (myMember ? [myMember] : []);
 
   // ── Server-side filter param builder ─────────────────────────────────────
   /**
@@ -307,9 +338,44 @@ export default function Challans() {
           Number(payload?.member_monthly_amount || 0) ||
           Number(payload?.amount || 0) / months.length;
 
+        const proofFileId = payload?.proof_file_id || null;
+
+        if (!proofFileId) {
+          const basePayload = {
+            ...payload,
+            type: "monthly",
+            amount: amountPerMonth,
+          };
+
+          delete basePayload.selected_months;
+          delete basePayload.months_covered;
+          delete basePayload.months_count;
+
+          const created = await Promise.all(
+            months.map((month) =>
+              charityClient.challans.create({
+                ...basePayload,
+                month,
+              })
+            )
+          );
+
+          toast({
+            title: "Monthly challans created",
+            description:
+              `${months.length} challans created. Upload proof on each challan if required.`,
+          });
+
+          return {
+            created_challans: created.length,
+            mode: "individual",
+          };
+        }
+
         const result = await charityClient.challans.bulkCreate({
           months,
           amount_per_month: amountPerMonth,
+          proof_file_id: proofFileId,
           // isAdmin is now correctly in scope here
           member_id: isAdmin ? payload?.member_id : undefined,
           notes: payload?.notes,
@@ -338,6 +404,62 @@ export default function Challans() {
       });
     },
   });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, payload }) => charityClient.challans.update(id, payload),
+    onSuccess: async () => {
+      await refreshChallanData();
+      setEditOpen(false);
+      setEditChallan(null);
+      toast({ title: "Challan updated successfully." });
+    },
+    onError: (error) => {
+      toast({
+        title: "Unable to update challan",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (challan) => charityClient.challans.delete(challan.id),
+    onSuccess: async () => {
+      await refreshChallanData();
+      setDeleteTarget(null);
+      toast({ title: "Challan deleted successfully." });
+    },
+    onError: (error) => {
+      toast({
+        title: "Unable to delete challan",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const openEditDialog = (challan) => {
+    setEditChallan(challan);
+    setEditData({
+      month: challan?.month || "",
+      amount: String(challan?.amount ?? ""),
+    });
+    setEditOpen(true);
+  };
+
+  const submitEdit = () => {
+    if (!editChallan) return;
+
+    const payload = {
+      amount: Number(editData.amount),
+    };
+
+    if (editChallan.type === "monthly") {
+      payload.month = editData.month;
+    }
+
+    updateMutation.mutate({ id: editChallan.id, payload });
+  };
 
   // ── Approve ───────────────────────────────────────────────────────────────
   // FIX: try/catch added — original silently dropped errors.
@@ -521,6 +643,11 @@ export default function Challans() {
                   normalisedChallans.map((challan) => {
                     const status = getDisplayStatus(challan);
                     const isApprovingThis = approvingId === challan.id;
+                    const isOwner =
+                      myMember &&
+                      normalizeId(challan.member_id) === normalizeId(myMember.id);
+                    const canMutateBeforeApproval =
+                      challan.status !== "approved" && (isAdmin || isOwner);
                     const linkedMember = members.find(
                       (m) => normalizeId(m.id) === normalizeId(challan.member_id)
                     );
@@ -685,6 +812,25 @@ export default function Challans() {
                                   </DropdownMenuItem>
                                 )}
 
+                              {/* Edit/Delete before approval (owner + admins) */}
+                              {canMutateBeforeApproval && (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={() => openEditDialog(challan)}
+                                  >
+                                    <Pencil className="w-4 h-4 mr-2" />
+                                    Edit Challan
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => setDeleteTarget(challan)}
+                                    className="text-rose-600"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete Challan
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+
                               {/* Admin: Approve / Reject */}
                               {isAdmin &&
                                 (challan.status === "proof_uploaded" ||
@@ -817,12 +963,93 @@ export default function Challans() {
           open={formOpen}
           onOpenChange={setFormOpen}
           onSubmit={createMutation.mutateAsync}
-          members={members}
+          members={membersForForm}
           campaigns={campaigns}
           existingChallans={normalisedChallans}
           suggestedNumber={getSuggestedNumber()}
           currentUser={user}
         />
+
+        {/* Edit Challan */}
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Challan</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {editChallan?.type === "monthly" && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Month</label>
+                  <Input
+                    type="month"
+                    value={editData.month}
+                    onChange={(e) =>
+                      setEditData((prev) => ({ ...prev, month: e.target.value }))
+                    }
+                  />
+                </div>
+              )}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Amount (INR)</label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={editData.amount}
+                  onChange={(e) =>
+                    setEditData((prev) => ({ ...prev, amount: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setEditOpen(false)}
+                  disabled={updateMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={submitEdit}
+                  disabled={
+                    updateMutation.isPending ||
+                    !editData.amount ||
+                    (editChallan?.type === "monthly" && !editData.month)
+                  }
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                >
+                  {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Challan Confirmation */}
+        <AlertDialog
+          open={Boolean(deleteTarget)}
+          onOpenChange={(open) => {
+            if (!open) setDeleteTarget(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Challan</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete challan {deleteTarget?.challan_number}. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-rose-600 hover:bg-rose-700 focus:ring-rose-600"
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget)}
+              >
+                {deleteMutation.isPending ? "Deleting..." : "Yes, Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Proof Upload */}
         <ProofUpload

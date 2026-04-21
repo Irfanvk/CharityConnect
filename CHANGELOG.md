@@ -22,6 +22,7 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|----------|
+| 2.16 | 2026-04-22 | Patch | Challan payable-months flexibility completed (backend route/service + frontend form month-start control); pending items recorded for production smoke verification and backend-repo changelog parity sync. |
 | 2.15 | 2026-04-20 | Minor | Cloudinary file storage integration (uploads, avatars, payment proofs) — full-stack |
 | 2.14 | 2026-04-08 | Minor | Backfilled audit for 2026-03-19..2026-04-08: request-folder fix, API/docs corrections, iPhone/responsive passes, notifications/API-call enhancements, collection-stats visibility controls, campaign/challan fixes, avatar rollout, WhatsApp invite sharing, member selector combo-box + server-side filtering, and member profile popover enrichment (avatar/full name/id/address/phone/direct message). |
 | 2.14 | 2026-04-08 | Minor | Backfilled audit for 2026-03-19..2026-04-08: request-folder fix, API/docs corrections, iPhone/responsive passes, notifications/API-call enhancements, collection-stats visibility controls, campaign/challan fixes, avatar rollout, WhatsApp invite sharing, member selector combo-box + server-side filtering, and member profile popover enrichment (avatar/full name/id/address/phone/direct message). |
@@ -51,6 +52,31 @@ This document records all technical changes, implementations, and decisions made
 | 1.0 | 2026-02-24 | Release | Phase 1 MVP complete |
 
 ---
+
+## v2.16 - 2026-04-22 - Challan Payable-Months Flexibility + Pending Tracker
+
+### Summary
+Closed the previously pending challan month-selection gap by enabling explicit start-month behavior end-to-end. This release also captures the remaining pending operational tasks for backend and frontend teams.
+
+### Backend
+
+- Payable-months endpoint now accepts `from_month` (format: `yyyy-MM`) in query params.
+- Service month-resolution logic updated to prioritize explicit `from_month`, handle member join-date safely, and avoid new-member empty-month edge cases.
+
+### Frontend
+
+- Challan monthly flow now supports selecting the month to start from.
+- Payable-months request includes `from_month` when selected.
+- Monthly selection UX supports practical real-world payment scenarios:
+  - start from specific month,
+  - current month onward,
+  - optional upcoming months.
+
+### Pending (Recorded)
+
+1. Run production smoke checks on Netlify + Render for all `from_month` challan scenarios.
+2. Mirror this entry into backend repository changelog if backend changelog is maintained separately.
+3. Re-run regression verification once custom domains are configured (currently default host domains).
 
 ## Post-March Audit Backfill (2026-03-19 to 2026-04-08)
 

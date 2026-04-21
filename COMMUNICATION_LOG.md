@@ -3,7 +3,7 @@
 **Project:** CharityConnect  
 **Purpose:** Decisions, meeting minutes, and action items  
 **Owner:** Integration Lead  
-**Last Updated:** 2026-04-20
+**Last Updated:** 2026-04-22
 
 ---
 
@@ -11,6 +11,7 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-04-22 | Challan payable-months flexibility completed end-to-end; pending deployment verification tasks tracked | Both | 🔄 | Backend now supports `from_month` query override in payable-months logic and route; frontend challan form now includes start-month control, selectable month range flow, and from-month aware fetching. Pending: run post-deploy smoke checks on Render/Netlify and sync backend-repo changelog entry if backend repo log is maintained separately. |
 | 2026-04-20 | Cloudinary integrated as primary file storage for uploads, avatars, and payment proofs; replaces previous Cloudflare R2/local-disk approach | Both | ✅ | Backend: `cloudinary==1.44.2` installed; `file_handler.py` rewritten to use Cloudinary SDK with local-disk fallback for dev; `config.py` extended with `CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET/CLOUDINARY_FOLDER`; `file_routes.py` gains `POST /files/upload/avatar` and `DELETE /files/delete`. Frontend: `apiPaths.js` updated with `files.uploadAvatar` and `files.deleteFile` paths; `filesApi.js` exports `uploadAvatar()` and `deleteFile()`; `charityClient.js` `files` namespace extended with matching methods |
 | 2026-04-08 | Member identity popover standardized to include avatar/full name/member id/address/phone/direct-message action | Frontend | ✅ | Shared `UserProfilePopover` enhanced and used by admin-facing identity triggers (Members/Challans/Settings user tables where popover is already present) |
 | 2026-04-07 | Members selector moved from basic dropdown to combo-box pattern with improved searchability | Both | ✅ | Frontend switched control type; backend follow-up added server-side filtering support for combo-box query behavior |
@@ -101,6 +102,35 @@
 ---
 
 ## 2026-03-04 - Frontend to Backend Communication (Unauthorized Session Handling Update)
+
+## 2026-04-22 - Frontend to Backend Communication (Pending Tracker Update)
+
+**Summary:** Previously identified challan month-selection gaps are now implemented across backend and frontend. This update also records the remaining pending verification/documentation items.
+
+### Completed Since Prior Pending List
+
+1. **Backend payable-months enhancements**
+   - Added optional `from_month=yyyy-MM` support in payable-months route.
+   - Updated service start-month resolution to support explicit month override and avoid new-member empty-month edge cases.
+
+2. **Frontend challan form enhancements**
+   - Added start-month selection control for monthly challans.
+   - Added from-month-aware payable-month fetch behavior.
+   - Added improved monthly-selection experience for range and multi-month payment handling.
+
+### Pending Items (Backend + Frontend)
+
+1. **Production smoke verification (pending)**
+   - Validate Netlify frontend + Render backend flow for payable months with `from_month` scenarios:
+     - Start from specific month (example: January 2026)
+     - Current month onward
+     - Include upcoming months
+
+2. **Backend-repo changelog sync (pending if maintained separately)**
+   - If backend changelog is tracked in the backend repository, mirror this payable-month update there for parity.
+
+3. **Custom domain rollout validation (pending until domains are registered)**
+   - Re-run notification and challan regression checks once custom domains replace default `*.netlify.app` and `*.onrender.com` hosts.
 
 ## 2026-03-18 - Frontend to Backend Communication (v2.12 Request Lifecycle)
 
