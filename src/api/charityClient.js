@@ -571,6 +571,10 @@ const charityClient = {
       return data;
     },
 
+    checkUsername: async (username) => {
+      return await apiFetch(API_PATHS.auth.checkUsername, { method: 'GET' }, { username });
+    },
+
     logout: async () => {
       try {
         await apiFetch(API_PATHS.auth.logout, { method: 'POST' });

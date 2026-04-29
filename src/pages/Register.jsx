@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,9 @@ export default function Register() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [usernameError, setUsernameError] = useState('');
+  // 'idle' | 'checking' | 'available' | 'taken'
+  const [usernameCheckStatus, setUsernameCheckStatus] = useState('idle');
+  const usernameDebounceRef = useRef(null);
 
   useEffect(() => {
     const linkedInviteCode = searchParams.get('invite_code') || searchParams.get('inviteCode');
@@ -68,6 +71,17 @@ export default function Register() {
     }
     
     return '';
+  };
+
+  const checkUsernameAvailability = async (username) => {
+    setUsernameCheckStatus('checking');
+    try {
+      const result = await charityClient.auth.checkUsername(username);
+      setUsernameCheckStatus(result?.available ? 'available' : 'taken');
+    } catch {
+      // On network error, don't block the user — just reset
+      setUsernameCheckStatus('idle');
+    }
   };
 
   const verifyInviteCode = () => {
@@ -311,15 +325,44 @@ export default function Register() {
                   onChange={(e) => {
                     const username = e.target.value;
                     setFormData({...formData, username});
-                    setUsernameError(validateUsername(username));
+                    const formatErr = validateUsername(username);
+                    setUsernameError(formatErr);
+                    setUsernameCheckStatus('idle');
+                    if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
+                    if (!formatErr && username.length >= 3) {
+                      usernameDebounceRef.current = setTimeout(() => {
+                        checkUsernameAvailability(username);
+                      }, 450);
+                    }
                   }}
                   placeholder="Choose a username (3-30 characters)"
                   autoComplete="username"
                   required
-                  className={usernameError ? 'border-rose-500' : ''}
+                  className={
+                    usernameError || usernameCheckStatus === 'taken'
+                      ? 'border-rose-500'
+                      : usernameCheckStatus === 'available'
+                      ? 'border-emerald-500'
+                      : ''
+                  }
                 />
-                {!usernameError && formData.username && (
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400">✓ Username looks good</p>
+                {usernameCheckStatus === 'checking' && (
+                  <p className="text-xs text-slate-500 flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Checking availability...
+                  </p>
+                )}
+                {usernameCheckStatus === 'available' && !usernameError && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" /> Username is available
+                  </p>
+                )}
+                {usernameCheckStatus === 'taken' && (
+                  <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                    <XCircle className="w-3 h-3" /> Username already taken — try a different one
+                  </p>
+                )}
+                {usernameCheckStatus === 'idle' && !usernameError && formData.username && (
+                  <p className="text-xs text-slate-400">Checking as you type...</p>
                 )}
               </div>
 
@@ -418,7 +461,7 @@ export default function Register() {
                 </Button>
                 <Button 
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || usernameCheckStatus === 'taken' || usernameCheckStatus === 'checking'}
                   className="flex-1 bg-emerald-600 hover:bg-emerald-700"
                 >
                   {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Mail, Phone, MapPin, Calendar, Receipt, 
-  TrendingUp, CheckCircle, Clock, Loader2, UserCircle, Trash2, AlertTriangle, CreditCard, Pencil, Camera, X
+import {
+  Mail, Phone, MapPin, Calendar, Receipt,
+  TrendingUp, CheckCircle, Clock, Loader2, UserCircle, Trash2, AlertTriangle, CreditCard, Pencil, Camera, X, AtSign, XCircle
 } from "lucide-react";
 import { format } from "date-fns";
 import ContributionHistory from "@/components/profile/ContributionHistory";
@@ -61,6 +62,9 @@ export default function Profile() {
   const [profileUpdateNewValue, setProfileUpdateNewValue] = useState("");
   const [profileUpdateReason, setProfileUpdateReason] = useState("");
   const [submittingProfileUpdate, setSubmittingProfileUpdate] = useState(false);
+  // 'idle' | 'checking' | 'available' | 'taken'
+  const [usernameCheckStatusInDialog, setUsernameCheckStatusInDialog] = useState('idle');
+  const usernameDialogDebounceRef = useRef(null);
   const [generalRequestOpen, setGeneralRequestOpen] = useState(false);
   const [generalRequestType, setGeneralRequestType] = useState('general');
   const [generalRequestSubject, setGeneralRequestSubject] = useState('');
@@ -182,7 +186,7 @@ export default function Profile() {
   });
 
   // Find member profile for current user
-  const memberProfile = members.find(m => 
+  const memberProfile = members.find(m =>
     m.email === user?.email || m.phone === user?.phone
   );
 
@@ -191,12 +195,12 @@ export default function Profile() {
   const totalContributed = userChallans
     .filter(c => c.status === 'approved')
     .reduce((sum, c) => sum + (c.amount || 0), 0);
-  const pendingChallans = userChallans.filter(c => 
+  const pendingChallans = userChallans.filter(c =>
     c.status !== 'approved' && c.status !== 'rejected'
   ).length;
 
   // Find user's invite
-  const userInvite = invites.find(i => 
+  const userInvite = invites.find(i =>
     i.email === user?.email || i.phone === memberProfile?.phone
   );
 
@@ -283,7 +287,7 @@ export default function Profile() {
 
   const handleSubmitPaymentChange = async () => {
     const amount = Number(newMonthlyAmount);
-    
+
     if (!amount || amount < 50 || amount > 10000) {
       toast({
         title: "Invalid amount",
@@ -315,7 +319,7 @@ export default function Profile() {
         title: "Request submitted",
         description: "Your request has been submitted. The admin will review it shortly.",
       });
-      
+
       setPaymentChangeOpen(false);
       setNewMonthlyAmount("");
       setPaymentChangeReason("");
@@ -330,11 +334,21 @@ export default function Profile() {
     }
   };
 
+  const validateUsernameFormat = (username) => {
+    if (!username) return '';
+    if (username.length < 3) return 'At least 3 characters';
+    if (username.length > 30) return 'Max 30 characters';
+    if (!/^[a-zA-Z0-9_-]+$/.test(username)) return 'Letters, numbers, underscores, hyphens only';
+    return '';
+  };
+
   const openProfileUpdateDialog = (fieldKey, currentValue) => {
     setProfileUpdateField(fieldKey);
     setProfileUpdateCurrentValue(currentValue || '');
     setProfileUpdateNewValue('');
     setProfileUpdateReason('');
+    setUsernameCheckStatusInDialog('idle');
+    if (usernameDialogDebounceRef.current) clearTimeout(usernameDialogDebounceRef.current);
     setProfileUpdateOpen(true);
   };
 
@@ -346,6 +360,18 @@ export default function Profile() {
         variant: 'destructive',
       });
       return;
+    }
+
+    if (profileUpdateField === 'username') {
+      const fmtErr = validateUsernameFormat(profileUpdateNewValue.trim());
+      if (fmtErr) {
+        toast({ title: 'Invalid username', description: fmtErr, variant: 'destructive' });
+        return;
+      }
+      if (usernameCheckStatusInDialog === 'taken') {
+        toast({ title: 'Username already taken', description: 'Please choose a different username.', variant: 'destructive' });
+        return;
+      }
     }
 
     setSubmittingProfileUpdate(true);
@@ -507,7 +533,7 @@ export default function Profile() {
                 avatarUrl={user.avatar_url}
                 name={user.full_name || user.email}
               />
-              
+
               {editing ? (
                 <div className="space-y-3 text-left">
                   <div>
@@ -515,7 +541,7 @@ export default function Profile() {
                     <Input
                       id="full_name"
                       value={formData.full_name || ''}
-                      onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                     />
                   </div>
                   <div>
@@ -524,7 +550,7 @@ export default function Profile() {
                       id="email"
                       type="email"
                       value={formData.email || ''}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     />
                   </div>
                   <div>
@@ -550,11 +576,30 @@ export default function Profile() {
                 <>
                   <h2 className="text-xl font-semibold text-slate-900">{user.full_name || 'User'}</h2>
                   <Badge variant="secondary" className="mt-2 capitalize">{user.role}</Badge>
-                  
+
                   <div className="mt-6 space-y-3 text-left">
                     <div className="flex items-center gap-3 text-slate-600">
                       <Mail className="w-4 h-4 text-slate-400" />
                       <span className="text-sm">{user.email}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 text-slate-600">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <AtSign className="w-4 h-4 text-slate-400" />
+                        <span className="text-sm font-mono">{user.username || '-'}</span>
+                      </div>
+                      {user?.role === 'member' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2"
+                          disabled={pendingProfileFieldSet.has('username')}
+                          onClick={() => openProfileUpdateDialog('username', user.username || '')}
+                          title={pendingProfileFieldSet.has('username') ? 'A username change request is already pending.' : 'Request username change'}
+                        >
+                          <Pencil className="w-3.5 h-3.5 mr-1" />
+                          Edit
+                        </Button>
+                      )}
                     </div>
                     {memberProfile && (
                       <>
@@ -624,10 +669,10 @@ export default function Profile() {
                       </>
                     )}
                   </div>
-                  
+
                   {user?.role !== 'member' && (
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="w-full mt-6"
                       onClick={() => setEditing(true)}
                     >
@@ -660,48 +705,48 @@ export default function Profile() {
             <TabsContent value="overview" className="space-y-6">
               {/* Stats */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <Card className="border-0 shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                    <TrendingUp className="w-5 h-5 text-emerald-600" />
-                  </div>
-                  <div>
-                    <p className="text-xl font-bold text-slate-900">₹{totalContributed.toLocaleString()}</p>
-                    <p className="text-xs text-slate-500">Total Contributed</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                    <CheckCircle className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-xl font-bold text-slate-900">
-                      {userChallans.filter(c => c.status === 'approved').length}
-                    </p>
-                    <p className="text-xs text-slate-500">Approved</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-amber-600" />
-                  </div>
-                  <div>
-                    <p className="text-xl font-bold text-slate-900">{pendingChallans}</p>
-                    <p className="text-xs text-slate-500">Pending</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                        <TrendingUp className="w-5 h-5 text-emerald-600" />
+                      </div>
+                      <div>
+                        <p className="text-xl font-bold text-slate-900">₹{totalContributed.toLocaleString()}</p>
+                        <p className="text-xs text-slate-500">Total Contributed</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                        <CheckCircle className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-xl font-bold text-slate-900">
+                          {userChallans.filter(c => c.status === 'approved').length}
+                        </p>
+                        <p className="text-xs text-slate-500">Approved</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                        <Clock className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="text-xl font-bold text-slate-900">{pendingChallans}</p>
+                        <p className="text-xs text-slate-500">Pending</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
 
               {/* Monthly Payment Card */}
               {memberProfile && (
@@ -774,8 +819,8 @@ export default function Profile() {
                             <div>
                               <p className="font-medium text-slate-800">{challan.challan_number}</p>
                               <p className="text-sm text-slate-500">
-                                {challan.type === 'monthly' 
-                                  ? `Monthly - ${challan.month}` 
+                                {challan.type === 'monthly'
+                                  ? `Monthly - ${challan.month}`
                                   : challan.campaign_name || 'Donation'}
                               </p>
                             </div>
@@ -921,14 +966,67 @@ export default function Profile() {
               <Input value={profileUpdateCurrentValue} readOnly />
             </div>
 
-            <div className="space-y-1">
-              <Label>New value *</Label>
-              <Input
-                value={profileUpdateNewValue}
-                onChange={(e) => setProfileUpdateNewValue(e.target.value)}
-                placeholder="Enter new value"
-              />
-            </div>
+            {profileUpdateField === 'username' ? (
+              <div className="space-y-1">
+                <Label>New username *</Label>
+                <Input
+                  value={profileUpdateNewValue}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setProfileUpdateNewValue(val);
+                    setUsernameCheckStatusInDialog('idle');
+                    if (usernameDialogDebounceRef.current) clearTimeout(usernameDialogDebounceRef.current);
+                    const fmtErr = validateUsernameFormat(val.trim());
+                    if (!fmtErr && val.trim().length >= 3) {
+                      usernameDialogDebounceRef.current = setTimeout(async () => {
+                        setUsernameCheckStatusInDialog('checking');
+                        try {
+                          const result = await charityClient.auth.checkUsername(val.trim());
+                          setUsernameCheckStatusInDialog(result?.available ? 'available' : 'taken');
+                        } catch {
+                          setUsernameCheckStatusInDialog('idle');
+                        }
+                      }, 450);
+                    }
+                  }}
+                  placeholder="Choose a new username (3-30 chars)"
+                  className={
+                    usernameCheckStatusInDialog === 'taken' || validateUsernameFormat(profileUpdateNewValue)
+                      ? 'border-rose-500'
+                      : usernameCheckStatusInDialog === 'available'
+                        ? 'border-emerald-500'
+                        : ''
+                  }
+                />
+                {validateUsernameFormat(profileUpdateNewValue) && (
+                  <p className="text-xs text-rose-600">{validateUsernameFormat(profileUpdateNewValue)}</p>
+                )}
+                {!validateUsernameFormat(profileUpdateNewValue) && usernameCheckStatusInDialog === 'checking' && (
+                  <p className="text-xs text-slate-500 flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Checking availability...
+                  </p>
+                )}
+                {!validateUsernameFormat(profileUpdateNewValue) && usernameCheckStatusInDialog === 'available' && (
+                  <p className="text-xs text-emerald-600 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" /> Username available
+                  </p>
+                )}
+                {!validateUsernameFormat(profileUpdateNewValue) && usernameCheckStatusInDialog === 'taken' && (
+                  <p className="text-xs text-rose-600 flex items-center gap-1">
+                    <XCircle className="w-3 h-3" /> Username already taken
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <Label>New value *</Label>
+                <Input
+                  value={profileUpdateNewValue}
+                  onChange={(e) => setProfileUpdateNewValue(e.target.value)}
+                  placeholder="Enter new value"
+                />
+              </div>
+            )}
 
             <div className="space-y-1">
               <Label>Reason (optional)</Label>
@@ -946,7 +1044,13 @@ export default function Profile() {
               </Button>
               <Button
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                disabled={submittingProfileUpdate || !profileUpdateNewValue.trim()}
+                disabled={
+                  submittingProfileUpdate ||
+                  !profileUpdateNewValue.trim() ||
+                  usernameCheckStatusInDialog === 'taken' ||
+                  usernameCheckStatusInDialog === 'checking' ||
+                  (profileUpdateField === 'username' && !!validateUsernameFormat(profileUpdateNewValue))
+                }
                 onClick={handleSubmitProfileUpdateRequest}
               >
                 {submittingProfileUpdate && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

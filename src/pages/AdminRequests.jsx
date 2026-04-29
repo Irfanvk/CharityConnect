@@ -23,6 +23,18 @@ const typeLabel = {
   general: "General",
 };
 
+const getRequestLabel = (request) => {
+  if (request.request_type === "profile_update") {
+    try {
+      const changes = typeof request.requested_changes === "string"
+        ? JSON.parse(request.requested_changes)
+        : request.requested_changes;
+      if (changes?.username) return "Username Change";
+    } catch {}
+  }
+  return typeLabel[request.request_type] || request.request_type;
+};
+
 export default function AdminRequests() {
   const [activeTab, setActiveTab] = useState("member"); // "member" | "password"
   const [status, setStatus] = useState("all");
@@ -257,7 +269,7 @@ export default function AdminRequests() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-slate-900">{request.member_name || "Member"}</p>
                           {request.member_code && <Badge variant="outline">{request.member_code}</Badge>}
-                          <Badge variant="outline">{typeLabel[request.request_type] || request.request_type}</Badge>
+                          <Badge variant="outline">{getRequestLabel(request)}</Badge>
                           <Badge className={request.status === "pending" ? "bg-amber-100 text-amber-700" : request.status === "approved" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}>{request.status}</Badge>
                         </div>
                         <p className="mt-1 text-sm font-medium text-slate-800">{request.subject || "Request"}</p>
