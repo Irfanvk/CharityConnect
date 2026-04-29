@@ -144,7 +144,7 @@ export default function Layout({ children, currentPageName }) {
       ]
       : []),
     { name: "Notifications", href: ROUTE_KEYS.NOTIFICATIONS, path: PAGE_PATHS.NOTIFICATIONS, icon: Bell, badge: unreadCount },
-    { name: "Documentation", href: ROUTE_KEYS.DOCUMENTATION, path: PAGE_PATHS.DOCUMENTATION, icon: FileText },
+    { name: "User Guide", href: ROUTE_KEYS.DOCUMENTATION, path: PAGE_PATHS.DOCUMENTATION, icon: FileText },
     { name: "Import Data", href: ROUTE_KEYS.IMPORT, path: PAGE_PATHS.IMPORT, icon: Upload, superadminOnly: true },
     { name: "Superadmin Panel", href: ROUTE_KEYS.SUPERADMIN_PANEL, path: PAGE_PATHS.SUPERADMIN_PANEL, icon: Shield, superadminOnly: true },
   ];
