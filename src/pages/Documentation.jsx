@@ -102,29 +102,54 @@ export default function Documentation() {
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-10">
 
-      {/* ── Header ── */}
-      <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-8 text-white shadow-lg">
-        <div className="flex items-center gap-3 mb-2">
-          <BookOpen className="w-8 h-8" />
-          <h1 className="text-3xl font-bold">{APP_BRAND.NAME} User Guide</h1>
+      {/* ── Header ── role-aware */}
+      {isAdmin ? (
+        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-8 text-white shadow-lg">
+          <div className="flex items-center gap-3 mb-2">
+            <Shield className="w-8 h-8" />
+            <h1 className="text-3xl font-bold">Admin Guide — {APP_BRAND.NAME}</h1>
+          </div>
+          <p className="text-blue-100 text-lg">
+            Your complete reference for managing members, challans, campaigns, and the day-to-day running of the organisation.
+          </p>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <Badge className="bg-white/20 text-white border-0">Admin &amp; Superadmin</Badge>
+            <Badge className="bg-white/20 text-white border-0">Member Guide included as a reference</Badge>
+            <Badge className="bg-white/20 text-white border-0">Separate Member &amp; Admin FAQs</Badge>
+          </div>
         </div>
-        <p className="text-emerald-100 text-lg">
-          Everything you need to know to get started and use the platform confidently.
-        </p>
-        <div className="flex flex-wrap gap-2 mt-4">
-          <Badge className="bg-white/20 text-white border-0">New Member? Start with "Getting Started"</Badge>
-          {isAdmin && <Badge className="bg-white/20 text-white border-0">Admin? Check the Admin Guide tab</Badge>}
+      ) : (
+        <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-8 text-white shadow-lg">
+          <div className="flex items-center gap-3 mb-2">
+            <BookOpen className="w-8 h-8" />
+            <h1 className="text-3xl font-bold">Member Guide — {APP_BRAND.NAME}</h1>
+          </div>
+          <p className="text-emerald-100 text-lg">
+            Everything you need to get started and make the most of the platform.
+          </p>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <Badge className="bg-white/20 text-white border-0">New here? Start with "Getting Started"</Badge>
+            <Badge className="bg-white/20 text-white border-0">Common questions? Check the FAQ tab</Badge>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Tabs ── */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className={`grid grid-cols-2 ${isAdmin ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
-          <TabsTrigger value="start">Getting Started</TabsTrigger>
-          <TabsTrigger value="member">Member Guide</TabsTrigger>
-          {isAdmin && <TabsTrigger value="admin">Admin Guide</TabsTrigger>}
-          <TabsTrigger value="faq">FAQ</TabsTrigger>
-        </TabsList>
+        {isAdmin ? (
+          <TabsList className="grid grid-cols-2 md:grid-cols-4">
+            <TabsTrigger value="start">Getting Started</TabsTrigger>
+            <TabsTrigger value="member">Member Guide</TabsTrigger>
+            <TabsTrigger value="admin">Admin Guide</TabsTrigger>
+            <TabsTrigger value="faq">FAQs</TabsTrigger>
+          </TabsList>
+        ) : (
+          <TabsList className="grid grid-cols-3">
+            <TabsTrigger value="start">Getting Started</TabsTrigger>
+            <TabsTrigger value="member">My Guide</TabsTrigger>
+            <TabsTrigger value="faq">FAQ</TabsTrigger>
+          </TabsList>
+        )}
 
         {/* ════════════════════════════════════════
             TAB: Getting Started
@@ -274,6 +299,21 @@ export default function Documentation() {
             TAB: Member Guide
         ════════════════════════════════════════ */}
         <TabsContent value="member" className="space-y-6 mt-6">
+
+          {/* Admin reference banner */}
+          {isAdmin && (
+            <Card className="border-emerald-200 bg-emerald-50/40">
+              <CardContent className="pt-4 text-sm text-emerald-800">
+                <div className="flex items-start gap-2">
+                  <Info className="w-5 h-5 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Admin reference view.</strong> This is what your members see and do.
+                    Use it to understand the member experience and help them when they need support.
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Dashboard */}
           <Card>
@@ -679,103 +719,231 @@ export default function Documentation() {
         ════════════════════════════════════════ */}
         <TabsContent value="faq" className="space-y-4 mt-6">
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <HelpCircle className="w-5 h-5 text-indigo-600" />
-                Frequently Asked Questions
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6 text-sm">
-
-              {[
-                {
-                  q: "I haven't received my invite code — what do I do?",
-                  a: "Contact your admin directly (WhatsApp or phone) and ask them to re-send or regenerate the invite code from Settings → Invites.",
-                  role: "member",
-                },
-                {
-                  q: "My challan was rejected — what should I do?",
-                  a: "Open the rejected challan, read the rejection reason, then re-upload the correct payment proof. Make sure the screenshot clearly shows the transaction date, amount, and recipient. You do not need to create a new challan.",
-                  role: "member",
-                },
-                {
-                  q: "I made a payment but forgot to upload proof — is it lost?",
-                  a: "No. Find the challan in the Challans page (it will still be in Generated or Pending status). Click the Upload Proof button and attach your receipt.",
-                  role: "member",
-                },
-                {
-                  q: "Can I pay multiple months at once?",
-                  a: "Yes. When generating a challan, select multiple months from the month picker. Each month will get a separate challan, but you can upload a single shared proof covering all of them.",
-                  role: "member",
-                },
-                {
-                  q: "Why can't I change the amount on my challan?",
-                  a: "The amount is set by admin based on your membership fee. Only admins can modify challan amounts. If you believe the amount is wrong, submit a Request to the admin.",
-                  role: "member",
-                },
-                {
-                  q: "How do I know if my donation to a campaign was accepted?",
-                  a: "You'll receive a notification when the admin approves your campaign challan. You can also check the campaign page — your name will appear in the donor list.",
-                  role: "member",
-                },
-                {
-                  q: "How do I reset my password?",
-                  a: 'Click "Forgot Password" on the login page. Enter your email and you\'ll receive a reset link. If you don\'t receive it, check your spam folder or contact admin.',
-                  role: "member",
-                },
-                ...(isAdmin ? [
-                  {
-                    q: "A member registered but their profile isn't linked to a member record — why?",
-                    a: "This happens when the email used during registration doesn't match the email on their member record, or the member record wasn't created before they registered. Go to Members, find or create their record, and ensure the email matches exactly.",
-                    role: "admin",
-                  },
-                  {
-                    q: "Can I undo an approval?",
-                    a: "Yes — find the challan and use the Revert action to change it back to Pending status. Only do this if you approved by mistake.",
-                    role: "admin",
-                  },
-                  {
-                    q: "How do I add multiple members at once?",
-                    a: "Use the Import feature. Go to Settings → Import, download the CSV template, fill it in with member data, and upload it. The system will create all records in one go.",
-                    role: "admin",
-                  },
-                  {
-                    q: "A member says they never got a notification — what should I check?",
-                    a: "First check if the notification was sent to the right audience (All vs Members). Then ask the member to check their browser push notification permissions and whether they've allowed notifications in the app.",
-                    role: "admin",
-                  },
-                ] : []),
-              ].map(({ q, a, role }) => (
-                <div key={q} className="space-y-1.5">
-                  <div className="flex items-start gap-2">
-                    <HelpCircle className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-                    <p className="font-semibold text-slate-800">{q}</p>
+          {isAdmin ? (
+            /* ── Admin view: two separate FAQ cards ── */
+            <>
+              {/* Member FAQ card */}
+              <Card className="border-emerald-200">
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-emerald-700">
+                        <Users className="w-5 h-5" />
+                        Member FAQs
+                      </CardTitle>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Questions your members commonly ask. Useful as a reference when supporting them.
+                      </p>
+                    </div>
+                    <Badge className="bg-emerald-100 text-emerald-700 shrink-0">For Members</Badge>
                   </div>
-                  <p className="text-slate-600 pl-6">{a}</p>
-                </div>
-              ))}
+                </CardHeader>
+                <CardContent className="space-y-5 text-sm divide-y divide-slate-100">
+                  {[
+                    {
+                      q: "I haven't received my invite code — what do I do?",
+                      a: "They should contact you (admin) directly via WhatsApp or phone and ask you to regenerate their invite code from Settings → Invites.",
+                    },
+                    {
+                      q: "My challan was rejected — what should I do?",
+                      a: "They should open the rejected challan, read the rejection reason you provided, then re-upload the correct payment proof. They do not need to create a new challan.",
+                    },
+                    {
+                      q: "I made a payment but forgot to upload proof — is it lost?",
+                      a: "No. The challan stays in Generated or Pending status. They can find it in the Challans page and click Upload Proof at any time.",
+                    },
+                    {
+                      q: "Can I pay multiple months at once?",
+                      a: "Yes. When generating a challan, members can select multiple months from the month picker. Each month gets a separate challan, but they can upload a single shared proof covering all of them.",
+                    },
+                    {
+                      q: "Why can't I change the amount on my challan?",
+                      a: "Only admins can modify challan amounts. If a member believes their amount is wrong, they should submit a Request to you.",
+                    },
+                    {
+                      q: "How do I know if my campaign donation was accepted?",
+                      a: "Members receive a notification when their campaign challan is approved. They can also check the campaign page — their name will appear in the donor list.",
+                    },
+                    {
+                      q: "How do I reset my password?",
+                      a: 'They should click "Forgot Password" on the login page, enter their email, and follow the reset link. If they don\'t receive it, ask them to check spam, or reset it manually from the Admin panel.',
+                    },
+                    {
+                      q: "Why can't I see other members' data?",
+                      a: "Members only see their own challans and profile — this is by design for privacy. Only admins have access to all member records.",
+                    },
+                  ].map(({ q, a }) => (
+                    <div key={q} className="space-y-1.5 pt-4 first:pt-0">
+                      <div className="flex items-start gap-2">
+                        <HelpCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                        <p className="font-semibold text-slate-800">{q}</p>
+                      </div>
+                      <p className="text-slate-600 pl-6">{a}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
 
-            </CardContent>
-          </Card>
+              {/* Admin FAQ card */}
+              <Card className="border-blue-200">
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-blue-700">
+                        <Shield className="w-5 h-5" />
+                        Admin FAQs
+                      </CardTitle>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Answers to common admin tasks and edge cases.
+                      </p>
+                    </div>
+                    <Badge className="bg-blue-100 text-blue-700 shrink-0">For Admins</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-5 text-sm divide-y divide-slate-100">
+                  {[
+                    {
+                      q: "A member registered but their profile isn't linked to a member record — why?",
+                      a: "This happens when the email used during registration doesn't match the email on the member record, or the record wasn't created first. Go to Members, find or create their record, and make sure the email matches exactly.",
+                    },
+                    {
+                      q: "Can I undo an approval?",
+                      a: "Yes — find the challan and use the Revert action to change it back to Pending status. Do this only if you approved by mistake.",
+                    },
+                    {
+                      q: "How do I add multiple members at once?",
+                      a: "Use the Import feature. Go to Settings → Import, download the CSV template, fill it in, and upload it. All records will be created in one go.",
+                    },
+                    {
+                      q: "A member says they never got a notification — what should I check?",
+                      a: "Check if the notification was sent to the right audience (All vs Members only). Then ask the member to check their browser push notification permissions in the Notifications page.",
+                    },
+                    {
+                      q: "How do I see which members haven't paid this month?",
+                      a: "Go to Reports → Member Activity. Filter by the current month — members with no approved challans for that month will appear as outstanding.",
+                    },
+                    {
+                      q: "How do I change a member's monthly amount?",
+                      a: "Go to Members, open the member's record, click Edit, and update the Monthly Amount field. New challans for that member will use the updated amount.",
+                    },
+                    {
+                      q: "What's the difference between bulk-rejecting and bulk-deleting challans?",
+                      a: "Rejecting keeps the challan records with a Rejected status — they stay visible for audit purposes and the member can re-upload proof. Deleting removes the records entirely. Always prefer Reject over Delete so there's a paper trail.",
+                    },
+                    {
+                      q: "How do I suspend or deactivate a member?",
+                      a: "Go to Members, open the member's record, click Edit, and change their status to Inactive or Suspended. Suspended members cannot log in; Inactive members can still log in but won't be prompted for challans.",
+                    },
+                    {
+                      q: "Can I generate a challan on behalf of a member?",
+                      a: "Yes. On the Challans page, click Generate Challan, choose the member from the dropdown, fill in the details, and submit. The challan will appear under that member's account.",
+                    },
+                  ].map(({ q, a }) => (
+                    <div key={q} className="space-y-1.5 pt-4 first:pt-0">
+                      <div className="flex items-start gap-2">
+                        <HelpCircle className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                        <p className="font-semibold text-slate-800">{q}</p>
+                      </div>
+                      <p className="text-slate-600 pl-6">{a}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
 
-          {/* Contact / Support */}
-          <Card className="border-2 border-emerald-200 bg-emerald-50/40">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-emerald-700">
-                <MessageSquare className="w-5 h-5" />
-                Still Need Help?
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-slate-700 space-y-2">
-              <p>If you can't find an answer here:</p>
-              <ul className="space-y-1 pl-2">
-                <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-emerald-500" />Submit a <strong>Request</strong> via the Requests page — admins will respond there</li>
-                <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-emerald-500" />Contact your admin directly by phone or WhatsApp</li>
-              </ul>
-              <p className="text-slate-500 pt-2 text-xs">{APP_BRAND.NAME} v2.0 · Last updated April 2026</p>
-            </CardContent>
-          </Card>
+              {/* Admin contact card */}
+              <Card className="border-2 border-blue-200 bg-blue-50/40">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-blue-700">
+                    <MessageSquare className="w-5 h-5" />
+                    Still Have a Question?
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-slate-700 space-y-2">
+                  <p>For platform issues or feature requests, contact your system administrator or refer to the technical documentation.</p>
+                  <p className="text-slate-500 pt-1 text-xs">{APP_BRAND.NAME} v2.0 · Admin Guide · Last updated April 2026</p>
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            /* ── Member view: single FAQ card ── */
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <HelpCircle className="w-5 h-5 text-indigo-600" />
+                    Frequently Asked Questions
+                  </CardTitle>
+                  <p className="text-sm text-slate-500">Can't find what you need? Submit a Request and the admin will help you.</p>
+                </CardHeader>
+                <CardContent className="space-y-5 text-sm divide-y divide-slate-100">
+                  {[
+                    {
+                      q: "I haven't received my invite code — what do I do?",
+                      a: "Contact your admin directly (WhatsApp or phone) and ask them to re-send or regenerate your invite code from Settings → Invites.",
+                    },
+                    {
+                      q: "My challan was rejected — what should I do?",
+                      a: "Open the rejected challan and read the rejection reason. Then re-upload the correct payment proof — make sure the screenshot clearly shows the transaction date, amount, and recipient. You don't need to create a new challan.",
+                    },
+                    {
+                      q: "I made a payment but forgot to upload proof — is it lost?",
+                      a: "No. Find the challan in the Challans page (it will be in Generated or Pending status). Click Upload Proof and attach your receipt.",
+                    },
+                    {
+                      q: "Can I pay multiple months at once?",
+                      a: "Yes. When generating a challan, select multiple months from the month picker. Each month gets a separate challan, but you can upload a single shared proof that covers all of them.",
+                    },
+                    {
+                      q: "Why can't I change the amount on my challan?",
+                      a: "The amount is set by your admin based on your membership fee. If you think it's wrong, submit a Request to the admin and they'll fix it.",
+                    },
+                    {
+                      q: "How do I know if my campaign donation was accepted?",
+                      a: "You'll receive a notification when the admin approves your campaign challan. You can also check the campaign page — your name will appear in the donor list once approved.",
+                    },
+                    {
+                      q: "How do I reset my password?",
+                      a: 'Click "Forgot Password" on the login page. Enter your email and you\'ll receive a reset link. If it doesn\'t arrive, check your spam folder or contact the admin.',
+                    },
+                    {
+                      q: "Why can't I see other members' data?",
+                      a: "For privacy, you can only see your own challans and profile. If you need information about a payment or the organisation, submit a Request to the admin.",
+                    },
+                    {
+                      q: "I completed my profile but the system still says it's incomplete — what do I do?",
+                      a: "Make sure you've filled in all required fields: full name, phone number, and address. After saving, refresh the page. If the prompt keeps appearing, submit a Request.",
+                    },
+                  ].map(({ q, a }) => (
+                    <div key={q} className="space-y-1.5 pt-4 first:pt-0">
+                      <div className="flex items-start gap-2">
+                        <HelpCircle className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                        <p className="font-semibold text-slate-800">{q}</p>
+                      </div>
+                      <p className="text-slate-600 pl-6">{a}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Member contact card */}
+              <Card className="border-2 border-emerald-200 bg-emerald-50/40">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-emerald-700">
+                    <MessageSquare className="w-5 h-5" />
+                    Still Need Help?
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-slate-700 space-y-2">
+                  <p>If you can't find an answer here:</p>
+                  <ul className="space-y-1 pl-2">
+                    <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-emerald-500" />Submit a <strong>Request</strong> via the Requests page — admins will respond there</li>
+                    <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-emerald-500" />Contact your admin directly by phone or WhatsApp</li>
+                  </ul>
+                  <p className="text-slate-500 pt-2 text-xs">{APP_BRAND.NAME} v2.0 · Member Guide · Last updated April 2026</p>
+                </CardContent>
+              </Card>
+            </>
+          )}
 
         </TabsContent>
 
