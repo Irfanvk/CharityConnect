@@ -49,6 +49,7 @@ export default function Layout({ children, currentPageName }) {
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const sidebarNavRef = useRef(null);
+  const savedScrollY = useRef(0);
   const currentUser = authUser;
   const currentUserId = currentUser?.id ?? null;
   const currentUserRole = currentUser?.role ?? null;
@@ -93,21 +94,33 @@ export default function Layout({ children, currentPageName }) {
     if (!isMobileViewport) return;
 
     if (sidebarOpen) {
+      // iOS Safari body-scroll-lock: save scroll position and fix body in place.
+      // Simply setting overflow:hidden on body causes iOS Safari to offset all
+      // position:fixed children by the current scroll amount — this pattern avoids it.
+      savedScrollY.current = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${savedScrollY.current}px`;
+      document.body.style.width = '100%';
       document.body.style.overflow = 'hidden';
-      document.body.style.touchAction = 'none';
-    } else {
-      document.body.style.overflow = '';
-      document.body.style.touchAction = '';
-    }
 
-    // Reset nav scroll to top every time the sidebar opens
-    if (sidebarOpen && sidebarNavRef.current) {
-      sidebarNavRef.current.scrollTop = 0;
+      // Reset nav scroll to top every time the sidebar opens
+      if (sidebarNavRef.current) {
+        sidebarNavRef.current.scrollTop = 0;
+      }
+    } else {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      document.body.style.overflow = '';
+      // Restore the scroll position silently
+      window.scrollTo(0, savedScrollY.current);
     }
 
     return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
       document.body.style.overflow = '';
-      document.body.style.touchAction = '';
     };
   }, [sidebarOpen]);
 
@@ -240,6 +253,7 @@ export default function Layout({ children, currentPageName }) {
         ${sidebarOpen ? 'left-0' : 'left-[-18rem]'}
         lg:left-0
       `}
+        style={{ willChange: 'left' }}
         onTouchStart={handleSidebarTouchStart}
         onTouchEnd={handleSidebarTouchEnd}
       >
