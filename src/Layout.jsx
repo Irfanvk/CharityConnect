@@ -48,6 +48,7 @@ export default function Layout({ children, currentPageName }) {
   const [logoLoadError, setLogoLoadError] = useState(false);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
+  const sidebarNavRef = useRef(null);
   const currentUser = authUser;
   const currentUserId = currentUser?.id ?? null;
   const currentUserRole = currentUser?.role ?? null;
@@ -97,6 +98,11 @@ export default function Layout({ children, currentPageName }) {
     } else {
       document.body.style.overflow = '';
       document.body.style.touchAction = '';
+    }
+
+    // Reset nav scroll to top every time the sidebar opens
+    if (sidebarOpen && sidebarNavRef.current) {
+      sidebarNavRef.current.scrollTop = 0;
     }
 
     return () => {
@@ -229,10 +235,10 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 h-[100dvh] w-72 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800
-        transform transition-transform duration-200 ease-out lg:duration-300
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0
+        fixed inset-y-0 top-0 z-50 h-[100dvh] w-72 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800
+        transition-[left] duration-200 ease-out lg:duration-300
+        ${sidebarOpen ? 'left-0' : 'left-[-18rem]'}
+        lg:left-0
       `}
         onTouchStart={handleSidebarTouchStart}
         onTouchEnd={handleSidebarTouchEnd}
@@ -261,7 +267,7 @@ export default function Layout({ children, currentPageName }) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 min-h-0 p-4 space-y-1.5 overflow-y-auto">
+          <nav ref={sidebarNavRef} className="flex-1 min-h-0 p-4 space-y-1.5 overflow-y-auto">
             {filteredNav.map((item) => {
               const isActive = currentPageName === item.href;
               return (
