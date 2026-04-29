@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { Users, Heart, TrendingUp, Calendar, Clock } from "lucide-react";
 import { format } from "date-fns";
@@ -25,6 +26,7 @@ const DASHBOARD_MEMBER_SAMPLE_LIMIT = 200;
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [memberSetupData, setMemberSetupData] = useState(null);
@@ -35,6 +37,30 @@ export default function Dashboard() {
   const isSuperAdmin = user?.is_superadmin === true || user?.role === 'superadmin';
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const isMember = !!user && !isAdmin && !isSuperAdmin;
+  const requestedTab = searchParams.get("tab");
+  const requestedBulkGroupId = searchParams.get("bulk_group_id");
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    if (requestedTab === "bulk-operations") {
+      setAdminTab("bulk-operations");
+    }
+  }, [isAdmin, requestedTab]);
+
+  const handleAdminTabChange = useCallback(
+    (nextTab) => {
+      setAdminTab(nextTab);
+      const nextParams = new URLSearchParams(searchParams);
+      if (nextTab === "bulk-operations") {
+        nextParams.set("tab", "bulk-operations");
+      } else {
+        nextParams.delete("tab");
+        nextParams.delete("bulk_group_id");
+      }
+      setSearchParams(nextParams, { replace: true });
+    },
+    [searchParams, setSearchParams]
+  );
 
   useEffect(() => {
     if (!user?.id) return;
@@ -294,7 +320,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <Tabs value={adminTab} onValueChange={setAdminTab}>
+        <Tabs value={adminTab} onValueChange={handleAdminTabChange}>
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="bulk-operations">Bulk Operations</TabsTrigger>
@@ -302,7 +328,7 @@ export default function Dashboard() {
         </Tabs>
 
         {adminTab === "bulk-operations" ? (
-          <BulkOperationsPanel />
+          <BulkOperationsPanel initialBulkGroupId={requestedBulkGroupId} />
         ) : (
           <>
             {/* Collection Overview Stats */}

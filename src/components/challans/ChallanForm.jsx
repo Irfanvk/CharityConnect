@@ -20,7 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { format, addMonths, subMonths, parseISO } from "date-fns";
-import { Loader2, Calendar, CheckSquare, Square } from "lucide-react";
+import { Loader2, Calendar, CheckSquare, Square, Upload, FileText, Image as ImageIcon, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 // Build a list of yyyy-MM strings from startYearMonth up to today (inclusive),
@@ -101,6 +101,8 @@ export default function ChallanForm({
   const [selectedMonths, setSelectedMonths] = useState([]);
   const [includeUpcomingMonths, setIncludeUpcomingMonths] = useState(false);
   const [fromMonth, setFromMonth] = useState(""); // user-chosen start month
+  const [proofMode, setProofMode] = useState("individual");
+  const [sharedProofFile, setSharedProofFile] = useState(null);
   const [loading, setLoading] = useState(false);
 
   // Admin member search combobox
@@ -116,6 +118,8 @@ export default function ChallanForm({
     setSelectedMonths([]);
     setFromMonth("");
     setIncludeUpcomingMonths(false);
+    setProofMode("individual");
+    setSharedProofFile(null);
   }, [open, formData.member_id]);
 
   // Re-seed member_id when myMember resolves asynchronously
@@ -200,6 +204,13 @@ export default function ChallanForm({
     setSelectedMonths((prev) => prev.filter((m) => selectableMonths.includes(m)));
   }, [selectableMonths.join("|")]);
 
+  useEffect(() => {
+    if (selectedMonths.length <= 1) {
+      setProofMode("individual");
+      setSharedProofFile(null);
+    }
+  }, [selectedMonths.length]);
+
   const toggleMonth = (month) => {
     setSelectedMonths((prev) =>
       prev.includes(month) ? prev.filter((m) => m !== month) : [...prev, month].sort()
@@ -208,6 +219,28 @@ export default function ChallanForm({
 
   const selectAll = () => setSelectedMonths([...selectableMonths]);
   const clearAll = () => setSelectedMonths([]);
+  const usesSharedBulkProof = formData.type === "monthly" && selectedMonths.length > 1 && proofMode === "shared";
+
+  const handleSharedProofChange = (event) => {
+    const nextFile = event.target.files?.[0] || null;
+    if (!nextFile) {
+      setSharedProofFile(null);
+      return;
+    }
+
+    if (nextFile.size > 3 * 1024 * 1024) {
+      setSharedProofFile(null);
+      return;
+    }
+
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "application/pdf"];
+    if (!allowedTypes.includes(nextFile.type)) {
+      setSharedProofFile(null);
+      return;
+    }
+
+    setSharedProofFile(nextFile);
+  };
 
   const getMonthTag = (month) => {
     if (payableMonthsData?.upcoming_months?.includes(month))
@@ -246,8 +279,12 @@ export default function ChallanForm({
         months_covered: formData.type === "monthly" ? monthsToPay : undefined,
         months_count: formData.type === "monthly" ? monthsToPay.length : 1,
         month: formData.type === "monthly" ? monthsToPay[0] : undefined,
+        proof_mode: formData.type === "monthly" && monthsToPay.length > 1 ? proofMode : "individual",
+        shared_proof_file: usesSharedBulkProof ? sharedProofFile : null,
       });
       setSelectedMonths([]);
+      setSharedProofFile(null);
+      setProofMode("individual");
     } finally {
       setLoading(false);
     }
@@ -259,7 +296,7 @@ export default function ChallanForm({
     (isAdmin || myMember) &&
     (formData.type === "donation"
       ? Boolean(formData.campaign_id)
-      : selectedMonths.length > 0);
+      : selectedMonths.length > 0 && (!usesSharedBulkProof || Boolean(sharedProofFile)));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -416,6 +453,86 @@ export default function ChallanForm({
                     : `${selectedMonths.length} month${selectedMonths.length > 1 ? "s" : ""} selected`}
                 </p>
               </div>
+
+              {selectedMonths.length > 1 && (
+                <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">Payment Proof For Selected Months</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Choose whether each month will have its own proof later, or one proof will cover all selected months as a bulk challan.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProofMode("individual");
+                        setSharedProofFile(null);
+                      }}
+                      className={`w-full rounded-lg border px-3 py-2 text-left transition ${proofMode === "individual" ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white hover:border-slate-300"}`}
+                    >
+                      <p className="text-sm font-medium text-slate-900">Individual proof for each month</p>
+                      <p className="text-xs text-slate-500 mt-1">Creates separate challans. Proof can be uploaded one by one later.</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setProofMode("shared")}
+                      className={`w-full rounded-lg border px-3 py-2 text-left transition ${proofMode === "shared" ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white hover:border-slate-300"}`}
+                    >
+                      <p className="text-sm font-medium text-slate-900">One proof for all selected months</p>
+                      <p className="text-xs text-slate-500 mt-1">Uploads one shared proof and creates a bulk challan group for admin review.</p>
+                    </button>
+                  </div>
+
+                  {proofMode === "shared" && (
+                    <div className="space-y-2">
+                      <Label>Shared proof file *</Label>
+
+                      {!sharedProofFile ? (
+                        <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white px-4 py-6 text-center hover:border-emerald-400 hover:bg-emerald-50/30 transition-colors">
+                          <Upload className="w-8 h-8 text-slate-400 mb-2" />
+                          <span className="text-sm text-slate-700 font-medium">Upload one proof for all selected months</span>
+                          <span className="text-xs text-slate-400 mt-1">JPG, PNG, PDF up to 3MB</span>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/jpg,image/png,application/pdf"
+                            onChange={handleSharedProofChange}
+                            className="hidden"
+                          />
+                        </label>
+                      ) : (
+                        <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2">
+                          <div className="flex items-center gap-3 min-w-0">
+                            {sharedProofFile.type === "application/pdf" ? (
+                              <FileText className="w-4 h-4 text-rose-500 shrink-0" />
+                            ) : (
+                              <ImageIcon className="w-4 h-4 text-emerald-600 shrink-0" />
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-slate-900 truncate">{sharedProofFile.name}</p>
+                              <p className="text-xs text-slate-500">{Math.max(1, Math.round(sharedProofFile.size / 1024))} KB</p>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setSharedProofFile(null)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )}
+
+                      <p className="text-xs text-slate-500">
+                        This proof will be attached to the bulk challan group covering all {selectedMonths.length} selected months.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Summary */}
               {selectedMonths.length > 0 && (

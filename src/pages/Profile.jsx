@@ -70,6 +70,7 @@ export default function Profile() {
   const [cropOpen, setCropOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const { toast } = useToast();
+  const isMember = user?.role === 'member';
 
   useEffect(() => {
     loadUser();
@@ -88,6 +89,30 @@ export default function Profile() {
   const handleAvatarSave = async (file) => {
     setUploadingAvatar(true);
     try {
+      if (isMember) {
+        const uploaded = await charityClient.files.uploadAvatar(file);
+        const nextAvatarUrl = uploaded?.file_url || uploaded?.url || uploaded?.avatar_url;
+
+        if (!nextAvatarUrl) {
+          throw new Error('Avatar upload did not return a file URL');
+        }
+
+        await charityClient.requests.create({
+          request_type: 'profile_update',
+          subject: 'Profile photo update request',
+          message: 'Please update my profile photo.',
+          requested_changes: {
+            avatar_url: nextAvatarUrl,
+          },
+        });
+
+        toast({
+          title: 'Request submitted',
+          description: 'Your profile photo update request has been submitted for admin approval.',
+        });
+        return;
+      }
+
       const updated = await charityClient.auth.uploadAvatar(file);
       setUser((prev) => ({ ...prev, avatar_url: updated.avatar_url }));
       toast({ title: "Profile photo updated" });
@@ -101,6 +126,23 @@ export default function Profile() {
   const handleRemoveAvatar = async () => {
     setUploadingAvatar(true);
     try {
+      if (isMember) {
+        await charityClient.requests.create({
+          request_type: 'profile_update',
+          subject: 'Profile photo removal request',
+          message: 'Please remove my current profile photo.',
+          requested_changes: {
+            avatar_url: null,
+          },
+        });
+
+        toast({
+          title: 'Request submitted',
+          description: 'Your profile photo removal request has been submitted for admin approval.',
+        });
+        return;
+      }
+
       await charityClient.auth.removeAvatar();
       setUser((prev) => ({ ...prev, avatar_url: null }));
       toast({ title: "Profile photo removed" });
@@ -428,9 +470,9 @@ export default function Profile() {
                     <button
                       type="button"
                       onClick={() => setCropOpen(true)}
-                      disabled={uploadingAvatar}
+                      disabled={uploadingAvatar || pendingProfileFieldSet.has('avatar_url')}
                       className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center transition cursor-pointer hover:bg-black/55"
-                      title="Change photo"
+                      title={pendingProfileFieldSet.has('avatar_url') ? 'A profile photo request is already pending.' : 'Change photo'}
                     >
                       {uploadingAvatar
                         ? <Loader2 className="w-6 h-6 text-white animate-spin" />
@@ -440,9 +482,9 @@ export default function Profile() {
                       <button
                         type="button"
                         onClick={handleRemoveAvatar}
-                        disabled={uploadingAvatar}
+                        disabled={uploadingAvatar || pendingProfileFieldSet.has('avatar_url')}
                         className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center hover:bg-rose-600 transition"
-                        title="Remove photo"
+                        title={pendingProfileFieldSet.has('avatar_url') ? 'A profile photo request is already pending.' : 'Remove photo'}
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -591,6 +633,11 @@ export default function Profile() {
                     >
                       Edit Profile
                     </Button>
+                  )}
+                  {user?.role === 'member' && pendingProfileFieldSet.has('avatar_url') && (
+                    <p className="mt-3 text-xs text-amber-600">
+                      Your profile photo update request is pending admin approval.
+                    </p>
                   )}
                 </>
               )}

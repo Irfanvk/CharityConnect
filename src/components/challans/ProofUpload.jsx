@@ -9,18 +9,24 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Upload, Loader2, X, CheckCircle } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function ProofUpload({ open, onOpenChange, challan, onSubmit }) {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
       // Validate file size (3MB max as per backend requirement)
       if (selectedFile.size > 3 * 1024 * 1024) {
-        alert('File size must be less than 3MB. Please choose a smaller file.');
+        toast({
+          title: "File too large",
+          description: "File size must be less than 3MB. Please choose a smaller file.",
+          variant: "destructive",
+        });
         e.target.value = '';
         return;
       }
@@ -28,7 +34,11 @@ export default function ProofUpload({ open, onOpenChange, challan, onSubmit }) {
       // Validate file type (backend accepts jpg, png, pdf)
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
       if (!allowedTypes.includes(selectedFile.type)) {
-        alert('Only JPG, PNG, and PDF files are allowed.');
+        toast({
+          title: "Invalid file type",
+          description: "Only JPG, PNG, and PDF files are allowed.",
+          variant: "destructive",
+        });
         e.target.value = '';
         return;
       }
@@ -64,8 +74,11 @@ export default function ProofUpload({ open, onOpenChange, challan, onSubmit }) {
       setPreview(null);
       onOpenChange(false);
     } catch (error) {
-      console.error('File upload error:', error);
-      alert(error.message || 'Failed to upload file. Please try again.');
+      toast({
+        title: "Upload failed",
+        description: error?.message || "Failed to upload file. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }

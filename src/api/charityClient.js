@@ -253,9 +253,17 @@ function normalizeRequest(request) {
 
 function normalizeBulkOperation(item) {
   const normalized = withDateAliases(item || {});
+  const rawProofFileId =
+    typeof normalized.proof_file_id === 'string'
+      ? normalized.proof_file_id.trim()
+      : '';
+  const derivedProofUrl =
+    rawProofFileId.startsWith('http://') || rawProofFileId.startsWith('https://')
+      ? rawProofFileId
+      : null;
   return {
     ...normalized,
-    proof_url: normalized.proof_url || normalized.proof_path || null,
+    proof_url: normalized.proof_url || normalized.proof_path || derivedProofUrl,
   };
 }
 

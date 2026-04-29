@@ -387,6 +387,31 @@ export default function AdminRequests() {
               {selectedRequest.request_type === "profile_update" && (
                 <div className="rounded-md border p-3 text-sm">
                   <p className="font-medium text-slate-800 mb-2">Requested changes</p>
+                  {(() => {
+                    try {
+                      const changes = JSON.parse(selectedRequest.requested_changes || '{}');
+                      const avatarUrl = changes?.avatar_url;
+                      if (Object.prototype.hasOwnProperty.call(changes || {}, 'avatar_url')) {
+                        return (
+                          <div className="mb-3 rounded-md bg-slate-50 p-3">
+                            <p className="text-xs font-medium text-slate-600 mb-2">Profile photo request</p>
+                            {avatarUrl ? (
+                              <img
+                                src={avatarUrl}
+                                alt="Requested avatar"
+                                className="w-24 h-24 rounded-full object-cover border border-slate-200"
+                              />
+                            ) : (
+                              <p className="text-sm text-slate-600">Member requested removal of current profile photo.</p>
+                            )}
+                          </div>
+                        );
+                      }
+                    } catch {
+                      return null;
+                    }
+                    return null;
+                  })()}
                   <pre className="text-xs bg-slate-50 rounded p-2 overflow-auto">{selectedRequest.requested_changes || "{}"}</pre>
                 </div>
               )}
