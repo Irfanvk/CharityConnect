@@ -1,4 +1,5 @@
 import React from "react";
+import { formatMemberId } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Mail, Phone, Calendar, MapPin, MessageCircle, BadgeCheck } from "lucide-react";
@@ -83,7 +84,7 @@ export default function UserProfilePopover({ user, children }) {
             <div className="flex items-center gap-2">
               <BadgeCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span className="font-medium text-slate-700 dark:text-slate-300">ID:</span>
-              <span className="truncate">{memberCode}</span>
+              <span className="truncate">{formatMemberId(memberCode)}</span>
             </div>
           )}
           {fullName && username && fullName !== username && (

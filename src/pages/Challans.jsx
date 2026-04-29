@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { formatMemberId } from "@/lib/utils";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { emitNotificationsChanged } from "@/lib/notificationState";
@@ -337,7 +338,7 @@ export default function Challans() {
       member_name:
         challan.member_name ||
         linkedMember?.full_name ||
-        `Member #${challan.member_id}`,
+        `Member ${formatMemberId(challan.member_id)}`,
       amount: parseAmount(challan.amount),
     };
   });
@@ -437,7 +438,7 @@ export default function Challans() {
         challan_ids: rows.map((entry) => entry.id),
         challan_number: `BULK-${groupId}`,
         member_name:
-          meta.member_name || first.member_name || `Member #${first.member_id}`,
+          meta.member_name || first.member_name || `Member ${formatMemberId(first.member_id)}`,
         amount: rows.reduce((sum, entry) => sum + parseAmount(entry.amount), 0),
         months_covered: uniqueMonths,
         months_count: uniqueMonths.length,
@@ -981,7 +982,7 @@ export default function Challans() {
                               </p>
                               {challan.member_id && (
                                 <p className="text-xs text-slate-500">
-                                  {challan.member_id}
+                                  {formatMemberId(challan.member_id)}
                                 </p>
                               )}
                             </div>

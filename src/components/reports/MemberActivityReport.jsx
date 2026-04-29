@@ -1,4 +1,5 @@
 import React from "react";
+import { formatMemberId } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, UserCheck, UserX, UserPlus } from "lucide-react";
@@ -112,7 +113,7 @@ export default function MemberActivityReport({ members, period, value, totals })
               <tbody className="divide-y divide-slate-50">
                 {newMembers.slice(0, 50).map((m) => (
                   <tr key={m.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-2.5 px-3 font-mono text-xs text-slate-600">{m.member_id}</td>
+                    <td className="py-2.5 px-3 font-mono text-xs text-slate-600">{formatMemberId(m.member_id)}</td>
                     <td className="py-2.5 px-3 font-medium text-slate-800">{m.full_name}</td>
                     <td className="py-2.5 px-3 text-slate-500 hidden md:table-cell">{m.email || "—"}</td>
                     <td className="py-2.5 px-3 text-slate-500 hidden md:table-cell">{m.city || "—"}</td>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
+import { formatMemberId } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { charityClient } from "@/api/charityClient";
 import { Button } from "@/components/ui/button";
@@ -333,11 +334,11 @@ export default function ChallanForm({
                       className="p-2 hover:bg-slate-100 cursor-pointer text-sm"
                       onClick={() => {
                         setFormData({ ...formData, member_id: String(m.id) });
-                        setMemberSearch(`${m.full_name} (${m.member_id})`);
+                        setMemberSearch(`${m.full_name} (${formatMemberId(m.member_id)})`);;
                         setShowDropdown(false);
                       }}
                     >
-                      {m.full_name} · <span className="text-slate-500">{m.member_id}</span>
+                      {m.full_name} · <span className="text-slate-500">{formatMemberId(m.member_id)}</span>
                     </div>
                   ))}
                 </div>

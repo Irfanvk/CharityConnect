@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { formatMemberId } from "@/lib/utils";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { emitNotificationsChanged } from "@/lib/notificationState";
@@ -931,7 +932,7 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
                           <AvatarCircle avatarUrl={member.avatar_url} name={member.full_name} size="sm" />
                           <div>
                             <p className="font-medium text-slate-900">{member.full_name}</p>
-                            <p className="text-sm text-slate-500">{member.member_id}{member.username ? ` · @${member.username}` : ''}</p>
+                            <p className="text-sm text-slate-500">{formatMemberId(member.member_id)}{member.username ? ` · @${member.username}` : ''}</p>
                           </div>
                         </div>
                       </UserProfilePopover>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { formatMemberId } from "@/lib/utils";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { emitNotificationsChanged } from "@/lib/notificationState";
@@ -240,7 +241,7 @@ export default function SuperadminPanel() {
                       <TableCell className="font-medium">
                         <div className="leading-tight">
                           <p>{u.full_name || u.username || 'User'}</p>
-                          <p className="text-xs text-slate-500">{u.username ? `@${u.username}` : (u.member_code || u.member_id || u.id)}</p>
+                          <p className="text-xs text-slate-500">{u.username ? `@${u.username}` : formatMemberId(u.member_code || u.member_id || u.id)}</p>
                         </div>
                       </TableCell>
                       <TableCell className="text-slate-600">{u.email || '—'}</TableCell>

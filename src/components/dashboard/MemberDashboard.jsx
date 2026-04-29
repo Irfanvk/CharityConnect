@@ -1,4 +1,5 @@
 import React from "react";
+import { formatMemberId } from "@/lib/utils";
 import { Link, useNavigate } from "react-router-dom";
 import { format, addMonths, startOfMonth, formatDistanceToNow } from "date-fns";
 import {
@@ -152,7 +153,7 @@ export default function MemberDashboard({ user, memberProfile, challans, campaig
                   </Badge>
                 </div>
                 <p className="text-sm text-slate-500 dark:text-slate-400 font-mono">
-                  {memberProfile.member_id}
+                  {formatMemberId(memberProfile.member_id)}
                 </p>
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-slate-600 dark:text-slate-400">
                   {displayPhone && (

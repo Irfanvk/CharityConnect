@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { formatMemberId } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { charityClient } from "@/api/charityClient";
 import { queryKeys } from "@/lib/queryKeys";
@@ -268,7 +269,7 @@ export default function AdminRequests() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-slate-900">{request.member_name || "Member"}</p>
-                          {request.member_code && <Badge variant="outline">{request.member_code}</Badge>}
+                          {request.member_code && <Badge variant="outline">{formatMemberId(request.member_code)}</Badge>}
                           <Badge variant="outline">{getRequestLabel(request)}</Badge>
                           <Badge className={request.status === "pending" ? "bg-amber-100 text-amber-700" : request.status === "approved" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}>{request.status}</Badge>
                         </div>
@@ -385,7 +386,7 @@ export default function AdminRequests() {
           {selectedRequest && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><p className="text-slate-500">Member</p><p className="font-medium">{selectedRequest.member_name} ({selectedRequest.member_code})</p></div>
+                <div><p className="text-slate-500">Member</p><p className="font-medium">{selectedRequest.member_name} ({formatMemberId(selectedRequest.member_code)})</p></div>
                 <div><p className="text-slate-500">Type</p><p className="font-medium">{typeLabel[selectedRequest.request_type] || selectedRequest.request_type}</p></div>
               </div>
 
