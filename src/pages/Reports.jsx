@@ -803,6 +803,7 @@ export default function Reports() {
         pendingAmount={pendingAmount}
         pendingCount={pendingCount}
         isLoading={challanStatsLoading || fundSummaryLoading}
+        isAdmin={isAdmin}
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
