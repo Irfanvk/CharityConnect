@@ -33,7 +33,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2, X, Download, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Plus, Search, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2, X, Download, ChevronDown, ChevronUp, AlertTriangle, UserPlus, MessageCircle, Copy, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import MemberForm from "@/components/members/MemberForm";
 import UserProfilePopover, { AvatarCircle } from "@/components/UserProfilePopover";
@@ -65,6 +73,10 @@ export default function Members() {
   const [wipeFiles, setWipeFiles] = useState(true);
   const [wipeNotice, setWipeNotice] = useState(null);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
+  const [inviteDialogMember, setInviteDialogMember] = useState(null);
+  const [inviteExpiry, setInviteExpiry] = useState(7);
+  const [inviteResult, setInviteResult] = useState(null);
+  const [inviteCopied, setInviteCopied] = useState(false);
   const [memberImportProgress, setMemberImportProgress] = useState(null);
   const [challanImportProgress, setChallanImportProgress] = useState(null);
   const [campaignImportProgress, setCampaignImportProgress] = useState(null);
@@ -75,6 +87,46 @@ export default function Members() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isSuperAdmin = user?.role === 'superadmin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+
+  const inviteMutation = useMutation({
+    mutationFn: (data) => charityClient.invites.create(data),
+    onSuccess: (result) => {
+      setInviteResult(result);
+      queryClient.invalidateQueries({ queryKey: ['invites'] });
+    },
+    onError: (err) => {
+      toast({ title: 'Invite failed', description: err?.message || 'Could not create invite.', variant: 'destructive' });
+    },
+  });
+
+  const handleSendInvite = () => {
+    if (!inviteDialogMember) return;
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + inviteExpiry);
+    inviteMutation.mutate({
+      phone: inviteDialogMember.phone || null,
+      email: inviteDialogMember.email || null,
+      expiry_date: expiryDate.toISOString(),
+    });
+  };
+
+  const handleCopyInviteLink = () => {
+    if (!inviteResult?.registration_url) return;
+    navigator.clipboard.writeText(inviteResult.registration_url).then(() => {
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 2000);
+    });
+  };
+
+  const handleWhatsAppShare = () => {
+    if (!inviteResult) return;
+    const rawPhone = (inviteDialogMember?.phone || '').replace(/\D/g, '');
+    const waUrl = rawPhone
+      ? `https://wa.me/${rawPhone}?text=${encodeURIComponent(inviteResult.share_message || inviteResult.registration_url)}`
+      : inviteResult.whatsapp_share_url || `https://wa.me/?text=${encodeURIComponent(inviteResult.registration_url)}`;
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+  };
 
   const refreshMemberData = () => {
     queryClient.invalidateQueries({ queryKey: ['members'] });
@@ -931,7 +983,14 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
                         <div className="flex items-center gap-3">
                           <AvatarCircle avatarUrl={member.avatar_url} name={member.full_name} size="sm" />
                           <div>
-                            <p className="font-medium text-slate-900">{member.full_name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-slate-900">{member.full_name}</p>
+                              {isAdmin && !member.is_active && (
+                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 leading-none">
+                                  Not registered
+                                </span>
+                              )}
+                            </div>
                             <p className="text-sm text-slate-500">{formatMemberId(member.member_id)}{member.username ? ` · @${member.username}` : ''}</p>
                           </div>
                         </div>
@@ -1004,6 +1063,17 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
                             </DropdownMenuItem>
                           )}
                           
+                          {/* Send Invite — only for offline/unregistered members, admins only */}
+                          {isAdmin && !member.is_active && (
+                            <DropdownMenuItem
+                              onClick={() => { setInviteDialogMember(member); setInviteResult(null); setInviteCopied(false); setInviteExpiry(7); }}
+                              className="text-blue-600"
+                            >
+                              <UserPlus className="w-4 h-4 mr-2" />
+                              Send Invite
+                            </DropdownMenuItem>
+                          )}
+
                           {/* Delete only for super admins */}
                           {isSuperAdmin && (
                             <DropdownMenuItem 
@@ -1172,6 +1242,101 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Send Invite Dialog */}
+      <Dialog open={Boolean(inviteDialogMember)} onOpenChange={(open) => { if (!open) { setInviteDialogMember(null); setInviteResult(null); setInviteCopied(false); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-blue-500" />
+              Invite Member
+            </DialogTitle>
+          </DialogHeader>
+
+          {!inviteResult ? (
+            <div className="space-y-4 py-2">
+              <div className="bg-slate-50 rounded-lg p-3 space-y-1">
+                <p className="font-medium text-slate-900">{inviteDialogMember?.full_name}</p>
+                {inviteDialogMember?.phone && (
+                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <Phone className="w-3 h-3" />
+                    {inviteDialogMember.phone}
+                  </div>
+                )}
+                {inviteDialogMember?.email && (
+                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <Mail className="w-3 h-3" />
+                    {inviteDialogMember.email}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="invite-expiry">Invite expires in</Label>
+                <select
+                  id="invite-expiry"
+                  value={inviteExpiry}
+                  onChange={(e) => setInviteExpiry(Number(e.target.value))}
+                  className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value={3}>3 days</option>
+                  <option value={7}>7 days</option>
+                  <option value={14}>14 days</option>
+                  <option value={30}>30 days</option>
+                </select>
+              </div>
+
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button variant="outline" onClick={() => setInviteDialogMember(null)}>Cancel</Button>
+                <Button
+                  onClick={handleSendInvite}
+                  disabled={inviteMutation.isPending || (!inviteDialogMember?.phone && !inviteDialogMember?.email)}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {inviteMutation.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating...</> : 'Create Invite'}
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4 py-2">
+              <div className="flex items-center gap-2 text-emerald-600 font-medium">
+                <CheckCircle2 className="w-5 h-5" />
+                Invite created!
+              </div>
+
+              {inviteResult.expiry_label && (
+                <p className="text-sm text-slate-500">{inviteResult.expiry_label}</p>
+              )}
+
+              <div className="bg-slate-50 rounded-lg p-3">
+                <p className="text-xs text-slate-500 mb-1">Registration link</p>
+                <p className="text-sm break-all text-slate-700 font-mono">{inviteResult.registration_url}</p>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Button
+                  onClick={handleWhatsAppShare}
+                  className="bg-[#25D366] hover:bg-[#22bf5b] text-white w-full"
+                >
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Share via WhatsApp
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleCopyInviteLink}
+                  className="w-full"
+                >
+                  {inviteCopied ? <><CheckCircle2 className="w-4 h-4 mr-2 text-emerald-500" />Copied!</> : <><Copy className="w-4 h-4 mr-2" />Copy Link</>}
+                </Button>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" className="w-full" onClick={() => { setInviteDialogMember(null); setInviteResult(null); }}>Done</Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Member Form */}
       <MemberForm

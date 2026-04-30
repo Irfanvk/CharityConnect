@@ -23,8 +23,23 @@ function resolveMemberName(challan, members = []) {
   return linkedMember?.full_name || linkedMember?.member_name || `Member #${challan?.member_id ?? "-"}`;
 }
 
-export function exportChallanCSV(challans, period, value, members = []) {
-  const filtered = filterByPeriod(challans, period, value);
+function sortChallans(list, sort, members = []) {
+  const arr = [...list];
+  if (sort === 'created_desc') arr.sort((a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0));
+  else if (sort === 'created_asc') arr.sort((a, b) => new Date(a.created_date || 0) - new Date(b.created_date || 0));
+  else if (sort === 'amount_desc') arr.sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0));
+  else if (sort === 'amount_asc') arr.sort((a, b) => Number(a.amount || 0) - Number(b.amount || 0));
+  else if (sort === 'member_asc') arr.sort((a, b) => resolveMemberName(a, members).localeCompare(resolveMemberName(b, members)));
+  else if (sort === 'member_desc') arr.sort((a, b) => resolveMemberName(b, members).localeCompare(resolveMemberName(a, members)));
+  return arr;
+}
+
+export function exportChallanCSV(challans, period, value, members = [], extraFilters = {}) {
+  const { statusFilter = 'all', typeFilter = 'all', sort = 'created_desc' } = extraFilters;
+  let filtered = filterByPeriod(challans, period, value);
+  if (typeFilter !== 'all') filtered = filtered.filter((c) => c.type === typeFilter);
+  if (statusFilter !== 'all') filtered = filtered.filter((c) => c.status === statusFilter);
+  filtered = sortChallans(filtered, sort, members);
   const headers = [
     "Challan Number",
     "Member Name",
@@ -60,9 +75,10 @@ const statusConfig = {
   rejected: { label: "Rejected", color: "bg-rose-100 text-rose-700", icon: XCircle, bg: "bg-rose-50" },
 };
 
-export default function ChallanStatusReport({ challans, members = [], period, value }) {
+export default function ChallanStatusReport({ challans, members = [], period, value, statusFilter = 'all', typeFilter = 'all', sort = 'created_desc' }) {
   const filtered = filterByPeriod(challans, period, value);
 
+  // Count cards: period-filtered only (show full status distribution)
   const counts = {
     approved: filtered.filter((c) => c.status === "approved").length,
     pending: filtered.filter((c) => c.status === "pending").length,
@@ -70,14 +86,22 @@ export default function ChallanStatusReport({ challans, members = [], period, va
     rejected: filtered.filter((c) => c.status === "rejected").length,
   };
 
-  const needsAction = filtered
+  // type-filtered: used for quick panels and detail table base
+  const typeFiltered = typeFilter !== 'all' ? filtered.filter((c) => c.type === typeFilter) : filtered;
+
+  const needsAction = typeFiltered
     .filter((c) => c.status === "pending")
     .sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
 
-  const recentRejections = filtered
+  const recentRejections = typeFiltered
     .filter((c) => c.status === "rejected")
     .sort((a, b) => new Date(b.created_date) - new Date(a.created_date))
     .slice(0, 20);
+
+  // Full filter + sort for detail table
+  let displayList = typeFiltered;
+  if (statusFilter !== 'all') displayList = displayList.filter((c) => c.status === statusFilter);
+  displayList = sortChallans(displayList, sort, members);
 
   return (
     <div className="space-y-4">
@@ -158,7 +182,14 @@ export default function ChallanStatusReport({ challans, members = [], period, va
       </div>
 
       <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3"><CardTitle className="text-base">All Challans</CardTitle></CardHeader>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            All Challans
+            {displayList.length !== filtered.length && (
+              <span className="font-normal text-slate-400 text-sm ml-1">({displayList.length} of {filtered.length})</span>
+            )}
+          </CardTitle>
+        </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -172,7 +203,7 @@ export default function ChallanStatusReport({ challans, members = [], period, va
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filtered.slice(0, 50).map((c) => {
+                {displayList.slice(0, 100).map((c) => {
                   const cfg = statusConfig[c.status] || statusConfig.generated;
                   return (
                     <tr key={c.id} className="hover:bg-slate-50">
@@ -190,7 +221,11 @@ export default function ChallanStatusReport({ challans, members = [], period, va
                 })}
               </tbody>
             </table>
-            {filtered.length === 0 && <p className="text-center text-slate-400 py-8">No challans in this period</p>}
+            {displayList.length === 0 && (
+              <p className="text-center text-slate-400 py-8">
+                {filtered.length === 0 ? "No challans in this period" : "No challans match the current filters"}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

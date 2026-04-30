@@ -436,7 +436,7 @@ export default function Challans() {
         is_bulk_group: true,
         bulk_group_id: groupId,
         challan_ids: rows.map((entry) => entry.id),
-        challan_number: `BULK-${groupId}`,
+        challan_number: /^BCH-/i.test(groupId) ? groupId : `BULK-${groupId.slice(0, 8).toUpperCase()}`,
         member_name:
           meta.member_name || first.member_name || `Member ${formatMemberId(first.member_id)}`,
         amount: rows.reduce((sum, entry) => sum + parseAmount(entry.amount), 0),

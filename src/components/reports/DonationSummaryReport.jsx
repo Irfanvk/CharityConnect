@@ -56,16 +56,27 @@ function resolveDonationMember(challan, memberLookup) {
     memberFromDirectory?.member_id ||
     (challan?.member_id != null ? String(challan.member_id) : "N/A");
 
-  return {
-    fullName,
-    memberCode,
-  };
+  return { fullName, memberCode };
 }
 
-export function exportDonationCSV(challans, campaigns, period, value, members = []) {
+function sortDonations(list, sort, memberLookup) {
+  const arr = [...list];
+  if (sort === 'approved_desc') arr.sort((a, b) => new Date(b.approved_at || 0) - new Date(a.approved_at || 0));
+  else if (sort === 'approved_asc') arr.sort((a, b) => new Date(a.approved_at || 0) - new Date(b.approved_at || 0));
+  else if (sort === 'amount_desc') arr.sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0));
+  else if (sort === 'amount_asc') arr.sort((a, b) => Number(a.amount || 0) - Number(b.amount || 0));
+  else if (sort === 'member_asc') arr.sort((a, b) => resolveDonationMember(a, memberLookup).fullName.localeCompare(resolveDonationMember(b, memberLookup).fullName));
+  else if (sort === 'member_desc') arr.sort((a, b) => resolveDonationMember(b, memberLookup).fullName.localeCompare(resolveDonationMember(a, memberLookup).fullName));
+  return arr;
+}
+
+export function exportDonationCSV(challans, campaigns, period, value, members = [], extraFilters = {}) {
+  const { typeFilter = 'all', sort = 'approved_desc' } = extraFilters;
   void campaigns;
   const memberLookup = buildMemberLookup(members);
-  const filtered = filterByPeriod(challans, period, value).filter((c) => c.status === "approved");
+  let filtered = filterByPeriod(challans, period, value).filter((c) => c.status === "approved");
+  if (typeFilter !== 'all') filtered = filtered.filter((c) => c.type === typeFilter);
+  filtered = sortDonations(filtered, sort, memberLookup);
   const headers = ["Challan Number", "Member ID", "Member Full Name", "Type", "Campaign", "Amount", "Month", "Approved Date"];
   const rows = filtered.map((c) => {
     const resolved = resolveDonationMember(c, memberLookup);
@@ -84,31 +95,35 @@ export function exportDonationCSV(challans, campaigns, period, value, members = 
   return { headers, rows, filename: `donation-report-${period === "all" ? "all-time" : value}` };
 }
 
-export default function DonationSummaryReport({ challans, campaigns, period, value, members = [] }) {
+export default function DonationSummaryReport({ challans, campaigns, period, value, members = [], typeFilter = 'all', sort = 'approved_desc' }) {
   void campaigns;
   const memberLookup = React.useMemo(() => buildMemberLookup(members), [members]);
   const filtered = filterByPeriod(challans, period, value);
   const approved = filtered.filter((c) => c.status === "approved");
+  const typeFilteredApproved = typeFilter !== 'all' ? approved.filter((c) => c.type === typeFilter) : approved;
+  const displayApproved = sortDonations(typeFilteredApproved, sort, memberLookup);
 
-  const totalCollected = approved.reduce((sum, c) => sum + (c.amount || 0), 0);
-  const monthlyTotal = approved.filter((c) => c.type === "monthly").reduce((sum, c) => sum + (c.amount || 0), 0);
-  const donationTotal = approved.filter((c) => c.type === "donation").reduce((sum, c) => sum + (c.amount || 0), 0);
+  const totalCollected = typeFilteredApproved.reduce((sum, c) => sum + (c.amount || 0), 0);
+  const monthlyTotal = typeFilteredApproved.filter((c) => c.type === "monthly").reduce((sum, c) => sum + (c.amount || 0), 0);
+  const donationTotal = typeFilteredApproved.filter((c) => c.type === "donation").reduce((sum, c) => sum + (c.amount || 0), 0);
 
-  const campaignMap = {};
-  approved
-    .filter((c) => c.type === "donation" && c.campaign_id)
+  const campaignDonorMap = {};
+  typeFilteredApproved
+    .filter((c) => c.type === "donation")
     .forEach((c) => {
-      if (!campaignMap[c.campaign_id]) {
-        campaignMap[c.campaign_id] = { name: c.campaign_name || "Unknown", total: 0, count: 0 };
+      const resolved = resolveDonationMember(c, memberLookup);
+      const key = `${resolved.memberCode}-${resolved.fullName}`;
+      if (!campaignDonorMap[key]) {
+        campaignDonorMap[key] = { name: resolved.fullName, total: 0, count: 0 };
       }
-      campaignMap[c.campaign_id].total += c.amount || 0;
-      campaignMap[c.campaign_id].count++;
+      campaignDonorMap[key].total += c.amount || 0;
+      campaignDonorMap[key].count++;
     });
 
-  const campaignBreakdown = Object.values(campaignMap).sort((a, b) => b.total - a.total);
+  const campaignDonors = Object.values(campaignDonorMap).sort((a, b) => b.total - a.total);
 
   const memberMap = {};
-  approved.forEach((c) => {
+  typeFilteredApproved.forEach((c) => {
     const resolved = resolveDonationMember(c, memberLookup);
     const contributorKey = `${resolved.memberCode}-${resolved.fullName}`;
     if (!memberMap[contributorKey]) {
@@ -153,20 +168,20 @@ export default function DonationSummaryReport({ challans, campaigns, period, val
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-3"><CardTitle className="text-base">By Campaign</CardTitle></CardHeader>
+          <CardHeader className="pb-3"><CardTitle className="text-base">Campaign Donors</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            {campaignBreakdown.length === 0 ? (
+            {campaignDonors.length === 0 ? (
               <p className="text-slate-400 text-sm text-center py-4">No campaign donations in this period</p>
-            ) : campaignBreakdown.map((c) => (
-              <div key={c.name}>
+            ) : campaignDonors.map((d) => (
+              <div key={d.name}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium text-slate-700 truncate max-w-[180px]">{c.name}</span>
+                  <span className="text-sm font-medium text-slate-700 truncate max-w-[180px]">{d.name}</span>
                   <div className="text-right">
-                    <span className="text-sm font-semibold text-emerald-600">₹{c.total.toLocaleString()}</span>
-                    <span className="text-xs text-slate-400 ml-2">({c.count})</span>
+                    <span className="text-sm font-semibold text-emerald-600">₹{d.total.toLocaleString()}</span>
+                    <span className="text-xs text-slate-400 ml-2">({d.count})</span>
                   </div>
                 </div>
-                <Progress value={donationTotal > 0 ? (c.total / donationTotal) * 100 : 0} className="h-1.5" />
+                <Progress value={donationTotal > 0 ? (d.total / donationTotal) * 100 : 0} className="h-1.5" />
               </div>
             ))}
           </CardContent>
@@ -193,7 +208,14 @@ export default function DonationSummaryReport({ challans, campaigns, period, val
       </div>
 
       <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3"><CardTitle className="text-base">Approved Transactions</CardTitle></CardHeader>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            Approved Transactions
+            {displayApproved.length !== approved.length && (
+              <span className="font-normal text-slate-400 text-sm ml-1">({displayApproved.length} of {approved.length})</span>
+            )}
+          </CardTitle>
+        </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -208,7 +230,7 @@ export default function DonationSummaryReport({ challans, campaigns, period, val
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {approved.slice(0, 50).map((c) => {
+                {displayApproved.slice(0, 100).map((c) => {
                   const resolved = resolveDonationMember(c, memberLookup);
                   return (
                     <tr key={c.id} className="hover:bg-slate-50">
@@ -227,7 +249,11 @@ export default function DonationSummaryReport({ challans, campaigns, period, val
                 })}
               </tbody>
             </table>
-            {approved.length === 0 && <p className="text-center text-slate-400 py-8">No approved transactions</p>}
+            {displayApproved.length === 0 && (
+              <p className="text-center text-slate-400 py-8">
+                {approved.length === 0 ? "No approved transactions" : "No transactions match the current filters"}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

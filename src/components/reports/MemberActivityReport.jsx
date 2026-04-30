@@ -15,8 +15,33 @@ export function filterMembersByPeriod(members, period, value) {
   });
 }
 
-export function exportMemberCSV(members, period, value) {
-  const filtered = filterMembersByPeriod(members, period, value);
+const MEMBER_SORT_FNS = {
+  name_asc:    (a, b) => (a.full_name || '').localeCompare(b.full_name || ''),
+  name_desc:   (a, b) => (b.full_name || '').localeCompare(a.full_name || ''),
+  join_desc:   (a, b) => new Date(b.join_date || 0) - new Date(a.join_date || 0),
+  join_asc:    (a, b) => new Date(a.join_date || 0) - new Date(b.join_date || 0),
+  amount_desc: (a, b) => Number(b.monthly_amount || 0) - Number(a.monthly_amount || 0),
+  amount_asc:  (a, b) => Number(a.monthly_amount || 0) - Number(b.monthly_amount || 0),
+};
+
+function applyMemberFilters(list, { statusFilter = 'all', sort = 'name_asc', search = '' } = {}) {
+  let result = list;
+  if (statusFilter !== 'all') result = result.filter((m) => m.status === statusFilter);
+  if (search.trim()) {
+    const q = search.trim().toLowerCase();
+    result = result.filter((m) =>
+      (m.full_name || '').toLowerCase().includes(q) ||
+      String(m.member_id || '').toLowerCase().includes(q) ||
+      (m.email || '').toLowerCase().includes(q) ||
+      (m.phone || '').includes(q)
+    );
+  }
+  return [...result].sort(MEMBER_SORT_FNS[sort] || MEMBER_SORT_FNS.name_asc);
+}
+
+export function exportMemberCSV(members, period, value, extraFilters = {}) {
+  const periodFiltered = filterMembersByPeriod(members, period, value);
+  const filtered = applyMemberFilters(periodFiltered, extraFilters);
   const headers = ["Member ID", "Full Name", "Email", "Phone", "City", "Status", "Monthly Amount", "Join Date"];
   const rows = filtered.map((m) => [
     m.member_id,
@@ -32,13 +57,14 @@ export function exportMemberCSV(members, period, value) {
   return { headers, rows, filename: `member-report-${period === "all" ? "all-time" : value}` };
 }
 
-export default function MemberActivityReport({ members, period, value, totals }) {
+export default function MemberActivityReport({ members, period, value, totals, statusFilter = 'all', sort = 'name_asc', search = '' }) {
   const allActive = members.filter((m) => m.status === "active");
   const allInactive = members.filter((m) => m.status !== "active");
   const totalMembers = Number(totals?.total_members ?? members.length);
   const activeMembers = Number(totals?.active_members ?? allActive.length);
   const inactiveMembers = Math.max(0, totalMembers - activeMembers);
   const newMembers = filterMembersByPeriod(members, period, value);
+  const displayMembers = applyMemberFilters(newMembers, { statusFilter, sort, search });
 
   return (
     <div className="space-y-4">
@@ -95,6 +121,9 @@ export default function MemberActivityReport({ members, period, value, totals })
             {period === "all"
               ? "All Members"
               : `New Members — ${period === "monthly" ? format(new Date(`${value}-01`), "MMMM yyyy") : value}`}
+            {displayMembers.length !== newMembers.length && (
+              <span className="font-normal text-slate-400 ml-2 text-sm">({displayMembers.length} of {newMembers.length})</span>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -111,7 +140,7 @@ export default function MemberActivityReport({ members, period, value, totals })
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {newMembers.slice(0, 50).map((m) => (
+                {displayMembers.slice(0, 100).map((m) => (
                   <tr key={m.id} className="hover:bg-slate-50 transition-colors">
                     <td className="py-2.5 px-3 font-mono text-xs text-slate-600">{formatMemberId(m.member_id)}</td>
                     <td className="py-2.5 px-3 font-medium text-slate-800">{m.full_name}</td>
@@ -137,8 +166,10 @@ export default function MemberActivityReport({ members, period, value, totals })
                 ))}
               </tbody>
             </table>
-            {newMembers.length === 0 && (
-              <p className="text-center text-slate-400 py-8">No members in this period</p>
+            {displayMembers.length === 0 && (
+              <p className="text-center text-slate-400 py-8">
+                {newMembers.length === 0 ? "No members in this period" : "No members match the current filters"}
+              </p>
             )}
           </div>
         </CardContent>
