@@ -17,6 +17,7 @@ import ReportFilters from "@/components/reports/ReportFilters";
 import MemberActivityReport, { exportMemberCSV } from "@/components/reports/MemberActivityReport";
 import DonationSummaryReport, { exportDonationCSV } from "@/components/reports/DonationSummaryReport";
 import ChallanStatusReport, { exportChallanCSV } from "@/components/reports/ChallanStatusReport";
+import FinancialSummaryPanel from "@/components/reports/FinancialSummaryPanel";
 
 const MEMBERS_REPORT_BATCH_SIZE = 200;
 const CHALLANS_REPORT_BATCH_SIZE = 200;
@@ -212,7 +213,7 @@ function buildChallanPivotData(challans, members, period, value, extraFilters = 
     statusMatrix.push(statusRow);
   });
 
-  return { headers, tableBody, statusMatrix, memberCount: memberNames.length, monthCount: months.length };
+  return { headers, tableBody, statusMatrix, memberCount: memberKeys.length, monthCount: months.length };
 }
 
 function downloadPivotPDF({ headers, tableBody, statusMatrix, filename, reportName, periodLabel }) {
@@ -410,6 +411,18 @@ export default function Reports() {
     queryFn: () => charityClient.members.summary(),
   });
 
+  const { data: challanStats, isLoading: challanStatsLoading } = useQuery({
+    queryKey: ["challans", "collection-stats"],
+    queryFn: () => charityClient.challans.collectionStats(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: fundSummary, isLoading: fundSummaryLoading } = useQuery({
+    queryKey: ["fund-utilizations", "summary"],
+    queryFn: () => charityClient.fundUtilizations.summary(),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const { data: challans = [] } = useQuery({
     queryKey: ["challans"],
     queryFn: async () => {
@@ -466,6 +479,17 @@ export default function Reports() {
     () => user?.role === "admin" || user?.role === "superadmin",
     [user]
   );
+
+  // Outstanding receivables: sum of pending + generated challan amounts
+  const { pendingAmount, pendingCount } = useMemo(() => {
+    const pending = challans.filter(
+      (c) => c.status === "pending" || c.status === "generated"
+    );
+    return {
+      pendingAmount: pending.reduce((sum, c) => sum + (Number(c.amount) || 0), 0),
+      pendingCount: pending.length,
+    };
+  }, [challans]);
 
   const campaignOptions = useMemo(
     () => campaigns.map((campaign) => ({ id: String(campaign.id), name: campaign.title || `Campaign #${campaign.id}` })),
@@ -772,6 +796,14 @@ export default function Reports() {
           </Button>
         </div>
       </div>
+
+      <FinancialSummaryPanel
+        challanStats={challanStats}
+        fundSummary={fundSummary}
+        pendingAmount={pendingAmount}
+        pendingCount={pendingCount}
+        isLoading={challanStatsLoading || fundSummaryLoading}
+      />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
