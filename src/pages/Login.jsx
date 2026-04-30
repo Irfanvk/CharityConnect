@@ -22,7 +22,10 @@ export default function Login() {
   const { setAuthenticatedUser } = useAuth();
 
   const returnToParam = new URLSearchParams(location.search).get('returnTo');
-  const redirectTarget = returnToParam && returnToParam.toLowerCase() !== APP_PATHS.LOGIN ? returnToParam : APP_PATHS.HOME;
+  // Security: only allow relative paths to prevent open-redirect attacks
+  const isSafeReturnTo = returnToParam?.startsWith('/') && !returnToParam.startsWith('//');
+  const redirectTarget = isSafeReturnTo && returnToParam.toLowerCase() !== APP_PATHS.LOGIN
+    ? returnToParam : APP_PATHS.HOME;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -41,11 +44,6 @@ export default function Login() {
     try {
       const response = await charityClient.auth.login(credentials);
       
-      // Store user info if provided
-      if (response.user) {
-        localStorage.setItem('user', JSON.stringify(response.user));
-      }
-
       const currentUser = response?.user || await charityClient.auth.me();
       if (!currentUser) {
         throw new Error('Login succeeded but user session could not be established.');
@@ -168,7 +166,7 @@ export default function Login() {
         <CardFooter className="flex flex-col space-y-2">
           <div className="text-sm text-center text-slate-600 dark:text-slate-300">
             <Link
-              to="/ForgotPassword"
+              to="/forgotpassword"
               className="font-medium text-slate-500 hover:underline dark:text-slate-400"
             >
               Forgot password?

@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from 'react';
+import { useEffect, lazy, Suspense, Component } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -24,6 +24,35 @@ import { NotificationsProvider } from '@/context/NotificationContext';
 
 const LandingPage = lazy(() => import('./pages/Landing'));
 
+class AppErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-8 text-center">
+          <h1 className="text-2xl font-bold text-slate-800">Something went wrong</h1>
+          <p className="text-slate-500 max-w-md">
+            An unexpected error occurred. Please refresh the page. If the problem persists, contact support.
+          </p>
+          <button
+            className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
+            onClick={() => window.location.reload()}
+          >
+            Reload page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const { Pages, PUBLIC_PAGES, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
 const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
@@ -32,7 +61,7 @@ const PUBLIC_ROUTE_PATHS = new Set(
 );
 
 const ADMIN_PAGES = new Set(['Members', 'Reports', 'AuditLogs', 'Settings', 'AdminRequests', 'FundUtilization']);
-const SUPERADMIN_PAGES = new Set(['SuperadminPanel']);
+const SUPERADMIN_PAGES = new Set(['SuperadminPanel', 'Import']);
 
 const canAccessPage = (pageKey, role) => {
   if (SUPERADMIN_PAGES.has(pageKey)) {
@@ -235,27 +264,29 @@ const AuthenticatedApp = () => {
 function App() {
 
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
-        <NotificationsProvider>
-          <Router
-            future={{
-              v7_startTransition: true,
-              v7_relativeSplatPath: true,
-            }}
-          >
-            <BackendHealthBanner />
-            <OfflineBanner />
-            <SessionExpiredToastBridge />
-            <NavigationTracker />
-            <AuthenticatedApp />
-            <IOSInstallPrompt />
-            <AndroidInstallPrompt />
-          </Router>
-        </NotificationsProvider>
-        <Toaster />
-      </QueryClientProvider>
-    </AuthProvider>
+    <AppErrorBoundary>
+      <AuthProvider>
+        <QueryClientProvider client={queryClientInstance}>
+          <NotificationsProvider>
+            <Router
+              future={{
+                v7_startTransition: true,
+                v7_relativeSplatPath: true,
+              }}
+            >
+              <BackendHealthBanner />
+              <OfflineBanner />
+              <SessionExpiredToastBridge />
+              <NavigationTracker />
+              <AuthenticatedApp />
+              <IOSInstallPrompt />
+              <AndroidInstallPrompt />
+            </Router>
+          </NotificationsProvider>
+          <Toaster />
+        </QueryClientProvider>
+      </AuthProvider>
+    </AppErrorBoundary>
   )
 }
 

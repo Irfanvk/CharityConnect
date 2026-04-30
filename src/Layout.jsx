@@ -68,8 +68,9 @@ export default function Layout({ children, currentPageName }) {
         return;
       }
 
-      const myPending = await charityClient.requests.list({ status: 'pending', limit: 200 });
-      setPendingRequestsCount(Array.isArray(myPending) ? myPending.length : 0);
+      // Members: use limit:1 + total field to avoid fetching full records just for a count
+      const page = await charityClient.requests.list({ status: 'pending', skip: 0, limit: 1 });
+      setPendingRequestsCount(Number(page?.total ?? (Array.isArray(page) ? page.length : 0)));
     } catch {
       setPendingRequestsCount(0);
     }

@@ -257,6 +257,13 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
       emitNotificationsChanged('updated');
       setFormOpen(false);
     },
+    onError: (err) => {
+      toast({
+        title: 'Failed to create member',
+        description: err?.message || 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      });
+    },
   });
 
   const updateMutation = useMutation({
@@ -268,6 +275,13 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
       refreshMemberData();
       setFormOpen(false);
       setEditingMember(null);
+    },
+    onError: (err) => {
+      toast({
+        title: 'Failed to update member',
+        description: err?.message || 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      });
     },
   });
 

@@ -83,6 +83,11 @@ function MetricCard({ icon: Icon, label, value, sub, iconBg, loading, highlight,
     );
 }
 
+/** PDF theme colours (module-level so they're created once) */
+const PDF_BRAND = [16, 122, 87];
+const PDF_BORDER = [200, 220, 210];
+const PDF_ALT = [245, 250, 247];
+
 /**
  * FinancialSummaryPanel
  *
@@ -291,10 +296,6 @@ export default function FinancialSummaryPanel({
     }
 
     // ── PDF export ────────────────────────────────────────────────────────────
-    const PDF_BRAND = [16, 122, 87];
-    const PDF_BORDER = [200, 220, 210];
-    const PDF_ALT = [245, 250, 247];
-
     function handleDownloadPDF() {
         const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
         const pageW = doc.internal.pageSize.getWidth();

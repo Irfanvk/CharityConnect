@@ -81,6 +81,9 @@ export const AuthProvider = ({ children }) => {
       setUserData(null);
       setIsAuthenticated(false);
       sessionStorage.setItem(SESSION_EXPIRED_TOAST_KEY, '1');
+      // Guard against redirect loop: don't redirect if already on the login page
+      const currentPath = window.location.pathname.toLowerCase().split('?')[0];
+      if (currentPath === APP_PATHS.LOGIN) return;
       const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
       window.location.href = `${APP_PATHS.LOGIN}?returnTo=${encodeURIComponent(returnTo)}`;
     };
