@@ -39,9 +39,9 @@ function downloadCSV({ headers, rows, filename }) {
 
 // Colour palette for the PDF
 const PDF_BRAND_COLOR = [16, 122, 87];   // emerald-700 approx
-const PDF_HEADER_BG   = [16, 122, 87];
-const PDF_ALT_ROW     = [245, 250, 247];
-const PDF_BORDER      = [200, 220, 210];
+const PDF_HEADER_BG = [16, 122, 87];
+const PDF_ALT_ROW = [245, 250, 247];
+const PDF_BORDER = [200, 220, 210];
 
 function downloadPDF({ headers, rows, filename, reportName, periodLabel }) {
   const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
@@ -114,46 +114,57 @@ function downloadPDF({ headers, rows, filename, reportName, periodLabel }) {
 function buildChallanPivotData(challans, members, period, value, extraFilters = {}) {
   const { statusFilter = "all", typeFilter = "all" } = extraFilters;
 
-  // Period filter
+  // Period filter — for yearly pivot use the challan's month field (not created_date)
+  // so a Jan challan created in Feb still lands in Jan
   let list = [...challans];
   if (period !== "all") {
     list = list.filter((c) => {
-      const d = c.created_date;
-      return d ? d.startsWith(value) : false;
+      const slot = c.month || (c.created_date ? c.created_date.slice(0, 7) : null);
+      return slot ? slot.startsWith(value) : false;
     });
   }
   if (typeFilter !== "all") list = list.filter((c) => c.type === typeFilter);
   if (statusFilter !== "all") list = list.filter((c) => c.status === statusFilter);
 
-  // Member name lookup
+  // Member name + id lookup
   const mlookup = {};
   members.forEach((m) => {
-    mlookup[String(m.id)] = m.full_name || m.member_name || `Member #${m.id}`;
+    mlookup[String(m.id)] = {
+      name: m.full_name || m.member_name || `Member #${m.id}`,
+      code: m.member_code || m.member_id || String(m.id),
+    };
   });
-  const getName = (c) =>
-    c.member_name || mlookup[String(c.member_id)] || `Member #${c.member_id ?? "?"}` ;
+  const getNameAndCode = (c) => {
+    const entry = mlookup[String(c.member_id)];
+    return {
+      name: c.member_name || entry?.name || `Member #${c.member_id ?? "?"}`,
+      code: entry?.code || (c.member_id != null ? String(c.member_id) : "—"),
+    };
+  };
 
-  // Collect unique month keys (YYYY-MM), sorted
-  const monthSet = new Set();
-  list.forEach((c) => {
-    const key = c.month || (c.created_date ? c.created_date.slice(0, 7) : null);
-    if (key) monthSet.add(key);
+  // Always use the 12 fixed months of the selected year so columns are predictable
+  const year = value && value.length >= 4 ? value.slice(0, 4) : String(new Date().getFullYear());
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const m = String(i + 1).padStart(2, "0");
+    return `${year}-${m}`;
   });
-  const months = Array.from(monthSet).sort();
 
-  // Group: memberName -> monthKey -> { amount, status }
+  // Group: memberKey -> monthKey -> { amount, status }; also track member metadata
   const memberData = {};
+  const memberMeta = {}; // memberKey -> { name, code }
   list.forEach((c) => {
-    const name = getName(c);
+    const { name, code } = getNameAndCode(c);
+    const memberKey = `${code}||${name}`;
     const key = c.month || (c.created_date ? c.created_date.slice(0, 7) : "N/A");
-    if (!memberData[name]) memberData[name] = {};
-    if (!memberData[name][key]) memberData[name][key] = { amount: 0, status: c.status };
-    memberData[name][key].amount += Number(c.amount) || 0;
-    // Prefer approved status if any payment for that slot is approved
-    if (c.status === "approved") memberData[name][key].status = "approved";
+    if (!memberData[memberKey]) { memberData[memberKey] = {}; memberMeta[memberKey] = { name, code }; }
+    if (!memberData[memberKey][key]) memberData[memberKey][key] = { amount: 0, status: c.status };
+    memberData[memberKey][key].amount += Number(c.amount) || 0;
+    if (c.status === "approved") memberData[memberKey][key].status = "approved";
   });
 
-  const memberNames = Object.keys(memberData).sort((a, b) => a.localeCompare(b));
+  const memberKeys = Object.keys(memberData).sort((a, b) =>
+    memberMeta[a].name.localeCompare(memberMeta[b].name)
+  );
 
   const monthLabels = months.map((m) => {
     try {
@@ -164,14 +175,15 @@ function buildChallanPivotData(challans, members, period, value, extraFilters = 
     }
   });
 
-  const headers = ["Member", ...monthLabels, "Total"];
+  const headers = ["#", "Member ID", "Member Name", ...monthLabels, "Total"];
   const tableBody = [];
   const statusMatrix = []; // [rowIdx][monthIdx]
 
-  memberNames.forEach((name) => {
-    const data = memberData[name];
+  memberKeys.forEach((memberKey, idx) => {
+    const { name, code } = memberMeta[memberKey];
+    const data = memberData[memberKey];
     let total = 0;
-    const textRow = [name];
+    const textRow = [String(idx + 1), code, name];
     const statusRow = [];
     months.forEach((monthKey) => {
       const cell = data[monthKey];
@@ -183,11 +195,18 @@ function buildChallanPivotData(challans, members, period, value, extraFilters = 
         statusRow.push("rejected");
       } else {
         total += cell.amount;
-        textRow.push(`\u20b9${cell.amount.toLocaleString()}`);
+        // Compact notation: >=10000 -> "10K", >=1000 -> "1.5K", else full
+        // Use "Rs." not \u20b9 — jsPDF helvetica cannot render the rupee sign
+        const amt = cell.amount;
+        let label;
+        if (amt >= 10000) label = `Rs.${Math.round(amt / 1000)}K`;
+        else if (amt >= 1000) label = `Rs.${(amt / 1000).toFixed(1).replace(/\.0$/, "")}K`;
+        else label = `Rs.${amt.toLocaleString()}`;
+        textRow.push(label);
         statusRow.push(cell.status);
       }
     });
-    textRow.push(`\u20b9${total.toLocaleString()}`);
+    textRow.push(`Rs.${total.toLocaleString()}`);
     statusRow.push("total");
     tableBody.push(textRow);
     statusMatrix.push(statusRow);
@@ -215,29 +234,56 @@ function downloadPivotPDF({ headers, tableBody, statusMatrix, filename, reportNa
   if (periodLabel) doc.text(periodLabel, pageW - 28, 22, { align: "right" });
   doc.text(`Generated: ${generatedAt}`, pageW - 28, 36, { align: "right" });
 
-  // Dynamic column widths
-  const numMonths = headers.length - 2; // exclude Member + Total
-  const nameColW = 130;
-  const totalColW = 62;
-  const available = pageW - 56 - nameColW - totalColW;
-  const monthColW = numMonths > 0 ? Math.max(32, Math.min(54, available / numMonths)) : 50;
+  // ── Minimal legend strip ──────────────────────────────────────────────────
+  const legends = [
+    { label: "Approved", fill: [236, 253, 245], text: [5, 120, 70] },
+    { label: "Pending", fill: [255, 251, 235], text: [161, 98, 7] },
+    { label: "Generated", fill: [245, 247, 250], text: [60, 80, 100] },
+    { label: "Rejected", fill: [255, 241, 242], text: [180, 30, 30] },
+    { label: "No data", fill: [255, 255, 255], text: [200, 200, 200] },
+  ];
+  let lx = 28;
+  const ly = 58;
+  doc.setFontSize(6.5);
+  legends.forEach(({ label, fill, text }) => {
+    doc.setFillColor(...fill);
+    doc.setDrawColor(...PDF_BORDER);
+    doc.rect(lx, ly, 8, 7, "FD");
+    doc.setTextColor(...text);
+    doc.setFont("helvetica", "bold");
+    doc.text(label, lx + 10, ly + 5.5);
+    lx += 10 + doc.getTextWidth(label) + 10;
+  });
+  doc.setTextColor(30, 41, 59);
+  doc.setFont("helvetica", "normal");
+
+  // Dynamic column widths — allow month cols as narrow as 28pt with compact font
+  const numMonths = headers.length - 4; // exclude #, Member ID, Name, Total
+  const snColW = 22;
+  const idColW = 44;
+  const nameColW = 110;
+  const totalColW = 52;
+  const available = pageW - 56 - snColW - idColW - nameColW - totalColW;
+  const monthColW = numMonths > 0 ? Math.max(28, Math.min(50, available / numMonths)) : 44;
 
   const columnStyles = {
-    0: { cellWidth: nameColW },
-    [headers.length - 1]: { cellWidth: totalColW, halign: "right", fontStyle: "bold" },
+    0: { cellWidth: snColW, halign: "center", fontSize: 6 },         // #
+    1: { cellWidth: idColW, halign: "center", fontSize: 6 },         // Member ID
+    2: { cellWidth: nameColW, fontSize: 6.5 },                        // Name
+    [headers.length - 1]: { cellWidth: totalColW, halign: "right", fontStyle: "bold", fontSize: 6.5 }, // Total
   };
-  for (let i = 1; i < headers.length - 1; i++) {
-    columnStyles[i] = { cellWidth: monthColW, halign: "center" };
+  for (let i = 3; i < headers.length - 1; i++) {
+    columnStyles[i] = { cellWidth: monthColW, halign: "center", fontSize: 5.5, cellPadding: { top: 2, bottom: 2, left: 1, right: 1 } };
   }
 
   autoTable(doc, {
     head: [headers],
     body: tableBody,
-    startY: 64,
+    startY: 76,
     margin: { left: 28, right: 28 },
     styles: {
-      fontSize: 7,
-      cellPadding: { top: 3, bottom: 3, left: 4, right: 4 },
+      fontSize: 6.5,
+      cellPadding: { top: 3, bottom: 3, left: 3, right: 3 },
       overflow: "ellipsize",
       lineColor: PDF_BORDER,
       lineWidth: 0.3,
@@ -247,8 +293,9 @@ function downloadPivotPDF({ headers, tableBody, statusMatrix, filename, reportNa
       fillColor: PDF_HEADER_BG,
       textColor: [255, 255, 255],
       fontStyle: "bold",
-      fontSize: 7.5,
+      fontSize: 6.5,
       halign: "center",
+      cellPadding: { top: 3, bottom: 3, left: 1, right: 1 },
     },
     columnStyles,
     tableLineColor: PDF_BORDER,
@@ -257,7 +304,7 @@ function downloadPivotPDF({ headers, tableBody, statusMatrix, filename, reportNa
       if (section !== "body") return;
       const colIdx = column.index;
       const rowIdx = row.index;
-      if (colIdx === 0) return; // member name column — no extra style
+      if (colIdx <= 2) return; // #, Member ID, Name — no colour styling
       // Total column
       if (colIdx === headers.length - 1) {
         cell.styles.fillColor = [220, 240, 230];
@@ -265,8 +312,8 @@ function downloadPivotPDF({ headers, tableBody, statusMatrix, filename, reportNa
         cell.styles.fontStyle = "bold";
         return;
       }
-      // Month columns map to statusMatrix[][colIdx - 1]
-      const status = statusMatrix[rowIdx]?.[colIdx - 1];
+      // Month columns map to statusMatrix[][colIdx - 3]
+      const status = statusMatrix[rowIdx]?.[colIdx - 3];
       if (status === "none") {
         cell.styles.textColor = [200, 200, 200];
       } else if (status === "approved") {
@@ -463,14 +510,13 @@ export default function Reports() {
   );
 
   const availableYears = useMemo(() => {
-    const yearSet = new Set();
-    challans.forEach((c) => {
-      const d = c.created_date || c.month;
-      if (d && d.length >= 4) yearSet.add(d.slice(0, 4));
-    });
-    const years = Array.from(yearSet).sort().reverse();
-    return years.length ? years : [String(new Date().getFullYear())];
-  }, [challans]);
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let y = currentYear; y >= 2024; y--) {
+      years.push(String(y));
+    }
+    return years;
+  }, []);
 
   const handleDonationCampaignChange = (value) => {
     setDonationCampaign(value);
