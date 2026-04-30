@@ -49,7 +49,6 @@ export default function Layout({ children, currentPageName }) {
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const sidebarNavRef = useRef(null);
-  const savedScrollY = useRef(0);
   const currentUser = authUser;
   const currentUserId = currentUser?.id ?? null;
   const currentUserRole = currentUser?.role ?? null;
@@ -90,38 +89,11 @@ export default function Layout({ children, currentPageName }) {
   }, [currentUserId, loadPendingRequestsCount]);
 
   useEffect(() => {
-    const isMobileViewport = window.matchMedia('(max-width: 1023px)').matches;
-    if (!isMobileViewport) return;
-
-    if (sidebarOpen) {
-      // iOS Safari body-scroll-lock: save scroll position and fix body in place.
-      // Simply setting overflow:hidden on body causes iOS Safari to offset all
-      // position:fixed children by the current scroll amount — this pattern avoids it.
-      savedScrollY.current = window.scrollY;
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${savedScrollY.current}px`;
-      document.body.style.width = '100%';
-      document.body.style.overflow = 'hidden';
-
-      // Reset nav scroll to top every time the sidebar opens
-      if (sidebarNavRef.current) {
-        sidebarNavRef.current.scrollTop = 0;
-      }
-    } else {
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      document.body.style.overflow = '';
-      // Restore the scroll position silently
-      window.scrollTo(0, savedScrollY.current);
+    // With the app-shell pattern the window never scrolls, so no body scroll lock needed.
+    // Just reset the nav scroll to top when the sidebar opens.
+    if (sidebarOpen && sidebarNavRef.current) {
+      sidebarNavRef.current.scrollTop = 0;
     }
-
-    return () => {
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      document.body.style.overflow = '';
-    };
   }, [sidebarOpen]);
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
@@ -201,7 +173,7 @@ export default function Layout({ children, currentPageName }) {
   }, [sidebarOpen]);
 
   return (
-    <div className="min-h-screen lg:h-[100dvh] lg:overflow-hidden bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900" style={{ minHeight: '100dvh' }}>
+    <div className="h-[100dvh] overflow-hidden bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900">
       <NotificationManager user={currentUser} />
       <style>{`
         :root {
@@ -361,7 +333,7 @@ export default function Layout({ children, currentPageName }) {
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-72 pb-16 lg:pb-0 lg:h-[100dvh] lg:overflow-y-auto">
+      <div className="lg:pl-72 pb-16 lg:pb-0 h-[100dvh] overflow-y-auto">
         {/* Top bar */}
         <header
           className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800"
