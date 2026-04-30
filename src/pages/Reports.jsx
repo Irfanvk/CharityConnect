@@ -481,11 +481,12 @@ export default function Reports() {
   );
 
   // Outstanding receivables: sum of pending + generated challan amounts
-  const { pendingAmount, pendingCount } = useMemo(() => {
+  const { pendingChallans, pendingAmount, pendingCount } = useMemo(() => {
     const pending = challans.filter(
       (c) => c.status === "pending" || c.status === "generated"
     );
     return {
+      pendingChallans: pending,
       pendingAmount: pending.reduce((sum, c) => sum + (Number(c.amount) || 0), 0),
       pendingCount: pending.length,
     };
@@ -802,6 +803,8 @@ export default function Reports() {
         fundSummary={fundSummary}
         pendingAmount={pendingAmount}
         pendingCount={pendingCount}
+        pendingChallans={pendingChallans}
+        members={members}
         isLoading={challanStatsLoading || fundSummaryLoading}
         isAdmin={isAdmin}
       />
