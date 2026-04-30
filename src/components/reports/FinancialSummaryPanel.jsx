@@ -249,61 +249,65 @@ export default function FinancialSummaryPanel({
             PDF
           </Button>
         </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <MetricCard
-                    icon={TrendingUp}
-                    label="Gross Receipts"
-                    value={fmt(grossReceipts)}
-                    sub="Total approved collections (all time)"
-                    iconBg="bg-green-600"
-                    loading={isLoading}
-                />
-                <MetricCard
-                    icon={TrendingDown}
-                    label="Total Disbursements"
-                    value={fmt(disbursements)}
-                    sub="Funds utilised / expenditure recorded"
-                    iconBg="bg-red-500"
-                    loading={isLoading}
-                />
-                <MetricCard
-                    icon={Wallet}
-                    label="Net Balance (Cash on Hand)"
-                    value={fmt(netBalance)}
-                    sub="Gross Receipts minus Total Disbursements"
-                    iconBg={netBalance >= 0 ? "bg-emerald-600" : "bg-orange-500"}
-                    loading={isLoading}
-                    highlight
-                />
-            </div>
+      </div>
+      <Separator className="bg-slate-200" />
 
-            {/* Row 2: period & receivables */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <MetricCard
-                    icon={CalendarDays}
-                    label="Month-to-Date Receipts"
-                    value={fmt(mtd)}
-                    sub="Approved collections this calendar month"
-                    iconBg="bg-blue-500"
-                    loading={isLoading}
-                />
-                <MetricCard
-                    icon={CalendarRange}
-                    label="Year-to-Date Receipts"
-                    value={fmt(ytd)}
-                    sub="Approved collections this calendar year"
-                    iconBg="bg-indigo-500"
-                    loading={isLoading}
-                />
-                <MetricCard
-                    icon={AlertCircle}
-                    label="Outstanding Receivables"
-                    value={fmt(pendingAmount)}
-                    sub={`${pendingCount} challan${pendingCount !== 1 ? "s" : ""} pending approval`}
-                    iconBg="bg-amber-500"
-                    loading={isLoading}
-                />
-            </div>
-        </div>
-    );
+      {/* Row 1: primary balances */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <MetricCard
+          icon={TrendingUp}
+          label="Gross Receipts"
+          value={fmt(grossReceipts)}
+          sub="Total approved collections (all time)"
+          iconBg="bg-green-600"
+          loading={isLoading}
+        />
+        <MetricCard
+          icon={TrendingDown}
+          label="Total Disbursements"
+          value={fmt(disbursements)}
+          sub="Funds utilised / expenditure recorded"
+          iconBg="bg-red-500"
+          loading={isLoading}
+        />
+        <MetricCard
+          icon={Wallet}
+          label="Net Balance (Cash on Hand)"
+          value={fmt(netBalance)}
+          sub="Gross Receipts minus Total Disbursements"
+          iconBg={netBalance >= 0 ? "bg-emerald-600" : "bg-orange-500"}
+          loading={isLoading}
+          highlight
+        />
+      </div>
+
+      {/* Row 2: period & receivables */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <MetricCard
+          icon={CalendarDays}
+          label="Month-to-Date Receipts"
+          value={fmt(mtd)}
+          sub="Approved collections this calendar month"
+          iconBg="bg-blue-500"
+          loading={isLoading}
+        />
+        <MetricCard
+          icon={CalendarRange}
+          label="Year-to-Date Receipts"
+          value={fmt(ytd)}
+          sub="Approved collections this calendar year"
+          iconBg="bg-indigo-500"
+          loading={isLoading}
+        />
+        <MetricCard
+          icon={AlertCircle}
+          label="Outstanding Receivables"
+          value={fmt(pendingAmount)}
+          sub={`${pendingCount} challan${pendingCount !== 1 ? "s" : ""} pending approval`}
+          iconBg="bg-amber-500"
+          loading={isLoading}
+        />
+      </div>
+    </div>
+  );
 }
