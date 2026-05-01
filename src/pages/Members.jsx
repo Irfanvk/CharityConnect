@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { formatMemberId } from "@/lib/utils";
+import { formatMemberId, sanitizeShareUrl } from "@/lib/utils";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { emitNotificationsChanged } from "@/lib/notificationState";
@@ -113,7 +113,7 @@ export default function Members() {
 
   const handleCopyInviteLink = () => {
     if (!inviteResult?.registration_url) return;
-    navigator.clipboard.writeText(inviteResult.registration_url).then(() => {
+    navigator.clipboard.writeText(sanitizeShareUrl(inviteResult.registration_url)).then(() => {
       setInviteCopied(true);
       setTimeout(() => setInviteCopied(false), 2000);
     });
@@ -122,9 +122,13 @@ export default function Members() {
   const handleWhatsAppShare = () => {
     if (!inviteResult) return;
     const rawPhone = (inviteDialogMember?.phone || '').replace(/\D/g, '');
+    // Sanitize any backend-generated URL or message that may contain localhost
+    const regUrl = sanitizeShareUrl(inviteResult.registration_url);
+    const shareMsg = sanitizeShareUrl(inviteResult.share_message || regUrl);
+    const waFallback = sanitizeShareUrl(inviteResult.whatsapp_share_url) || `https://wa.me/?text=${encodeURIComponent(shareMsg)}`;
     const waUrl = rawPhone
-      ? `https://wa.me/${rawPhone}?text=${encodeURIComponent(inviteResult.share_message || inviteResult.registration_url)}`
-      : inviteResult.whatsapp_share_url || `https://wa.me/?text=${encodeURIComponent(inviteResult.registration_url)}`;
+      ? `https://wa.me/${rawPhone}?text=${encodeURIComponent(shareMsg)}`
+      : waFallback;
     window.open(waUrl, '_blank', 'noopener,noreferrer');
   };
 

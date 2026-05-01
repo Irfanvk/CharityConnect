@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { formatMemberId } from "@/lib/utils";
+import { formatMemberId, sanitizeShareUrl } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { charityClient } from "@/api/charityClient";
 import { queryKeys } from "@/lib/queryKeys";
@@ -56,12 +56,8 @@ export default function AdminRequests() {
   const [prRejectionReason, setPrRejectionReason] = useState("");
   const [prApprovedResult, setPrApprovedResult] = useState(null); // holds approval response for WhatsApp share
 
-  // Fix any localhost URLs in WhatsApp links — replace with current origin
-  const fixWhatsAppUrl = (url) => {
-    if (!url) return url;
-    return url.replace(/http%3A%2F%2Flocalhost%3A\d+/gi, encodeURIComponent(window.location.origin))
-              .replace(/http:\/\/localhost:\d+/gi, window.location.origin);
-  };
+  // Sanitise any backend-generated URL that may contain a localhost origin
+  const fixWhatsAppUrl = sanitizeShareUrl;
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
