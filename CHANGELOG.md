@@ -22,6 +22,9 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|----------|
+| 2.18 | 2026-05-01 | Patch | Login hardening: password toggle, already-auth redirect, username trim, friendly HTTP error messages. |
+| 2.17 | 2026-05-01 | Patch | App-wide safety/quality audit: open redirect fix, Import route guard, global error boundary, auth-expired loop prevention, smart 4xx retry policy, PII localStorage removal, Members mutation onError handlers, Layout polling efficiency fix, PDF constants refactor. |
+| 2.16.1 | 2026-05-01 | Patch | Financial Position summary panel on Reports page (admin-only): 6 metric cards, Outstanding Receivables drill-down dialog, CSV/PDF export for summary + receivables. Consumes existing `GET /challans/collection-stats` and `GET /fund-utilizations/summary` endpoints. |
 | 2.16 | 2026-04-22 | Patch | Challan payable-months flexibility completed (backend route/service + frontend form month-start control); pending items recorded for production smoke verification and backend-repo changelog parity sync. |
 | 2.15 | 2026-04-20 | Minor | Cloudinary file storage integration (uploads, avatars, payment proofs) — full-stack |
 | 2.14 | 2026-04-08 | Minor | Backfilled audit for 2026-03-19..2026-04-08: request-folder fix, API/docs corrections, iPhone/responsive passes, notifications/API-call enhancements, collection-stats visibility controls, campaign/challan fixes, avatar rollout, WhatsApp invite sharing, member selector combo-box + server-side filtering, and member profile popover enrichment (avatar/full name/id/address/phone/direct message). |
@@ -50,6 +53,102 @@ This document records all technical changes, implementations, and decisions made
 | 1.2 | 2026-03-01 | Patch | Challan role-based visibility, proof re-upload flow, status filter alignment |
 | 1.1 | 2026-02-26 | Patch | Auth/login redirect stabilization, logout visibility, API client hardening |
 | 1.0 | 2026-02-24 | Release | Phase 1 MVP complete |
+
+---
+
+## v2.18 - 2026-05-01 - Login Page Hardening
+
+### Summary
+Improved the Login page with UX best practices and security guardrails. All changes are frontend-only; no backend API contract changes required.
+
+### Frontend
+
+- **Password visibility toggle** — Eye/EyeOff icon button overlaid inside the password field. Uses local `showPassword` state; `tabIndex={-1}` so it doesn't interrupt keyboard tab flow; `aria-label` for screen-reader accessibility.
+- **Already-authenticated redirect** — `useEffect` watches `isAuthenticated` from `AuthContext`; navigates to `redirectTarget` with `replace: true` if the user lands on `/login` while a session is already active.
+- **Username trimming** — `credentials.username.trim()` applied before the API call to prevent accidental leading/trailing whitespace from causing login failures.
+- **Friendly HTTP error mapping** — HTTP status codes translated to user-facing messages: 401/403 → "Invalid username or password.", 429 → rate-limit retry message, 5xx or network `TypeError` → "Server is unavailable." Avoids surfacing raw backend error strings to end users.
+- **ForgotPassword link casing fix** — Link corrected from `/ForgotPassword` to `/forgotpassword` to match the registered route path.
+
+### API Notes
+
+No new endpoints. No payload changes.
+
+---
+
+## v2.17 - 2026-05-01 - App-Wide Safety & Quality Audit
+
+### Summary
+Comprehensive security and quality pass across the codebase. All changes are frontend-only.
+
+### Frontend
+
+**Security**
+- `src/pages/Login.jsx` — Open redirect vulnerability patched. `returnTo` param now validated: must start with `/` and must not start with `//`. Any other value falls back to `APP_PATHS.HOME`.
+- `src/pages/Login.jsx` — `localStorage.setItem('user', JSON.stringify(response.user))` dead code removed. This block wrote PII (full user object) to `localStorage` without a TTL and was never read back — now deleted entirely.
+
+**Routing**
+- `src/App.jsx` — `'Import'` added to the `SUPERADMIN_PAGES` set. Previously any authenticated user could access `/Import`; it is now restricted to `superadmin` role only, consistent with the nav-item visibility guard already in place.
+
+**Error Resilience**
+- `src/App.jsx` — `AppErrorBoundary` class component added (uses `getDerivedStateFromError`). Wraps the entire provider/router tree. Unhandled React render errors now display a user-friendly "Something went wrong — Reload page" screen instead of a blank white crash.
+
+**Auth**
+- `src/lib/AuthContext.jsx` — `handleAuthExpired` listener now short-circuits if `window.location.pathname` matches `APP_PATHS.LOGIN`, preventing a redirect loop where the login page itself would trigger another login redirect.
+
+**Query Behaviour**
+- `src/lib/query-client.js` — `retry` changed from a flat `1` to a function `(failureCount, error) => { if (status >= 400 && status < 500) return false; return failureCount < 1; }`. Prevents double-firing of `auth:expired` on 401 responses and avoids noisy retries on 403/404.
+
+**UX Fixes**
+- `src/pages/Members.jsx` — `createMutation` and `updateMutation` now have `onError` handlers that show a destructive toast. Previously these mutations silently swallowed errors.
+- `src/Layout.jsx` — Non-admin pending-requests count polling changed from `list({ status: 'pending', limit: 200 })` (fetches full records) to `list({ status: 'pending', skip: 0, limit: 1 })` + reads `page.total`. Reduces payload by ~200× every 60 seconds.
+
+**Code Quality**
+- `src/components/reports/FinancialSummaryPanel.jsx` — `PDF_BRAND`, `PDF_BORDER`, `PDF_ALT` colour constants moved from inside the component function body to module level. Prevents array re-creation on every render.
+
+### Backend
+
+No backend changes required.
+
+### API Notes
+
+No new or changed endpoints. The retry-policy fix means the frontend will no longer send a second request after a 401; backend rate-limiting should see fewer duplicate auth-failure calls.
+
+---
+
+## v2.16.1 - 2026-05-01 - Financial Position Summary Panel (Reports)
+
+### Summary
+New admin-only Financial Position summary panel added above the existing Reports page tabs. Consumes two existing backend endpoints — no backend changes required.
+
+### Frontend
+
+**New component: `src/components/reports/FinancialSummaryPanel.jsx`**
+- Renders only when `isAdmin` prop is `true` (admin or superadmin role). Non-admin users receive `null`.
+- Six metric cards in two rows:
+  - Row 1: Gross Receipts, Total Disbursements, Net Balance (highlighted green)
+  - Row 2: Month-to-Date Receipts, Year-to-Date Receipts, Outstanding Receivables
+- Outstanding Receivables card is clickable → opens a drill-down `Dialog` showing all pending/generated challans in a `Table` with member name lookup, month, type, amount, status `Badge`, and raised-on date.
+- **CSV export** (`handleDownloadCSV`) — Financial Position Statement with all 6 metrics and a note row.
+- **PDF export** (`handleDownloadPDF`) — A4 portrait, branded header, `jspdf-autotable` summary table. Uses `Rs.` prefix (jsPDF Helvetica cannot render ₹ U+20B9).
+- **Receivables CSV export** (`handleReceivablesCSV`) — Per-challan rows with total footer, `as of [date]` header.
+- **Receivables PDF export** (`handleReceivablesPDF`) — A4 landscape, branded header, per-challan table with total footer, status colour coding.
+- Outstanding Receivables label includes `as of [date]` in the card sub-text, dialog heading, CSV header row, and PDF header.
+
+**Modified: `src/pages/Reports.jsx`**
+- Added `challanStats` query: `charityClient.challans.collectionStats()`, key `["challans", "collection-stats"]`.
+- Added `fundSummary` query: `charityClient.fundUtilizations.summary()`, key `["fund-utilizations", "summary"]`.
+- `pendingChallans`, `pendingAmount`, `pendingCount` derived via `useMemo` from the full challans list filtered to `status === "pending" || "generated"`.
+- `<FinancialSummaryPanel>` rendered above the `<Tabs>` block, receiving all 8 props.
+
+### Backend
+
+No changes. Both consumed endpoints were already implemented:
+- `GET /challans/collection-stats` — Returns `{ today, this_week, this_month, this_year, all_time }`.
+- `GET /fund-utilizations/summary` — Returns `{ total_collected, total_utilized, available_balance }`.
+
+### API Notes
+
+Two existing endpoints are now consumed by the Reports page that were not used there before. No contract changes.
 
 ---
 
