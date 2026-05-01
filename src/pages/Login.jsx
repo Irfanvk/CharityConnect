@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export default function Login() {
   const [credentials, setCredentials] = useState({
@@ -17,9 +17,17 @@ export default function Login() {
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { setAuthenticatedUser } = useAuth();
+  const { setAuthenticatedUser, isAuthenticated } = useAuth();
+
+  // Redirect away if already authenticated
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigate(redirectTarget, { replace: true });
+    }
+  }, [isAuthenticated, navigate, redirectTarget]);
 
   const returnToParam = new URLSearchParams(location.search).get('returnTo');
   // Security: only allow relative paths to prevent open-redirect attacks
@@ -42,7 +50,11 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const response = await charityClient.auth.login(credentials);
+      // Trim username (not password) to avoid accidental whitespace rejections
+      const response = await charityClient.auth.login({
+        ...credentials,
+        username: credentials.username.trim(),
+      });
       
       const currentUser = response?.user || await charityClient.auth.me();
       if (!currentUser) {
@@ -55,7 +67,18 @@ export default function Login() {
       navigate(redirectTarget, { replace: true });
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.message || 'Login failed. Please check your credentials and try again.');
+      const status = err?.status ?? err?.response?.status;
+      let msg;
+      if (status === 401 || status === 403) {
+        msg = 'Invalid username or password.';
+      } else if (status === 429) {
+        msg = 'Too many login attempts. Please wait a moment and try again.';
+      } else if (status >= 500 || err?.name === 'TypeError') {
+        msg = 'Server is unavailable. Please try again shortly.';
+      } else {
+        msg = err?.message || 'Login failed. Please check your credentials and try again.';
+      }
+      setError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -133,17 +156,29 @@ export default function Login() {
 
             <div className="space-y-2">
               <Label htmlFor="password" className="text-slate-800 dark:text-slate-100">Password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="Enter your password"
-                value={credentials.password}
-                onChange={handleChange}
-                required
-                disabled={isLoading}
-                autoComplete="current-password"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter your password"
+                  value={credentials.password}
+                  onChange={handleChange}
+                  required
+                  disabled={isLoading}
+                  autoComplete="current-password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
 
             <Button 
