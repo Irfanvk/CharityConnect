@@ -22,18 +22,18 @@ export default function Login() {
   const location = useLocation();
   const { setAuthenticatedUser, isAuthenticated } = useAuth();
 
+  const returnToParam = new URLSearchParams(location.search).get('returnTo');
+  // Security: only allow relative paths to prevent open-redirect attacks
+  const isSafeReturnTo = returnToParam?.startsWith('/') && !returnToParam.startsWith('//');
+  const redirectTarget = isSafeReturnTo && returnToParam.toLowerCase() !== APP_PATHS.LOGIN
+    ? returnToParam : APP_PATHS.HOME;
+
   // Redirect away if already authenticated
   React.useEffect(() => {
     if (isAuthenticated) {
       navigate(redirectTarget, { replace: true });
     }
   }, [isAuthenticated, navigate, redirectTarget]);
-
-  const returnToParam = new URLSearchParams(location.search).get('returnTo');
-  // Security: only allow relative paths to prevent open-redirect attacks
-  const isSafeReturnTo = returnToParam?.startsWith('/') && !returnToParam.startsWith('//');
-  const redirectTarget = isSafeReturnTo && returnToParam.toLowerCase() !== APP_PATHS.LOGIN
-    ? returnToParam : APP_PATHS.HOME;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
