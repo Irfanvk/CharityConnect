@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import PhoneInput from "@/components/ui/phone-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -48,8 +47,6 @@ const statusConfig = {
 
 export default function Profile() {
   const [user, setUser] = useState(null);
-  const [editing, setEditing] = useState(false);
-  const [formData, setFormData] = useState({ full_name: '', phone: '', email: '' });
   const [loading, setLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [paymentChangeOpen, setPaymentChangeOpen] = useState(false);
@@ -83,15 +80,9 @@ export default function Profile() {
   const loadUser = async () => {
     const currentUser = await charityClient.auth.me();
     setUser(currentUser);
-    setFormData({
-      full_name: currentUser?.full_name || '',
-      phone: currentUser?.phone || '',
-      email: currentUser?.email || '',
-    });
   };
 
   const handleAvatarSave = async (file) => {
-    setUploadingAvatar(true);
     try {
       if (isMember) {
         const uploaded = await charityClient.files.uploadAvatar(file);
@@ -221,62 +212,6 @@ export default function Profile() {
       })
   );
 
-  const handleSave = async () => {
-    setLoading(true);
-    try {
-      const updatePayload = {
-        full_name: formData.full_name,
-        phone: formData.phone,
-        email: formData.email,
-      };
-
-      let didUpdate = false;
-
-      if (user?.id) {
-        await charityClient.users.update(user.id, {
-          full_name: updatePayload.full_name,
-          email: updatePayload.email,
-        });
-        didUpdate = true;
-      }
-
-      // Update member record if exists
-      if (memberProfile) {
-        await charityClient.members.update(memberProfile.id, {
-          full_name: updatePayload.full_name,
-          phone: updatePayload.phone,
-          email: updatePayload.email,
-        });
-        didUpdate = true;
-      }
-
-      if (!didUpdate) {
-        throw new Error('No profile update endpoint is available for this user.');
-      }
-
-      await loadUser();
-      setUser((prev) => ({
-        ...(prev || {}),
-        full_name: updatePayload.full_name,
-        phone: updatePayload.phone,
-        email: updatePayload.email,
-      }));
-      setEditing(false);
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been successfully updated.",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error?.message || "Failed to update profile.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleAccountDeletion = () => {
     toast({
       title: "Account Deletion Request",
@@ -376,6 +311,27 @@ export default function Profile() {
 
     setSubmittingProfileUpdate(true);
     try {
+      if (!isMember) {
+        // Admin / superadmin: direct save (no request needed)
+        const userFields = ['full_name', 'email', 'phone', 'username'];
+        if (userFields.includes(profileUpdateField)) {
+          await charityClient.users.update(user.id, {
+            [profileUpdateField]: profileUpdateNewValue.trim(),
+          });
+        } else if (profileUpdateField === 'address' && memberProfile) {
+          await charityClient.members.update(memberProfile.id, {
+            address: profileUpdateNewValue.trim(),
+          });
+        }
+        await loadUser();
+        toast({
+          title: 'Profile updated',
+          description: `Your ${profileUpdateField.replace(/_/g, ' ')} has been updated.`,
+        });
+        setProfileUpdateOpen(false);
+        return;
+      }
+
       await charityClient.requests.create({
         request_type: 'profile_update',
         subject: 'Profile update request',
@@ -467,15 +423,15 @@ export default function Profile() {
         <Card className="border-0 shadow-sm lg:col-span-1">
           <CardContent className="p-6">
             <div className="text-center">
-              {/* Avatar – click to enlarge; edit controls only shown when editing */}
+              {/* Avatar – always accessible for all users */}
               <div className="relative w-24 h-24 mx-auto mb-4">
-                {/* Clickable avatar — opens lightbox when NOT editing */}
+                {/* Clickable avatar — opens lightbox */}
                 <button
                   type="button"
-                  className={`w-24 h-24 rounded-full overflow-hidden focus:outline-none ${user.avatar_url && !editing ? 'cursor-zoom-in' : 'cursor-default'}`}
-                  onClick={() => { if (user.avatar_url && !editing) setLightboxOpen(true); }}
-                  tabIndex={user.avatar_url && !editing ? 0 : -1}
-                  aria-label={user.avatar_url && !editing ? 'View profile photo' : undefined}
+                  className={`w-24 h-24 rounded-full overflow-hidden focus:outline-none ${user.avatar_url ? 'cursor-zoom-in' : 'cursor-default'}`}
+                  onClick={() => { if (user.avatar_url) setLightboxOpen(true); }}
+                  tabIndex={user.avatar_url ? 0 : -1}
+                  aria-label={user.avatar_url ? 'View profile photo' : undefined}
                 >
                   {user.avatar_url ? (
                     <img
@@ -490,32 +446,30 @@ export default function Profile() {
                   )}
                 </button>
 
-                {/* Edit controls — only in edit mode */}
-                {editing && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setCropOpen(true)}
-                      disabled={uploadingAvatar || pendingProfileFieldSet.has('avatar_url')}
-                      className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center transition cursor-pointer hover:bg-black/55"
-                      title={pendingProfileFieldSet.has('avatar_url') ? 'A profile photo request is already pending.' : 'Change photo'}
-                    >
-                      {uploadingAvatar
-                        ? <Loader2 className="w-6 h-6 text-white animate-spin" />
-                        : <Camera className="w-6 h-6 text-white" />}
-                    </button>
-                    {user.avatar_url && (
-                      <button
-                        type="button"
-                        onClick={handleRemoveAvatar}
-                        disabled={uploadingAvatar || pendingProfileFieldSet.has('avatar_url')}
-                        className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center hover:bg-rose-600 transition"
-                        title={pendingProfileFieldSet.has('avatar_url') ? 'A profile photo request is already pending.' : 'Remove photo'}
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </>
+                {/* Camera button — bottom-right corner, always accessible */}
+                <button
+                  type="button"
+                  onClick={() => setCropOpen(true)}
+                  disabled={uploadingAvatar || pendingProfileFieldSet.has('avatar_url')}
+                  className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center hover:bg-emerald-700 transition shadow-md disabled:opacity-50"
+                  title={pendingProfileFieldSet.has('avatar_url') ? 'A profile photo request is already pending.' : 'Change photo'}
+                >
+                  {uploadingAvatar
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <Camera className="w-4 h-4" />}
+                </button>
+
+                {/* Remove button — top-right corner, only when avatar exists */}
+                {user.avatar_url && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveAvatar}
+                    disabled={uploadingAvatar || pendingProfileFieldSet.has('avatar_url')}
+                    className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center hover:bg-rose-600 transition disabled:opacity-50"
+                    title={pendingProfileFieldSet.has('avatar_url') ? 'A profile photo request is already pending.' : 'Remove photo'}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 )}
               </div>
 
@@ -534,157 +488,116 @@ export default function Profile() {
                 name={user.full_name || user.email}
               />
 
-              {editing ? (
-                <div className="space-y-3 text-left">
-                  <div>
-                    <Label htmlFor="full_name">Full Name</Label>
-                    <Input
-                      id="full_name"
-                      value={formData.full_name || ''}
-                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email || ''}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <PhoneInput
-                      id="phone"
-                      label="Phone"
-                      value={formData.phone || memberProfile?.phone || ''}
-                      onChange={(value) => setFormData({ ...formData, phone: value })}
-                      helperText=""
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button onClick={handleSave} disabled={loading} className="flex-1 bg-emerald-600 hover:bg-emerald-700">
-                      {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                      Save
-                    </Button>
-                    <Button variant="outline" onClick={() => setEditing(false)} className="flex-1">
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <h2 className="text-xl font-semibold text-slate-900">{user.full_name || 'User'}</h2>
-                  <Badge variant="secondary" className="mt-2 capitalize">{user.role}</Badge>
+              <h2 className="text-xl font-semibold text-slate-900">{user.full_name || 'User'}</h2>
+              <Badge variant="secondary" className="mt-2 capitalize">{user.role}</Badge>
 
-                  <div className="mt-6 space-y-3 text-left">
-                    <div className="flex items-center gap-3 text-slate-600">
-                      <Mail className="w-4 h-4 text-slate-400" />
-                      <span className="text-sm">{user.email}</span>
-                    </div>
+              <div className="mt-6 space-y-3 text-left">
+                {/* Email */}
+                <div className="flex items-center justify-between gap-3 text-slate-600">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Mail className="w-4 h-4 text-slate-400" />
+                    <span className="text-sm truncate">{user.email}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 shrink-0"
+                    disabled={pendingProfileFieldSet.has('email')}
+                    onClick={() => openProfileUpdateDialog('email', user.email || '')}
+                    title={pendingProfileFieldSet.has('email') ? 'A change request for this field is already pending.' : 'Edit email'}
+                  >
+                    <Pencil className="w-3.5 h-3.5 mr-1" />
+                    Edit
+                  </Button>
+                </div>
+                {/* Username */}
+                <div className="flex items-center justify-between gap-3 text-slate-600">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <AtSign className="w-4 h-4 text-slate-400" />
+                    <span className="text-sm font-mono">{user.username || '-'}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 shrink-0"
+                    disabled={pendingProfileFieldSet.has('username')}
+                    onClick={() => openProfileUpdateDialog('username', user.username || '')}
+                    title={pendingProfileFieldSet.has('username') ? 'A username change request is already pending.' : 'Edit username'}
+                  >
+                    <Pencil className="w-3.5 h-3.5 mr-1" />
+                    Edit
+                  </Button>
+                </div>
+                {/* Full name */}
+                <div className="flex items-center justify-between gap-3 text-slate-600">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <UserCircle className="w-4 h-4 text-slate-400" />
+                    <span className="text-sm">{user.full_name || '-'}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 shrink-0"
+                    disabled={pendingProfileFieldSet.has('full_name')}
+                    onClick={() => openProfileUpdateDialog('full_name', user.full_name || '')}
+                    title={pendingProfileFieldSet.has('full_name') ? 'A change request for this field is already pending.' : 'Edit full name'}
+                  >
+                    <Pencil className="w-3.5 h-3.5 mr-1" />
+                    Edit
+                  </Button>
+                </div>
+                {/* Phone */}
+                <div className="flex items-center justify-between gap-3 text-slate-600">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Phone className="w-4 h-4 text-slate-400" />
+                    <span className="text-sm">{user.phone || memberProfile?.phone || '-'}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 shrink-0"
+                    disabled={pendingProfileFieldSet.has('phone')}
+                    onClick={() => openProfileUpdateDialog('phone', user.phone || memberProfile?.phone || '')}
+                    title={pendingProfileFieldSet.has('phone') ? 'A change request for this field is already pending.' : 'Edit phone'}
+                  >
+                    <Pencil className="w-3.5 h-3.5 mr-1" />
+                    Edit
+                  </Button>
+                </div>
+                {memberProfile && (
+                  <>
+                    {/* Address */}
                     <div className="flex items-center justify-between gap-3 text-slate-600">
                       <div className="flex items-center gap-3 min-w-0">
-                        <AtSign className="w-4 h-4 text-slate-400" />
-                        <span className="text-sm font-mono">{user.username || '-'}</span>
+                        <MapPin className="w-4 h-4 text-slate-400" />
+                        <span className="text-sm">{memberProfile.address || memberProfile.city || '-'}</span>
                       </div>
-                      {user?.role === 'member' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2"
-                          disabled={pendingProfileFieldSet.has('username')}
-                          onClick={() => openProfileUpdateDialog('username', user.username || '')}
-                          title={pendingProfileFieldSet.has('username') ? 'A username change request is already pending.' : 'Request username change'}
-                        >
-                          <Pencil className="w-3.5 h-3.5 mr-1" />
-                          Edit
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 shrink-0"
+                        disabled={pendingProfileFieldSet.has('address')}
+                        onClick={() => openProfileUpdateDialog('address', memberProfile.address || memberProfile.city || '')}
+                        title={pendingProfileFieldSet.has('address') ? 'A change request for this field is already pending.' : 'Edit address'}
+                      >
+                        <Pencil className="w-3.5 h-3.5 mr-1" />
+                        Edit
+                      </Button>
                     </div>
-                    {memberProfile && (
-                      <>
-                        <div className="flex items-center justify-between gap-3 text-slate-600">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <Phone className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm">{memberProfile.phone || '-'}</span>
-                          </div>
-                          {user?.role === 'member' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2"
-                              disabled={pendingProfileFieldSet.has('phone')}
-                              onClick={() => openProfileUpdateDialog('phone', memberProfile.phone || '')}
-                              title={pendingProfileFieldSet.has('phone') ? 'A change request for this field is already pending.' : 'Request phone update'}
-                            >
-                              <Pencil className="w-3.5 h-3.5 mr-1" />
-                              Edit
-                            </Button>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between gap-3 text-slate-600">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <MapPin className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm">{memberProfile.address || memberProfile.city || '-'}</span>
-                          </div>
-                          {user?.role === 'member' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2"
-                              disabled={pendingProfileFieldSet.has('address')}
-                              onClick={() => openProfileUpdateDialog('address', memberProfile.address || memberProfile.city || '')}
-                              title={pendingProfileFieldSet.has('address') ? 'A change request for this field is already pending.' : 'Request address update'}
-                            >
-                              <Pencil className="w-3.5 h-3.5 mr-1" />
-                              Edit
-                            </Button>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between gap-3 text-slate-600">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <UserCircle className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm">{user.full_name || '-'}</span>
-                          </div>
-                          {user?.role === 'member' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2"
-                              disabled={pendingProfileFieldSet.has('full_name')}
-                              onClick={() => openProfileUpdateDialog('full_name', user.full_name || '')}
-                              title={pendingProfileFieldSet.has('full_name') ? 'A change request for this field is already pending.' : 'Request full name update'}
-                            >
-                              <Pencil className="w-3.5 h-3.5 mr-1" />
-                              Edit
-                            </Button>
-                          )}
-                        </div>
-                        {memberProfile.join_date && (
-                          <div className="flex items-center gap-3 text-slate-600">
-                            <Calendar className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm">Joined {format(new Date(memberProfile.join_date), "MMM yyyy")}</span>
-                          </div>
-                        )}
-                      </>
+                    {memberProfile.join_date && (
+                      <div className="flex items-center gap-3 text-slate-600">
+                        <Calendar className="w-4 h-4 text-slate-400" />
+                        <span className="text-sm">Joined {format(new Date(memberProfile.join_date), "MMM yyyy")}</span>
+                      </div>
                     )}
-                  </div>
+                  </>
+                )}
+              </div>
 
-                  {user?.role !== 'member' && (
-                    <Button
-                      variant="outline"
-                      className="w-full mt-6"
-                      onClick={() => setEditing(true)}
-                    >
-                      Edit Profile
-                    </Button>
-                  )}
-                  {user?.role === 'member' && pendingProfileFieldSet.has('avatar_url') && (
-                    <p className="mt-3 text-xs text-amber-600">
-                      Your profile photo update request is pending admin approval.
-                    </p>
-                  )}
-                </>
+              {pendingProfileFieldSet.has('avatar_url') && (
+                <p className="mt-3 text-xs text-amber-600">
+                  Your profile photo update request is pending admin approval.
+                </p>
               )}
             </div>
           </CardContent>
@@ -952,7 +865,7 @@ export default function Profile() {
       <Dialog open={profileUpdateOpen} onOpenChange={setProfileUpdateOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Request Profile Update</DialogTitle>
+            <DialogTitle>{isMember ? 'Request Profile Update' : 'Update Profile'}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -1028,15 +941,17 @@ export default function Profile() {
               </div>
             )}
 
-            <div className="space-y-1">
-              <Label>Reason (optional)</Label>
-              <Textarea
-                value={profileUpdateReason}
-                onChange={(e) => setProfileUpdateReason(e.target.value)}
-                placeholder="Optional context for admin review"
-                rows={3}
-              />
-            </div>
+            {isMember && (
+              <div className="space-y-1">
+                <Label>Reason (optional)</Label>
+                <Textarea
+                  value={profileUpdateReason}
+                  onChange={(e) => setProfileUpdateReason(e.target.value)}
+                  placeholder="Optional context for admin review"
+                  rows={3}
+                />
+              </div>
+            )}
 
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => setProfileUpdateOpen(false)}>
@@ -1054,7 +969,7 @@ export default function Profile() {
                 onClick={handleSubmitProfileUpdateRequest}
               >
                 {submittingProfileUpdate && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Submit Request
+                {isMember ? 'Submit Request' : 'Save Changes'}
               </Button>
             </div>
           </div>
