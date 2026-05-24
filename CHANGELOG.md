@@ -22,6 +22,9 @@ This document records all technical changes, implementations, and decisions made
 
 | Version | Date | Status | Changes |
 |---------|------|--------|----------|
+| 2.21 | 2026-05-25 | Patch | App rebranded to **PMB GCC PORTAL** with tagline **PMB GCC - Official Charity App** across all surfaces: browser title, PWA manifest, install prompts, PDF exports, Landing and Settings pages. |
+| 2.20 | 2026-05-25 | Patch | Profile page refactored: avatar camera/remove controls always visible for all roles; all users get per-field pencil edit buttons (email, username, full name, phone, address); members route through the existing request/approval/notification flow; admins/superadmins get a direct-save dialog. Removed the admin-only inline edit form that bypassed the request system. |
+| 2.19 | 2026-05-25 | Fix | Login page crash fixed: `redirectTarget` `const` was declared after the `useEffect` that referenced it, causing a JavaScript temporal dead zone `ReferenceError` on every page load. Moved declaration above the `useEffect`. |
 | 2.18 | 2026-05-01 | Patch | Login hardening: password toggle, already-auth redirect, username trim, friendly HTTP error messages. |
 | 2.17 | 2026-05-01 | Patch | App-wide safety/quality audit: open redirect fix, Import route guard, global error boundary, auth-expired loop prevention, smart 4xx retry policy, PII localStorage removal, Members mutation onError handlers, Layout polling efficiency fix, PDF constants refactor. |
 | 2.16.1 | 2026-05-01 | Patch | Financial Position summary panel on Reports page (admin-only): 6 metric cards, Outstanding Receivables drill-down dialog, CSV/PDF export for summary + receivables. Consumes existing `GET /challans/collection-stats` and `GET /fund-utilizations/summary` endpoints. |
@@ -53,6 +56,101 @@ This document records all technical changes, implementations, and decisions made
 | 1.2 | 2026-03-01 | Patch | Challan role-based visibility, proof re-upload flow, status filter alignment |
 | 1.1 | 2026-02-26 | Patch | Auth/login redirect stabilization, logout visibility, API client hardening |
 | 1.0 | 2026-02-24 | Release | Phase 1 MVP complete |
+
+---
+
+## v2.21 - 2026-05-25 - App Rebrand to PMB GCC PORTAL
+
+**Type:** Patch — Branding  
+**Commits:** `e0d2c59`
+
+### Changes
+- **Browser / PWA title:** `CharityHub | Poyyathabail GCC` → `PMB GCC PORTAL`
+- **Page `<meta name="description">`:** → `PMB GCC - Official Charity App`
+- **`<meta apple-mobile-web-app-title>`:** → `PMB GCC PORTAL`
+- **PWA `manifest.json`:** `name` → `PMB GCC PORTAL`, `short_name` → `PMB GCC`, `description` → `PMB GCC - Official Charity App`
+- **`APP_BRAND` constants (`src/config/appPaths.js`):** `NAME`, `TAGLINE`, `TITLE` updated
+- **Android / iOS / PWA install prompts:** text updated to `Install PMB GCC PORTAL`
+- **PDF headers and footers** (Reports page, FinancialSummaryPanel): `CharityHub` → `PMB GCC PORTAL`
+- **Invite message** (Settings): `join CharityHub!` → `join PMB GCC PORTAL!`
+- **Landing page** descriptive body text updated
+- Internal storage keys (`charityhub:notifications`) and SVG asset paths left unchanged to preserve existing user data
+
+### Files Modified
+- `index.html`
+- `public/manifest.json`
+- `src/config/appPaths.js`
+- `src/components/AndroidInstallPrompt.jsx`
+- `src/components/IOSInstallPrompt.jsx`
+- `src/components/PWAInstallButton.jsx`
+- `src/pages/Settings.jsx`
+- `src/pages/Reports.jsx`
+- `src/pages/Landing.jsx`
+- `src/components/reports/FinancialSummaryPanel.jsx`
+
+---
+
+## v2.20 - 2026-05-25 - Profile Page: All-User Avatar & Field Edit Access
+
+**Type:** Patch — Feature / UX  
+**Commits:** `c8f7756`
+
+### Summary
+Profile editing is now uniformly available to all roles. Previously, the avatar camera and pencil-edit buttons were gated behind an admin-only inline "Edit Profile" mode that bypassed the request system. Members already had the request flow; admins did not.
+
+### Changes
+
+#### Avatar
+- Camera button (emerald, bottom-right of avatar) and remove X button (top-right) always visible for **all users** — no longer behind an edit-mode toggle
+- **Members:** upload → `POST /files/upload/avatar` → create `profile_update` request → admin approval → notification (unchanged)
+- **Admins/Superadmins:** upload → `POST /me/avatar` directly (no request ticket)
+- Backend 403 on `POST /me/avatar` for members unchanged (acts as defense-in-depth)
+
+#### Per-field pencil edit buttons
+All critical fields now show an Edit button for **every role**:
+| Field | Before | After |
+|---|---|---|
+| Email | No button for any role | Pencil for all |
+| Username | Member only | All roles |
+| Full name | Member only | All roles |
+| Phone | Member only | All roles |
+| Address | Member only | All roles |
+
+- **Members:** pencil → request dialog → `POST /requests/` (`profile_update`) → admin approval → notification
+- **Admins/Superadmins:** pencil → direct-save dialog → `PUT /users/{id}` immediately
+- Pending-request guard (`pendingProfileFieldSet`) disables buttons when a field already has a pending request — works for all roles
+
+#### Removed
+- `editing` / `setEditing` state
+- `formData` / `setFormData` state
+- `handleSave` function (called `PUT /users/{id}` + `members.update()` directly, bypassing request system)
+- Admin-only inline edit form (full_name / email / phone inputs with Save/Cancel buttons)
+- "Edit Profile" button (non-member only)
+- Unused `PhoneInput` import
+
+### Files Modified
+- `src/pages/Profile.jsx`
+
+---
+
+## v2.19 - 2026-05-25 - Login Page Crash Fix (Temporal Dead Zone)
+
+**Type:** Fix — Critical  
+**Commits:** `328407d`
+
+### Problem
+Login page crashed on every load with:
+```
+Uncaught ReferenceError: Cannot access 'redirectTarget' before initialization
+    at Login (Login.jsx:30)
+```
+`redirectTarget` was declared with `const` **after** the `useEffect` that referenced it. JavaScript `const`/`let` declarations are not hoisted in usable form — accessing them before their textual declaration in the same scope throws a temporal dead zone (TDZ) `ReferenceError`. React's render triggered the `useEffect` hook scheduling before the variable was declared in the function body.
+
+### Fix
+Moved `returnToParam`, `isSafeReturnTo`, and `redirectTarget` declarations to **above** the `useEffect` block.
+
+### Files Modified
+- `src/pages/Login.jsx`
 
 ---
 
