@@ -1,9 +1,9 @@
 import { createPageUrl } from '@/utils';
 
 export const APP_BRAND = {
-  NAME: 'CharityHub',
-  TAGLINE: 'Poyyathabail GCC',
-  TITLE: 'CharityHub | Poyyathabail GCC',
+  NAME: 'PMB GCC PORTAL',
+  TAGLINE: 'PMB GCC - Official Charity App',
+  TITLE: 'PMB GCC PORTAL',
 };
 
 export const ROUTE_KEYS = {

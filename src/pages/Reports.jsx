@@ -56,11 +56,7 @@ function downloadPDF({ headers, rows, filename, reportName, periodLabel }) {
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
-  doc.text("CharityHub", 28, 22);
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(11);
-  doc.text(reportName, 28, 38);
+  doc.text("PMB GCC PORTAL", 28, 22);
 
   // Period / generated-at — right-aligned
   doc.setFontSize(9);
@@ -104,7 +100,7 @@ function downloadPDF({ headers, rows, filename, reportName, periodLabel }) {
     doc.setFontSize(7.5);
     doc.setTextColor(150, 150, 150);
     const pageH = doc.internal.pageSize.getHeight();
-    doc.text(`CharityHub • ${reportName}`, 28, pageH - 14);
+    doc.text(`PMB GCC PORTAL • ${reportName}`, 28, pageH - 14);
     doc.text(`Page ${i} of ${totalPages}`, pageW - 28, pageH - 14, { align: "right" });
   }
 
@@ -227,12 +223,7 @@ function downloadPivotPDF({ headers, tableBody, statusMatrix, filename, reportNa
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
-  doc.text("CharityHub", 28, 22);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(11);
-  doc.text(reportName, 28, 38);
-  doc.setFontSize(9);
-  if (periodLabel) doc.text(periodLabel, pageW - 28, 22, { align: "right" });
+  doc.text("PMB GCC PORTAL", 28, 22);
   doc.text(`Generated: ${generatedAt}`, pageW - 28, 36, { align: "right" });
 
   // ── Minimal legend strip ──────────────────────────────────────────────────
@@ -341,7 +332,7 @@ function downloadPivotPDF({ headers, tableBody, statusMatrix, filename, reportNa
     doc.setFontSize(7.5);
     doc.setTextColor(150, 150, 150);
     const pageH = doc.internal.pageSize.getHeight();
-    doc.text(`CharityHub \u2022 ${reportName}`, 28, pageH - 14);
+    doc.text(`PMB GCC PORTAL • ${reportName}`, 28, pageH - 14);
     doc.text(`Page ${i} of ${totalPages}`, pageW - 28, pageH - 14, { align: "right" });
   }
 

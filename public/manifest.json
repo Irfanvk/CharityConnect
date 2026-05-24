@@ -1,7 +1,7 @@
 {
-  "name": "CharityHub | Poyyathabail GCC",
-  "short_name": "CharityHub",
-  "description": "CharityHub by Poyyathabail GCC for donation tracking and membership management",
+  "name": "PMB GCC PORTAL",
+  "short_name": "PMB GCC",
+  "description": "PMB GCC - Official Charity App",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

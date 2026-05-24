@@ -243,7 +243,7 @@ function FeaturesSection() {
             What Our Portal Offers
           </motion.h2>
           <motion.p variants={fadeUp} className="mt-4 max-w-2xl mx-auto text-slate-600 dark:text-slate-400">
-            CharityHub brings the committee's welfare operations online — giving members and administrators a single, secure place to manage everything with full transparency.
+            PMB GCC PORTAL brings the committee's welfare operations online — giving members and administrators a single, secure place to manage everything with full transparency.
           </motion.p>
         </motion.div>
 
@@ -435,7 +435,7 @@ function AboutSection() {
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white">About This Portal</h3>
               </motion.div>
               <motion.p variants={fadeUp} className="text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
-                CharityHub is the official digital management portal for the Poyyathabail Jama'ath GCC Committee.
+                PMB GCC PORTAL is the official digital management portal for the Poyyathabail Jama'ath GCC Committee.
                 It was developed to bring transparency, efficiency, and accessibility to the committee's welfare
                 operations — replacing manual processes with a secure, organised, and reliable system.
               </motion.p>

@@ -47,7 +47,7 @@ export function AndroidInstallPrompt() {
           <Heart className="w-4 h-4 text-white" />
         </div>
         <div className="flex-1">
-          <p className="font-semibold text-slate-800 text-sm">Install CharityHub</p>
+          <p className="font-semibold text-slate-800 text-sm">Install PMB GCC PORTAL</p>
           <p className="text-slate-500 text-xs mt-0.5">Add to your home screen for quick access</p>
         </div>
       </div>

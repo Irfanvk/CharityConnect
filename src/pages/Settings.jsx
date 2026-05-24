@@ -135,7 +135,7 @@ export default function Settings() {
       const shareMessage = result.share_message || [
         'Assalamu Alaikum',
         '',
-        "You've been invited to join CharityHub!",
+        "You've been invited to join PMB GCC PORTAL!",
         '',
         'Use this invite code to register:',
         result.invite_code,

@@ -170,7 +170,7 @@ export default function FinancialSummaryPanel({
             Number(pendingAmount).toLocaleString("en-IN", { maximumFractionDigits: 2 }),
             "", ""];
         const rows = [
-            [`CharityHub – Outstanding Receivables as of ${asOfDate}`],
+            [`PMB GCC PORTAL – Outstanding Receivables as of ${asOfDate}`],
             [`Generated: ${generatedAt}`],
             [],
             headerRow,
@@ -199,10 +199,7 @@ export default function FinancialSummaryPanel({
         doc.setTextColor(255, 255, 255);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(18);
-        doc.text("CharityHub", 28, 22);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(11);
-        doc.text("Outstanding Receivables", 28, 38);
+        doc.text("PMB GCC PORTAL", 28, 22);
         doc.setFontSize(9);
         doc.text(`As of: ${asOfDate}`, pageW - 28, 26, { align: "right" });
         doc.text(`Generated: ${generatedAt}`, pageW - 28, 40, { align: "right" });
@@ -262,7 +259,7 @@ export default function FinancialSummaryPanel({
             doc.setFont("helvetica", "normal");
             doc.setFontSize(7.5);
             doc.setTextColor(150, 150, 150);
-            doc.text(`CharityHub \u2022 Outstanding Receivables \u2022 Confidential`, 28, pageH - 14);
+            doc.text(`PMB GCC PORTAL • Outstanding Receivables • Confidential`, 28, pageH - 14);
             doc.text(`Page ${i} of ${totalPages}`, pageW - 28, pageH - 14, { align: "right" });
         }
 
@@ -273,7 +270,7 @@ export default function FinancialSummaryPanel({
     function handleDownloadCSV() {
         const generatedAt = format(new Date(), "dd MMM yyyy, hh:mm a");
         const rows = [
-            ["CharityHub – Financial Position Statement"],
+            ["PMB GCC PORTAL – Financial Position Statement"],
             [`Generated: ${generatedAt}`],
             [],
             ["Metric", "Amount (INR)", "Notes"],
@@ -307,7 +304,7 @@ export default function FinancialSummaryPanel({
         doc.setTextColor(255, 255, 255);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(20);
-        doc.text("CharityHub", 36, 26);
+        doc.text("PMB GCC PORTAL", 36, 26);
         doc.setFont("helvetica", "normal");
         doc.setFontSize(12);
         doc.text("Financial Position Statement", 36, 44);
@@ -365,7 +362,7 @@ export default function FinancialSummaryPanel({
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
         doc.setTextColor(160, 160, 160);
-        doc.text("CharityHub \u2022 Financial Position Statement \u2022 Confidential", 36, pageH - 20);
+        doc.text("PMB GCC PORTAL • Financial Position Statement • Confidential", 36, pageH - 20);
         doc.text("Page 1 of 1", pageW - 36, pageH - 20, { align: "right" });
 
         doc.save(`financial-position-${format(new Date(), "yyyy-MM-dd")}.pdf`);
