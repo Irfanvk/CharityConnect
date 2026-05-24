@@ -21,6 +21,7 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { IOSInstallPrompt } from '@/components/IOSInstallPrompt';
 import { AndroidInstallPrompt } from '@/components/AndroidInstallPrompt';
 import { NotificationsProvider } from '@/context/NotificationContext';
+import { LaunchSplash } from '@/components/LaunchSplash';
 
 const LandingPage = lazy(() => import('./pages/Landing'));
 
@@ -278,6 +279,7 @@ function App() {
               <OfflineBanner />
               <SessionExpiredToastBridge />
               <NavigationTracker />
+              <LaunchSplash />
               <AuthenticatedApp />
               <IOSInstallPrompt />
               <AndroidInstallPrompt />
