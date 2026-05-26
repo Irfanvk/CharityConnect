@@ -81,6 +81,9 @@ export default defineConfig(({ mode }) => {
         // Manual registration lets main.jsx skip iOS; avoids stale-cache blank screens.
         registerType: 'prompt',
         injectRegister: 'null',
+        // Use public/manifest.json as-is — do not let VitePWA generate its own
+        // (generated manifest defaults to package.json "name" which is "charity-connect").
+        manifest: false,
         manifestFilename: 'manifest.json',
         workbox: {
           importScripts: ['/push-sw.js'],
