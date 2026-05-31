@@ -203,9 +203,11 @@ export default function Community() {
                     <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
                       {member.full_name || "Member"}
                     </p>
-                    <p className="text-xs text-slate-400">
-                      {member.member_code || member.member_id || "—"}
-                    </p>
+                    {isAdmin && (
+                      <p className="text-xs text-slate-400">
+                        {member.member_code || member.member_id || "—"}
+                      </p>
+                    )}
                   </div>
                   <Badge
                     className={
