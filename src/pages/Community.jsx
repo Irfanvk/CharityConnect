@@ -19,12 +19,18 @@ const PIE_COLORS = ["#10b981", "#0ea5e9", "#f59e0b", "#ef4444", "#8b5cf6", "#14b
 
 export default function Community() {
   const { user } = useAuth();
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const [searchTerm, setSearchTerm] = useState("");
 
   const { data: members = [] } = useQuery({
-    queryKey: ["community", "members", "directory"],
+    queryKey: ["community", "members", "directory", isAdmin],
     queryFn: async () => {
       try {
+        // Admins: use existing /members/ endpoint (already works)
+        // Members: use /members/community (limited fields, no PII)
+        if (isAdmin) {
+          return await charityClient.members.list({ skip: 0, limit: 300 });
+        }
         return await charityClient.members.community({ limit: 300 });
       } catch {
         return [];
