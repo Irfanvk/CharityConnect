@@ -7,6 +7,8 @@ import {
   Clock,
   Receipt,
   Heart,
+  Users,
+  Wallet,
   Phone,
   Mail,
   MapPin,
@@ -25,6 +27,16 @@ import StatsCard from "./StatsCard";
 import CollectionStats from "@/components/dashboard/CollectionStats";
 import { PAGE_PATHS } from "@/config/appPaths";
 import { getMemberSetup } from "@/lib/memberSetup";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
+
+const PIE_COLORS = ["#10b981", "#0ea5e9", "#f59e0b", "#ef4444", "#8b5cf6", "#14b8a6"];
 
 // ✅ No changes needed in this file — it is a pure display component.
 // It receives all data as props and makes zero API calls itself.
@@ -45,7 +57,20 @@ const getStatusForCard = (challan) => {
   return statusConfig[challan.status] || statusConfig.generated;
 };
 
-export default function MemberDashboard({ user, memberProfile, challans, campaigns, memberSetupData, onOpenSetup, showCollectionStats = false, collectionStats }) {
+export default function MemberDashboard({
+  user,
+  memberProfile,
+  challans,
+  campaigns,
+  memberSetupData,
+  onOpenSetup,
+  showCollectionStats = false,
+  collectionStats,
+  communityMembers = [],
+  communitySummary = null,
+  communityFundSummary = null,
+  communityFundRecords = [],
+}) {
   const navigate = useNavigate();
   const memberIdentifiers = new Set(
     [memberProfile?.id, memberProfile?.member_id].filter(Boolean)
@@ -113,6 +138,30 @@ export default function MemberDashboard({ user, memberProfile, challans, campaig
 
   const setupData = getMemberSetup(user?.id);
   const setupCompletedAt = setupData?.completedAt;
+
+  const communityTotalMembers = Number(communitySummary?.total_members || communityMembers.length || 0);
+  const communityActiveMembers = Number(
+    communitySummary?.active_members || communityMembers.filter((member) => member?.status === "active").length || 0
+  );
+  const totalCollectionAllTime = Number(collectionStats?.all_time || communityFundSummary?.total_collected || 0);
+  const totalUtilized = Number(communityFundSummary?.total_utilized || 0);
+  const availableBalance = Number(communityFundSummary?.available_balance || 0);
+
+  const utilizationByCategory = Object.entries(
+    communityFundRecords.reduce((acc, record) => {
+      const category = String(record?.category || "Other");
+      const amount = Number(record?.amount || 0);
+      acc[category] = (acc[category] || 0) + amount;
+      return acc;
+    }, {})
+  )
+    .map(([category, amount]) => ({ category, amount: Number(amount || 0) }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 5);
+
+  const recentUtilizationRecords = [...communityFundRecords]
+    .sort((a, b) => new Date(b?.date || b?.created_at || 0) - new Date(a?.date || a?.created_at || 0))
+    .slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -232,6 +281,135 @@ export default function MemberDashboard({ user, memberProfile, challans, campaig
       {showCollectionStats && (
         <CollectionStats collectionStats={collectionStats} compact />
       )}
+
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="w-4 h-4 text-indigo-500" />
+              Community & Transparency
+            </CardTitle>
+            <Badge className="bg-indigo-100 text-indigo-700 border-0 text-xs">Public Member View</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+              <p className="text-xs text-slate-500">Total Members</p>
+              <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{communityTotalMembers}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+              <p className="text-xs text-slate-500">Active Members</p>
+              <p className="text-xl font-bold text-emerald-600">{communityActiveMembers}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+              <p className="text-xs text-slate-500">Total Collection</p>
+              <p className="text-xl font-bold text-blue-600">₹{totalCollectionAllTime.toLocaleString()}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+              <p className="text-xs text-slate-500">Available Balance</p>
+              <p className="text-xl font-bold text-violet-600">₹{availableBalance.toLocaleString()}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-rose-500" />
+                Where Funds Are Spent
+              </h4>
+              {utilizationByCategory.length === 0 ? (
+                <p className="text-sm text-slate-500">Spending categories are not available yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="h-[260px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={utilizationByCategory}
+                          dataKey="amount"
+                          nameKey="category"
+                          cx="50%"
+                          cy="47%"
+                          outerRadius={78}
+                          label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                        >
+                          {utilizationByCategory.map((item, index) => (
+                            <Cell key={`community-spend-${item.category}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value) => `₹${Number(value || 0).toLocaleString()}`} />
+                        <Legend verticalAlign="bottom" height={36} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  {utilizationByCategory.map((item) => {
+                    const percent = totalUtilized > 0 ? Math.round((item.amount / totalUtilized) * 100) : 0;
+                    return (
+                      <div key={`${item.category}-summary`} className="flex items-center justify-between text-sm">
+                        <span className="text-slate-700 dark:text-slate-200">{item.category}</span>
+                        <span className="font-medium text-slate-800 dark:text-slate-100">₹{item.amount.toLocaleString()} ({percent}%)</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-amber-500" />
+                Recent Utilization Records
+              </h4>
+              {recentUtilizationRecords.length === 0 ? (
+                <p className="text-sm text-slate-500">No utilization records available yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {recentUtilizationRecords.map((record) => (
+                    <div key={record.id} className="rounded-lg bg-slate-50 dark:bg-slate-800 p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{record.title || "Utilization entry"}</p>
+                          <p className="text-xs text-slate-500">
+                            {record.category || "Other"} • {record.date ? format(new Date(record.date), "dd MMM yyyy") : "—"}
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold text-rose-600">₹{Number(record.amount || 0).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-4">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Members in Community</h4>
+              <Link to={PAGE_PATHS.COMMUNITY}>
+                <Button variant="ghost" size="sm" className="text-emerald-600 text-xs h-7 px-2">
+                  Open Community Page
+                  <ChevronRight className="w-3 h-3 ml-1" />
+                </Button>
+              </Link>
+            </div>
+            {communityMembers.length === 0 ? (
+              <p className="text-sm text-slate-500">Member list preview is not available for your role yet.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {communityMembers.slice(0, 10).map((member) => (
+                  <div
+                    key={member.id || member.member_id || member.email}
+                    className="px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200"
+                  >
+                    {member.full_name || member.member_code || `Member #${member.id}`}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">

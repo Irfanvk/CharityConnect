@@ -19,6 +19,7 @@ export const API_PATHS = {
   members: {
     list: '/members/',
     summary: '/members/summary',
+    community: '/members/community',
     import: '/members/import',
     importJob: '/members/import/jobs',
     importJobStatus: (jobId) => `/members/import/jobs/${jobId}`,
@@ -30,6 +31,7 @@ export const API_PATHS = {
     list: '/challans/',
     summary: '/challans/summary',
     collectionStats: '/challans/collection-stats',
+    communityStats: '/challans/community-stats',
     payableMonths: '/challans/payable-months',
     importHistory: '/challans/import/history',
     importHistoryJob: '/challans/import/history/jobs',

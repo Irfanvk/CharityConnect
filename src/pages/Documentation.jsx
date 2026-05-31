@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+// @ts-nocheck
+
+import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +14,12 @@ import {
 } from "lucide-react";
 import { APP_BRAND } from "@/config/appPaths";
 import { useAuth } from "@/lib/AuthContext";
+import {
+  getWayfindingPreference,
+  setWayfindingPreference,
+  shouldShowWayfinding,
+  WAYFINDING_STATE_EVENT,
+} from "@/lib/wayfinding";
 
 // ─── Helper components ─────────────────────────────────────────────────────
 
@@ -91,6 +99,33 @@ function StatusBadge({ status }) {
   );
 }
 
+function TaskCard({ icon: Icon, color, title, body, bullets }) {
+  const tones = {
+    emerald: 'border-emerald-200 bg-emerald-50/70 text-emerald-700',
+    blue: 'border-blue-200 bg-blue-50/70 text-blue-700',
+    amber: 'border-amber-200 bg-amber-50/70 text-amber-700',
+    rose: 'border-rose-200 bg-rose-50/70 text-rose-700',
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-200 p-4">
+      <div className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border ${tones[color] || tones.emerald}`}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <h4 className="mt-4 text-base font-semibold text-slate-900">{title}</h4>
+      <p className="mt-2 text-sm leading-relaxed text-slate-600">{body}</p>
+      <ul className="mt-3 space-y-2 text-sm text-slate-600">
+        {bullets.map((bullet) => (
+          <li key={bullet} className="flex items-start gap-2">
+            <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+            <span>{bullet}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
 export default function Documentation() {
@@ -98,6 +133,46 @@ export default function Documentation() {
   const [activeTab, setActiveTab] = useState("start");
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const isMember = !isAdmin;
+  const wayfindingUserKey = user?.id || user?.email || null;
+  const [wayfindingPreference, setWayfindingPreferenceState] = useState("auto");
+
+  const isWayfindingVisible = useMemo(
+    () => shouldShowWayfinding(wayfindingUserKey),
+    [wayfindingUserKey, wayfindingPreference]
+  );
+
+  useEffect(() => {
+    setWayfindingPreferenceState(getWayfindingPreference(wayfindingUserKey));
+  }, [wayfindingUserKey]);
+
+  useEffect(() => {
+    if (!wayfindingUserKey || typeof window === "undefined") return undefined;
+
+    const handleWayfindingStateChange = (event) => {
+      if (event?.detail?.userKey && String(event.detail.userKey) !== String(wayfindingUserKey)) {
+        return;
+      }
+      setWayfindingPreferenceState(getWayfindingPreference(wayfindingUserKey));
+    };
+
+    window.addEventListener(WAYFINDING_STATE_EVENT, handleWayfindingStateChange);
+    return () => window.removeEventListener(WAYFINDING_STATE_EVENT, handleWayfindingStateChange);
+  }, [wayfindingUserKey]);
+
+  const turnWayfindingOn = () => {
+    setWayfindingPreference(wayfindingUserKey, "on");
+    setWayfindingPreferenceState("on");
+  };
+
+  const turnWayfindingOff = () => {
+    setWayfindingPreference(wayfindingUserKey, "off");
+    setWayfindingPreferenceState("off");
+  };
+
+  const setWayfindingAuto = () => {
+    setWayfindingPreference(wayfindingUserKey, "auto");
+    setWayfindingPreferenceState("auto");
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-10">
@@ -155,6 +230,48 @@ export default function Documentation() {
             TAB: Getting Started
         ════════════════════════════════════════ */}
         <TabsContent value="start" className="space-y-6 mt-6">
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Star className="w-5 h-5 text-emerald-600" />
+                Wayfinding Controls
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm text-slate-700">
+              <p>
+                Turn wayfinding on when you want guided labels and home-map hints. Turn it off for the normal compact experience.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={turnWayfindingOn}
+                  className={`rounded-xl border px-4 py-2 font-medium transition-colors ${wayfindingPreference === 'on' ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'}`}
+                >
+                  Turn on wayfinding
+                </button>
+                <button
+                  type="button"
+                  onClick={turnWayfindingOff}
+                  className={`rounded-xl border px-4 py-2 font-medium transition-colors ${wayfindingPreference === 'off' ? 'border-rose-600 bg-rose-600 text-white' : 'border-rose-200 text-rose-700 hover:bg-rose-50'}`}
+                >
+                  Turn off wayfinding
+                </button>
+                <button
+                  type="button"
+                  onClick={setWayfindingAuto}
+                  className={`rounded-xl border px-4 py-2 font-medium transition-colors ${wayfindingPreference === 'auto' ? 'border-slate-700 bg-slate-700 text-white' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}
+                >
+                  Use automatic mode
+                </button>
+              </div>
+              <Note>
+                Current state: <strong>{isWayfindingVisible ? 'ON' : 'OFF'}</strong>.
+                {" "}
+                Preference: <strong>{wayfindingPreference.toUpperCase()}</strong>.
+              </Note>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
@@ -315,6 +432,52 @@ export default function Documentation() {
             </Card>
           )}
 
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-emerald-600" />
+                Start With These Common Tasks
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <TaskCard
+                  icon={Receipt}
+                  color="emerald"
+                  title="How to pay"
+                  body="Use this whenever you need to complete your monthly payment or upload proof."
+                  bullets={[
+                    'Open Challans',
+                    'Generate the challan for the right month',
+                    'Transfer the money and upload proof',
+                  ]}
+                />
+                <TaskCard
+                  icon={FileText}
+                  color="blue"
+                  title="How to update profile"
+                  body="Use this when your phone, address, avatar, or other personal details need to change."
+                  bullets={[
+                    'Open Profile from the account menu',
+                    'Use the pencil or avatar controls',
+                    'Track pending field requests in My Requests if approval is needed',
+                  ]}
+                />
+                <TaskCard
+                  icon={MessageSquare}
+                  color="amber"
+                  title="How to request help or changes"
+                  body="Use this when you need admin attention for payments, profile corrections, or general support."
+                  bullets={[
+                    'Open My Requests',
+                    'Create a new request with a clear reason',
+                    'Watch notifications for updates or resolution',
+                  ]}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Dashboard */}
           <Card>
             <CardHeader>
@@ -421,17 +584,18 @@ export default function Documentation() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-slate-500" />
-                Updating Your Profile
+                How to Update Your Profile
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm text-slate-700">
               <p>Click your name or avatar in the <strong>top-right corner</strong> of any page to open your profile.</p>
-              <p>From there you can update:</p>
+              <p>Use the pencil buttons beside each field or the avatar controls to make a change.</p>
               <ul className="space-y-1 pl-2">
                 <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-slate-400" />Full name, phone number, address</li>
                 <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-slate-400" />Profile picture</li>
-                <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-slate-400" />Password</li>
+                <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-slate-400" />Email and username when those edits are allowed</li>
               </ul>
+              <Note>For members, important field changes are sent to admin for approval. You can follow them on the <strong>My Requests</strong> page. Admins and superadmins save profile edits directly.</Note>
               <Tip>Keep your phone number up to date — admins use it to contact you if a payment needs clarification.</Tip>
             </CardContent>
           </Card>
@@ -491,6 +655,52 @@ export default function Documentation() {
                 <div className="flex items-start gap-2">
                   <Shield className="w-5 h-5 shrink-0 mt-0.5" />
                   <span>This section is only visible to admins and superadmins. It covers the day-to-day tasks you'll be performing to keep the organisation running.</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-blue-600" />
+                  Start With These Common Admin Jobs
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <TaskCard
+                    icon={ThumbsUp}
+                    color="emerald"
+                    title="Approve payments"
+                    body="Your daily review flow starts in Challans and Notifications."
+                    bullets={[
+                      'Filter challans by proof uploaded',
+                      'Open proof and verify the transaction',
+                      'Approve or reject with a clear reason',
+                    ]}
+                  />
+                  <TaskCard
+                    icon={Users}
+                    color="blue"
+                    title="Manage members"
+                    body="Use this when onboarding new members or correcting member records."
+                    bullets={[
+                      'Create or open a member record',
+                      'Update status, amount, or contact details',
+                      'Send or regenerate invite access when needed',
+                    ]}
+                  />
+                  <TaskCard
+                    icon={MessageSquare}
+                    color="amber"
+                    title="Handle requests"
+                    body="Use this to process profile-change requests, issues, and member questions."
+                    bullets={[
+                      'Open Requests',
+                      'Review pending items first',
+                      'Respond and mark resolved once complete',
+                    ]}
+                  />
                 </div>
               </CardContent>
             </Card>

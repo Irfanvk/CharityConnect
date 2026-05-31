@@ -2,9 +2,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
-import { Users, Heart, TrendingUp, Calendar, Clock } from "lucide-react";
+import { Users, Heart, TrendingUp, Calendar, Clock, Bell, BookOpen, LogOut, MapPinned, Receipt, User, Wallet } from "lucide-react";
 import { format } from "date-fns";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StatsCard from "@/components/dashboard/StatsCard";
@@ -18,6 +18,8 @@ import { APP_IMAGES } from "@/config/appPaths";
 import BulkOperationsPanel from "@/components/dashboard/BulkOperationsPanel";
 import CollectionStats from "@/components/dashboard/CollectionStats";
 import { getMemberSetup, isMemberSetupCompleted, saveMemberSetup } from "@/lib/memberSetup";
+import { PAGE_PATHS } from "@/config/appPaths";
+import { dismissWayfinding, recordWayfindingVisit, shouldShowWayfinding, WAYFINDING_STATE_EVENT } from "@/lib/wayfinding";
 
 const DASHBOARD_RECENT_CHALLAN_LIMIT = 200;
 const DASHBOARD_CAMPAIGN_LIMIT = 200;
@@ -25,12 +27,13 @@ const DASHBOARD_CAMPAIGN_LIMIT = 200;
 const DASHBOARD_MEMBER_SAMPLE_LIMIT = 200;
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [memberSetupData, setMemberSetupData] = useState(null);
   const [adminTab, setAdminTab] = useState("overview");
+  const [showWayfinding, setShowWayfinding] = useState(false);
   const queryClient = useQueryClient();
   const currentMonth = format(new Date(), 'yyyy-MM');
 
@@ -39,6 +42,7 @@ export default function Dashboard() {
   const isMember = !!user && !isAdmin && !isSuperAdmin;
   const requestedTab = searchParams.get("tab");
   const requestedBulkGroupId = searchParams.get("bulk_group_id");
+  const wayfindingUserKey = user?.id || user?.email || null;
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -74,6 +78,24 @@ export default function Dashboard() {
     }
   }, [user?.id, user?.role]);
 
+  useEffect(() => {
+    setShowWayfinding(recordWayfindingVisit(wayfindingUserKey));
+  }, [wayfindingUserKey]);
+
+  useEffect(() => {
+    if (!wayfindingUserKey || typeof window === 'undefined') return undefined;
+
+    const handleWayfindingStateChange = (event) => {
+      if (event?.detail?.userKey && String(event.detail.userKey) !== String(wayfindingUserKey)) {
+        return;
+      }
+      setShowWayfinding(shouldShowWayfinding(wayfindingUserKey));
+    };
+
+    window.addEventListener(WAYFINDING_STATE_EVENT, handleWayfindingStateChange);
+    return () => window.removeEventListener(WAYFINDING_STATE_EVENT, handleWayfindingStateChange);
+  }, [wayfindingUserKey]);
+
   const handleOnboardingComplete = useCallback((setupData) => {
     if (user?.id) {
       saveMemberSetup(user.id, setupData || {});
@@ -97,6 +119,32 @@ export default function Dashboard() {
     queryFn: () => charityClient.members.summary(),
     enabled: isAdmin,
     staleTime: 2 * 60 * 1000,
+  });
+
+  const { data: communityMembers = [] } = useQuery({
+    queryKey: ['members', 'community-preview'],
+    queryFn: async () => {
+      try {
+        return await charityClient.members.community({ limit: 12 });
+      } catch {
+        return [];
+      }
+    },
+    enabled: isMember,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: communitySummary } = useQuery({
+    queryKey: ['members', 'community-summary'],
+    queryFn: async () => {
+      try {
+        return await charityClient.members.summary();
+      } catch {
+        return null;
+      }
+    },
+    enabled: isMember,
+    staleTime: 5 * 60 * 1000,
   });
 
   const membersArray = Array.isArray(members) ? members : [];
@@ -159,9 +207,37 @@ export default function Dashboard() {
 
   const { data: collectionStats } = useQuery({
     queryKey: ['challans', 'collection-stats', user?.role],
-    queryFn: () => charityClient.challans.collectionStats(),
+    queryFn: () => isMember
+      ? charityClient.challans.communityStats()
+      : charityClient.challans.collectionStats(),
     enabled: !!user,
     staleTime: 2 * 60 * 1000,
+  });
+
+  const { data: communityFundSummary } = useQuery({
+    queryKey: ['fund-utilizations', 'summary', 'member-dashboard'],
+    queryFn: async () => {
+      try {
+        return await charityClient.fundUtilizations.summary();
+      } catch {
+        return null;
+      }
+    },
+    enabled: isMember,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: communityFundRecords = [] } = useQuery({
+    queryKey: ['fund-utilizations', 'list', 'member-dashboard'],
+    queryFn: async () => {
+      try {
+        return await charityClient.fundUtilizations.list({ limit: 50 });
+      } catch {
+        return [];
+      }
+    },
+    enabled: isMember,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: appSettings } = useQuery({
@@ -177,6 +253,7 @@ export default function Dashboard() {
     await queryClient.invalidateQueries({ queryKey: ['members'] });
     await queryClient.invalidateQueries({ queryKey: ['challans'] });
     await queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+    await queryClient.invalidateQueries({ queryKey: ['fund-utilizations'] });
     await queryClient.invalidateQueries({ queryKey: ['admin', 'settings'] });
     if (user?.is_superadmin) {
       await queryClient.invalidateQueries({ queryKey: ['auditLogs'] });
@@ -200,6 +277,108 @@ export default function Dashboard() {
   const userChallans = challansArray.filter(c => c.created_by === user?.email);
   const userPending = challanSummary?.pending_count ?? userChallans.filter(c => c.status !== 'approved' && c.status !== 'rejected').length;
   const userApproved = challanSummary?.approved_count ?? userChallans.filter(c => c.status === 'approved').length;
+
+  const homeMapItems = isAdmin
+    ? [
+        { title: 'Dashboard', description: 'Start here for the daily overview and important numbers.', path: PAGE_PATHS.DASHBOARD, icon: MapPinned, tone: 'emerald' },
+        { title: 'Members', description: 'See who is inside the organisation and manage their details.', path: PAGE_PATHS.MEMBERS, icon: Users, tone: 'blue' },
+        { title: 'Challans', description: 'Review payments, upload proofs, and clear pending items.', path: PAGE_PATHS.CHALLANS, icon: Receipt, tone: 'amber' },
+        { title: 'Campaigns', description: 'Open, monitor, and promote active fundraising work.', path: PAGE_PATHS.CAMPAIGNS, icon: Heart, tone: 'rose' },
+        { title: 'Reports', description: 'Find summaries, exports, and the financial story of the organisation.', path: PAGE_PATHS.REPORTS, icon: Wallet, tone: 'indigo' },
+        { title: 'Notifications', description: 'Send and review updates so everyone in the home stays informed.', path: PAGE_PATHS.NOTIFICATIONS, icon: Bell, tone: 'slate' },
+        ...(isSuperAdmin
+          ? [
+              { title: 'Import Data', description: 'Bring legacy records and bulk data into the system safely.', path: PAGE_PATHS.IMPORT, icon: BookOpen, tone: 'amber' },
+              { title: 'Superadmin Panel', description: 'Use the highest-level controls for platform-wide oversight.', path: PAGE_PATHS.SUPERADMIN_PANEL, icon: User, tone: 'blue' },
+            ]
+          : []),
+      ]
+    : [
+        { title: 'Dashboard', description: 'Start here to see your summary and recent activity.', path: PAGE_PATHS.DASHBOARD, icon: MapPinned, tone: 'emerald' },
+        { title: 'Challans', description: 'This is where you pay, upload proof, and check your payment history.', path: PAGE_PATHS.CHALLANS, icon: Receipt, tone: 'amber' },
+        { title: 'Campaigns', description: 'Browse causes, see progress, and contribute to active drives.', path: PAGE_PATHS.CAMPAIGNS, icon: Heart, tone: 'rose' },
+        { title: 'Profile', description: 'Update your personal details and keep your information current.', path: PAGE_PATHS.PROFILE, icon: User, tone: 'blue' },
+        { title: 'Notifications', description: 'Read announcements and know what needs your attention.', path: PAGE_PATHS.NOTIFICATIONS, icon: Bell, tone: 'slate' },
+        { title: 'Guide', description: 'Open the user guide whenever you need help using a section.', path: PAGE_PATHS.DOCUMENTATION, icon: BookOpen, tone: 'indigo' },
+      ];
+
+  const toneClasses = {
+    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    blue: 'border-blue-200 bg-blue-50 text-blue-700',
+    amber: 'border-amber-200 bg-amber-50 text-amber-700',
+    rose: 'border-rose-200 bg-rose-50 text-rose-700',
+    indigo: 'border-indigo-200 bg-indigo-50 text-indigo-700',
+    slate: 'border-slate-200 bg-slate-50 text-slate-700',
+  };
+
+  const welcomeSubtitle = isAdmin
+    ? 'Use this space like a control room: check the map below, move to the right section, and keep the organisation running smoothly.'
+    : 'Use this space like your home base: start here, see what needs attention, and move to the right section with confidence.';
+
+  const HomeMapSection = () => (
+    <div className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+            <MapPinned className="h-4 w-4" />
+            Home map
+          </div>
+          <h2 className="mt-3 text-2xl font-bold text-slate-900 dark:text-white">
+            Know where everything lives
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+            {welcomeSubtitle}
+          </p>
+        </div>
+        <div className="grid gap-2 text-sm text-slate-600 dark:text-slate-300">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/70">
+            <p className="font-semibold text-slate-900 dark:text-white">How to enter</p>
+            <p className="mt-1">Sign in, land on Dashboard, then use the cards below or the sidebar to move deeper.</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/70">
+            <p className="font-semibold text-slate-900 dark:text-white">How to exit</p>
+            <button
+              type="button"
+              onClick={logout}
+              className="mt-1 inline-flex items-center gap-2 font-medium text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
+            >
+              <LogOut className="h-4 w-4" />
+              Logout from here
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => dismissWayfinding(wayfindingUserKey)}
+            className="justify-self-start rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+          >
+            Dismiss forever
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {homeMapItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.title}
+              to={item.path}
+              className="group rounded-2xl border border-slate-200 p-4 transition-all hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md dark:border-slate-700 dark:hover:border-emerald-700"
+            >
+              <div className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl border ${toneClasses[item.tone]}`}>
+                <Icon className="h-5 w-5" />
+              </div>
+              <h3 className="mt-4 text-base font-semibold text-slate-900 dark:text-white">{item.title}</h3>
+              <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{item.description}</p>
+              <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
+                Open this room
+              </p>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
@@ -232,6 +411,8 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
+          {showWayfinding ? <HomeMapSection /> : null}
 
           <SuperAdminDashboard
             members={membersArray}
@@ -275,11 +456,17 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {showWayfinding ? <HomeMapSection /> : null}
+
           <MemberDashboard
             user={user}
             memberProfile={memberProfile}
             challans={challansArray}
             campaigns={campaignsArray}
+            communityMembers={communityMembers}
+            communitySummary={communitySummary}
+            communityFundSummary={communityFundSummary}
+            communityFundRecords={communityFundRecords}
             memberSetupData={memberSetupData}
             onOpenSetup={() => setShowOnboarding(true)}
             showCollectionStats={appSettings?.member_stats_visible === true}
@@ -319,6 +506,8 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {showWayfinding ? <HomeMapSection /> : null}
 
         <Tabs value={adminTab} onValueChange={handleAdminTabChange}>
           <TabsList>

@@ -51,6 +51,7 @@ import AuditLogs from './pages/AuditLogs';
 import AdminRequests from './pages/AdminRequests';
 import Campaigns from './pages/Campaigns';
 import Challans from './pages/Challans';
+import Community from './pages/Community';
 import Dashboard from './pages/Dashboard';
 import FundUtilization from './pages/FundUtilization';
 import Documentation from './pages/Documentation';
@@ -76,6 +77,7 @@ export const PAGES = {
     "AuditLogs": AuditLogs,
     "Campaigns": Campaigns,
     "Challans": Challans,
+    "Community": Community,
     "Dashboard": Dashboard,
     "FundUtilization": FundUtilization,
     "Documentation": Documentation,

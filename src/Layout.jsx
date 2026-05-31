@@ -10,6 +10,7 @@ import {
   Users,
   Receipt,
   Heart,
+  Users2,
   Bell,
   Menu,
   LogOut,
@@ -21,7 +22,8 @@ import {
   Inbox,
   FileText,
   Upload,
-  Wallet
+  Wallet,
+  MapPinned
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,18 +42,21 @@ import BottomNav from "@/components/mobile/BottomNav";
 import BackButton from "@/components/mobile/BackButton";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNotifications } from "@/context/NotificationContext";
+import { dismissWayfinding, recordWayfindingVisit, shouldShowWayfinding, WAYFINDING_STATE_EVENT } from "@/lib/wayfinding";
 
 export default function Layout({ children, currentPageName }) {
   const { user: authUser, isAuthenticated, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [logoLoadError, setLogoLoadError] = useState(false);
+  const [showWayfinding, setShowWayfinding] = useState(false);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const sidebarNavRef = useRef(null);
   const currentUser = authUser;
   const currentUserId = currentUser?.id ?? null;
   const currentUserRole = currentUser?.role ?? null;
+  const wayfindingUserKey = currentUser?.id || currentUser?.email || null;
   const { unreadCount } = useNotifications();
 
   const loadPendingRequestsCount = useCallback(async () => {
@@ -97,6 +102,24 @@ export default function Layout({ children, currentPageName }) {
     }
   }, [sidebarOpen]);
 
+  useEffect(() => {
+    setShowWayfinding(recordWayfindingVisit(wayfindingUserKey));
+  }, [wayfindingUserKey]);
+
+  useEffect(() => {
+    if (!wayfindingUserKey || typeof window === 'undefined') return undefined;
+
+    const handleWayfindingStateChange = (event) => {
+      if (event?.detail?.userKey && String(event.detail.userKey) !== String(wayfindingUserKey)) {
+        return;
+      }
+      setShowWayfinding(shouldShowWayfinding(wayfindingUserKey));
+    };
+
+    window.addEventListener(WAYFINDING_STATE_EVENT, handleWayfindingStateChange);
+    return () => window.removeEventListener(WAYFINDING_STATE_EVENT, handleWayfindingStateChange);
+  }, [wayfindingUserKey]);
+
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const isSuperadmin = currentUser?.role === 'superadmin';
   const displayName =
@@ -108,13 +131,14 @@ export default function Layout({ children, currentPageName }) {
   const hasRequestsPage = Boolean(pagesConfig?.Pages?.[ROUTE_KEYS.REQUESTS]);
 
   const navigation = [
-    { name: "Dashboard", href: ROUTE_KEYS.DASHBOARD, path: PAGE_PATHS.DASHBOARD, icon: LayoutDashboard },
-    { name: "Members", href: ROUTE_KEYS.MEMBERS, path: PAGE_PATHS.MEMBERS, icon: Users, adminOnly: true },
-    { name: "Challans", href: ROUTE_KEYS.CHALLANS, path: PAGE_PATHS.CHALLANS, icon: Receipt },
-    { name: "Campaigns", href: ROUTE_KEYS.CAMPAIGNS, path: PAGE_PATHS.CAMPAIGNS, icon: Heart },
-    { name: "Reports", href: ROUTE_KEYS.REPORTS, path: PAGE_PATHS.REPORTS, icon: FileText, adminOnly: true },
-    { name: "Audit Logs", href: ROUTE_KEYS.AUDIT_LOGS, path: PAGE_PATHS.AUDIT_LOGS, icon: Settings, adminOnly: true },
-    { name: "Fund Utilization", href: ROUTE_KEYS.FUND_UTILIZATION, path: PAGE_PATHS.FUND_UTILIZATION, icon: Wallet, adminOnly: true },
+    { name: "Dashboard", href: ROUTE_KEYS.DASHBOARD, path: PAGE_PATHS.DASHBOARD, icon: LayoutDashboard, description: "Your home view and daily summary" },
+    { name: "Community", href: ROUTE_KEYS.COMMUNITY, path: PAGE_PATHS.COMMUNITY, icon: Users2, description: "Members, collections, and spending" },
+    { name: "Members", href: ROUTE_KEYS.MEMBERS, path: PAGE_PATHS.MEMBERS, icon: Users, adminOnly: true, description: "Who is part of the organisation" },
+    { name: "Challans", href: ROUTE_KEYS.CHALLANS, path: PAGE_PATHS.CHALLANS, icon: Receipt, description: "Payments, receipts, and proof uploads" },
+    { name: "Campaigns", href: ROUTE_KEYS.CAMPAIGNS, path: PAGE_PATHS.CAMPAIGNS, icon: Heart, description: "Causes you can support and track" },
+    { name: "Reports", href: ROUTE_KEYS.REPORTS, path: PAGE_PATHS.REPORTS, icon: FileText, adminOnly: true, description: "Financial summaries and exports" },
+    { name: "Audit Logs", href: ROUTE_KEYS.AUDIT_LOGS, path: PAGE_PATHS.AUDIT_LOGS, icon: Settings, adminOnly: true, description: "Who changed what and when" },
+    { name: "Fund Utilization", href: ROUTE_KEYS.FUND_UTILIZATION, path: PAGE_PATHS.FUND_UTILIZATION, icon: Wallet, adminOnly: true, description: "How funds are being used" },
     ...(hasRequestsPage
       ? [
         isAdmin
@@ -125,6 +149,7 @@ export default function Layout({ children, currentPageName }) {
             icon: Inbox,
             badge: pendingRequestsCount,
             adminOnly: true,
+            description: "Pending member requests to review",
           }
           : {
             name: "My Requests",
@@ -132,13 +157,14 @@ export default function Layout({ children, currentPageName }) {
             path: '/requests',
             icon: MessageSquare,
             badge: pendingRequestsCount,
+            description: "Track changes waiting for approval",
           },
       ]
       : []),
-    { name: "Notifications", href: ROUTE_KEYS.NOTIFICATIONS, path: PAGE_PATHS.NOTIFICATIONS, icon: Bell, badge: unreadCount },
-    { name: "User Guide", href: ROUTE_KEYS.DOCUMENTATION, path: PAGE_PATHS.DOCUMENTATION, icon: FileText },
-    { name: "Import Data", href: ROUTE_KEYS.IMPORT, path: PAGE_PATHS.IMPORT, icon: Upload, superadminOnly: true },
-    { name: "Superadmin Panel", href: ROUTE_KEYS.SUPERADMIN_PANEL, path: PAGE_PATHS.SUPERADMIN_PANEL, icon: Shield, superadminOnly: true },
+    { name: "Notifications", href: ROUTE_KEYS.NOTIFICATIONS, path: PAGE_PATHS.NOTIFICATIONS, icon: Bell, badge: unreadCount, description: "What is new in your account" },
+    { name: "User Guide", href: ROUTE_KEYS.DOCUMENTATION, path: PAGE_PATHS.DOCUMENTATION, icon: FileText, description: "How to use each area of the app" },
+    { name: "Import Data", href: ROUTE_KEYS.IMPORT, path: PAGE_PATHS.IMPORT, icon: Upload, superadminOnly: true, description: "Bring records into the system" },
+    { name: "Superadmin Panel", href: ROUTE_KEYS.SUPERADMIN_PANEL, path: PAGE_PATHS.SUPERADMIN_PANEL, icon: Shield, superadminOnly: true, description: "System-wide control and oversight" },
   ];
 
   const filteredNav = navigation.filter(item => {
@@ -147,7 +173,7 @@ export default function Layout({ children, currentPageName }) {
     return true;
   });
 
-  const mainPages = [ROUTE_KEYS.DASHBOARD, ROUTE_KEYS.MEMBERS, ROUTE_KEYS.CHALLANS, ROUTE_KEYS.CAMPAIGNS, ROUTE_KEYS.PROFILE];
+  const mainPages = [ROUTE_KEYS.DASHBOARD, ROUTE_KEYS.COMMUNITY, ROUTE_KEYS.MEMBERS, ROUTE_KEYS.CHALLANS, ROUTE_KEYS.CAMPAIGNS, ROUTE_KEYS.PROFILE];
   const isMainPage = mainPages.includes(currentPageName);
 
   const handleSidebarTouchStart = useCallback((event) => {
@@ -255,6 +281,26 @@ export default function Layout({ children, currentPageName }) {
 
           {/* Navigation */}
           <nav ref={sidebarNavRef} className="flex-1 min-h-0 p-4 space-y-1.5 overflow-y-auto">
+            {showWayfinding ? (
+              <div className="mb-3 rounded-2xl border border-emerald-100 bg-emerald-50/80 p-3 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-100">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 font-semibold">
+                    <MapPinned className="h-4 w-4" />
+                    Home Map
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => dismissWayfinding(wayfindingUserKey)}
+                    className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700/80 hover:text-emerald-900 dark:text-emerald-200/80 dark:hover:text-emerald-50"
+                  >
+                    Hide
+                  </button>
+                </div>
+                <p className="mt-1 text-xs leading-relaxed text-emerald-800/80 dark:text-emerald-100/80">
+                  Dashboard is your front room. Profile and logout are in the account menu below.
+                </p>
+              </div>
+            ) : null}
             {filteredNav.map((item) => {
               const isActive = currentPageName === item.href;
               return (
@@ -270,7 +316,14 @@ export default function Layout({ children, currentPageName }) {
                   `}
                 >
                   <item.icon className={`w-5 h-5 ${isActive ? 'text-emerald-600' : ''}`} />
-                  <span className="font-medium">{item.name}</span>
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{item.name}</span>
+                    {showWayfinding && item.description ? (
+                      <span className={`block truncate text-xs ${isActive ? 'text-emerald-600/80 dark:text-emerald-300/80' : 'text-slate-400 dark:text-slate-500'}`}>
+                        {item.description}
+                      </span>
+                    ) : null}
+                  </div>
                   {item.badge > 0 && (
                     <Badge variant="destructive" className="ml-auto bg-rose-500 hover:bg-rose-500 text-white text-xs px-2">
                       {item.badge}
