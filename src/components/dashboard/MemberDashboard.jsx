@@ -384,29 +384,30 @@ export default function MemberDashboard({
           </div>
 
           <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-4">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Members in Community</h4>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Fellow Members</h4>
               <Link to={PAGE_PATHS.COMMUNITY}>
                 <Button variant="ghost" size="sm" className="text-emerald-600 text-xs h-7 px-2">
-                  Open Community Page
+                  See all members
                   <ChevronRight className="w-3 h-3 ml-1" />
                 </Button>
               </Link>
             </div>
-            {communityMembers.length === 0 ? (
-              <p className="text-sm text-slate-500">Member list preview is not available for your role yet.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {communityMembers.slice(0, 10).map((member) => (
-                  <div
-                    key={member.id || member.member_id || member.email}
-                    className="px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200"
-                  >
-                    {member.full_name || member.member_code || `Member #${member.id}`}
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="flex flex-wrap gap-2">
+              {communityMembers.slice(0, 10).map((member) => (
+                <div
+                  key={member.id || member.member_id || member.email}
+                  className="px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200"
+                >
+                  {member.full_name || member.member_code || `Member #${member.id}`}
+                </div>
+              ))}
+              {communityMembers.length === 0 && (
+                <Link to={PAGE_PATHS.COMMUNITY} className="text-sm text-emerald-600 hover:underline">
+                  View the full member directory →
+                </Link>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

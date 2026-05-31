@@ -26,8 +26,6 @@ export default function Community() {
     queryKey: ["community", "members", "directory", isAdmin],
     queryFn: async () => {
       try {
-        // Admins: use existing /members/ endpoint (already works)
-        // Members: use /members/community (limited fields, no PII)
         if (isAdmin) {
           return await charityClient.members.list({ skip: 0, limit: 300 });
         }
@@ -94,7 +92,7 @@ export default function Community() {
 
   const totalMembers = Number(membersSummary?.total_members || members.length || 0);
   const activeMembers = Number(
-    membersSummary?.active_members || members.filter((member) => member?.status === "active").length || 0
+    membersSummary?.active_members || members.filter((m) => m?.status === "active").length || 0
   );
   const allTimeCollection = Number(collectionStats?.all_time || fundSummary?.total_collected || 0);
   const totalUtilized = Number(fundSummary?.total_utilized || 0);
@@ -103,24 +101,23 @@ export default function Community() {
   const utilizationPieData = useMemo(() => {
     const grouped = fundRecords.reduce((acc, record) => {
       const category = String(record?.category || "Other");
-      const amount = Number(record?.amount || 0);
-      acc[category] = (acc[category] || 0) + amount;
+      acc[category] = (acc[category] || 0) + Number(record?.amount || 0);
       return acc;
     }, {});
-
     return Object.entries(grouped)
-      .map(([name, value]) => ({ name, value: Number(value || 0) }))
-      .filter((entry) => entry.value > 0)
+      .map(([name, value]) => ({ name, value: Number(value) }))
+      .filter((e) => e.value > 0)
       .sort((a, b) => b.value - a.value);
   }, [fundRecords]);
 
   const filteredMembers = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-    if (!query) return members;
-    return members.filter((member) => {
-      const name = String(member?.full_name || "").toLowerCase();
-      const code = String(member?.member_code || member?.member_id || "").toLowerCase();
-      return name.includes(query) || code.includes(query);
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return members;
+    return members.filter((m) => {
+      return (
+        String(m?.full_name || "").toLowerCase().includes(q) ||
+        String(m?.member_code || m?.member_id || "").toLowerCase().includes(q)
+      );
     });
   }, [members, searchTerm]);
 
@@ -129,7 +126,8 @@ export default function Community() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Community</h1>
         <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
-          Members, total collections, and spending transparency in one place.
+          This is a private invited-members group.{" "}
+          {totalMembers > 0 ? `${totalMembers} members` : "Members"}, collections, and fund usage — all in one place.
         </p>
       </div>
 
@@ -149,30 +147,95 @@ export default function Community() {
         <Card className="border-0 shadow-sm">
           <CardContent className="p-4">
             <p className="text-xs text-slate-500">Total Collection</p>
-            <p className="text-2xl font-bold text-blue-600">₹{allTimeCollection.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-blue-600">
+              {"\u20B9"}{allTimeCollection.toLocaleString()}
+            </p>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-sm">
           <CardContent className="p-4">
             <p className="text-xs text-slate-500">Available Balance</p>
-            <p className="text-2xl font-bold text-violet-600">₹{availableBalance.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-violet-600">
+              {"\u20B9"}{availableBalance.toLocaleString()}
+            </p>
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="w-4 h-4 text-indigo-500" />
+              Member Directory
+              {members.length > 0 && (
+                <span className="text-xs font-normal text-slate-400 ml-1">
+                  ({members.length} members)
+                </span>
+              )}
+            </CardTitle>
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by name or member ID…"
+                className="pl-9"
+              />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {members.length === 0 ? (
+            <div className="py-8 text-center text-slate-400 text-sm">Loading member list…</div>
+          ) : filteredMembers.length === 0 ? (
+            <div className="py-6 text-center text-slate-400 text-sm">
+              No members match &ldquo;{searchTerm}&rdquo;
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[520px] overflow-y-auto pr-1">
+              {filteredMembers.map((member, idx) => (
+                <div
+                  key={member.id || member.member_code || idx}
+                  className="flex items-center justify-between rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
+                      {member.full_name || "Member"}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {member.member_code || member.member_id || "—"}
+                    </p>
+                  </div>
+                  <Badge
+                    className={
+                      member.status === "active"
+                        ? "bg-emerald-100 text-emerald-700 border-0 shrink-0 ml-2"
+                        : "bg-slate-100 text-slate-500 border-0 shrink-0 ml-2"
+                    }
+                  >
+                    {member.status || "active"}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Wallet className="w-4 h-4 text-rose-500" />
-              Spent on What (Category Split)
+              Where Funds Were Spent
             </CardTitle>
           </CardHeader>
           <CardContent>
             {utilizationPieData.length === 0 ? (
-              <p className="text-sm text-slate-500">No spending records available yet.</p>
+              <p className="text-sm text-slate-500 py-4">No spending records yet.</p>
             ) : (
-              <div className="h-[320px] w-full">
+              <div className="h-[280px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -181,99 +244,62 @@ export default function Community() {
                       nameKey="name"
                       cx="50%"
                       cy="48%"
-                      outerRadius={92}
+                      outerRadius={88}
                       label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                     >
                       {utilizationPieData.map((entry, index) => (
-                        <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                        <Cell
+                          key={`${entry.name}-${index}`}
+                          fill={PIE_COLORS[index % PIE_COLORS.length]}
+                        />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value) => `₹${Number(value || 0).toLocaleString()}`} />
-                    <Legend verticalAlign="bottom" height={40} />
+                    <Tooltip
+                      formatter={(value) => `\u20B9${Number(value || 0).toLocaleString()}`}
+                    />
+                    <Legend verticalAlign="bottom" height={36} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
             )}
-            <div className="mt-2 text-xs text-slate-500">
-              Total utilized so far: ₹{totalUtilized.toLocaleString()}
-            </div>
+            <p className="mt-2 text-xs text-slate-400">
+              Total utilized: {"\u20B9"}{totalUtilized.toLocaleString()}
+            </p>
           </CardContent>
         </Card>
 
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Users className="w-4 h-4 text-indigo-500" />
-              Member Directory
+              <Receipt className="w-4 h-4 text-amber-500" />
+              Collection Timeline
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search by name or member ID"
-                className="pl-9"
-              />
-            </div>
-
-            {filteredMembers.length === 0 ? (
-              <p className="text-sm text-slate-500">No members found.</p>
-            ) : (
-              <div className="max-h-[300px] overflow-y-auto space-y-2">
-                {filteredMembers.map((member) => (
-                  <div
-                    key={member.id || member.member_id || member.email}
-                    className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{member.full_name || "Member"}</p>
-                      <p className="text-xs text-slate-500">{member.member_code || member.member_id || "—"}</p>
-                    </div>
-                    <Badge className={member.status === "active" ? "bg-emerald-100 text-emerald-700 border-0" : "bg-slate-100 text-slate-700 border-0"}>
-                      {member.status || "active"}
-                    </Badge>
-                  </div>
-                ))}
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: "Today", value: collectionStats?.today },
+                { label: "This Week", value: collectionStats?.this_week },
+                { label: "This Month", value: collectionStats?.this_month },
+                { label: "This Year", value: collectionStats?.this_year },
+              ].map(({ label, value }) => (
+                <div key={label} className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3">
+                  <p className="text-xs text-slate-500">{label}</p>
+                  <p className="text-lg font-bold">
+                    {"\u20B9"}{Number(value || 0).toLocaleString()}
+                  </p>
+                </div>
+              ))}
+              <div className="col-span-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-3">
+                <p className="text-xs text-slate-500">All Time</p>
+                <p className="text-xl font-bold text-emerald-600">
+                  {"\u20B9"}{Number(collectionStats?.all_time || 0).toLocaleString()}
+                </p>
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
       </div>
-
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Receipt className="w-4 h-4 text-amber-500" />
-            Collection Timeline
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3">
-              <p className="text-xs text-slate-500">Today</p>
-              <p className="text-lg font-bold">₹{Number(collectionStats?.today || 0).toLocaleString()}</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3">
-              <p className="text-xs text-slate-500">This Week</p>
-              <p className="text-lg font-bold">₹{Number(collectionStats?.this_week || 0).toLocaleString()}</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3">
-              <p className="text-xs text-slate-500">This Month</p>
-              <p className="text-lg font-bold">₹{Number(collectionStats?.this_month || 0).toLocaleString()}</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3">
-              <p className="text-xs text-slate-500">This Year</p>
-              <p className="text-lg font-bold">₹{Number(collectionStats?.this_year || 0).toLocaleString()}</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3">
-              <p className="text-xs text-slate-500">All Time</p>
-              <p className="text-lg font-bold text-emerald-600">₹{Number(collectionStats?.all_time || 0).toLocaleString()}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

@@ -43,6 +43,7 @@ import BackButton from "@/components/mobile/BackButton";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNotifications } from "@/context/NotificationContext";
 import { dismissWayfinding, recordWayfindingVisit, shouldShowWayfinding, WAYFINDING_STATE_EVENT } from "@/lib/wayfinding";
+import MemberWatermark from "@/components/MemberWatermark";
 
 export default function Layout({ children, currentPageName }) {
   const { user: authUser, isAuthenticated, logout } = useAuth();
@@ -200,6 +201,7 @@ export default function Layout({ children, currentPageName }) {
   }, [sidebarOpen]);
 
   return (
+    <MemberWatermark>
     <div className="h-[100dvh] overflow-hidden bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900">
       <NotificationManager user={currentUser} />
       <style>{`
@@ -461,5 +463,6 @@ export default function Layout({ children, currentPageName }) {
       <BottomNav />
       <PWAUpdatePrompt />
     </div>
+    </MemberWatermark>
   );
 }
