@@ -17,6 +17,21 @@
   to = "/index.html"
   status = 200
 
+# Force HTTP → HTTPS upgrade
+[[redirects]]
+  from = "http://pmbgcc.netlify.app/*"
+  to = "https://pmbgcc.netlify.app/:splat"
+  status = 301
+  force = true
+
+[[headers]]
+  for = "/*"
+    [headers.values]
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
 [[headers]]
   for = "/manifest.json"
     [headers.values]
