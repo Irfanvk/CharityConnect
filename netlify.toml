@@ -6,7 +6,7 @@
 # Set VITE_CHARITY_APP_BASE_URL in Netlify dashboard:
 #   Site configuration → Environment variables → Add variable
 #   Key:   VITE_CHARITY_APP_BASE_URL
-#   Value: https://<your-app>.onrender.com          ← your Render backend URL
+#   Value: https://api.poyyathabailgcc.com   ← your KVM1 backend URL
 #
 # Set VITE_WEB_PUSH_PUBLIC_KEY to the same VAPID public key configured on Render.
 # Both values are safe to expose publicly (they are not secrets).
