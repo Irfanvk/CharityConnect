@@ -19,8 +19,14 @@
 
 # Force HTTP → HTTPS upgrade
 [[redirects]]
-  from = "http://pmbgcc.netlify.app/*"
-  to = "https://pmbgcc.netlify.app/:splat"
+  from = "http://poyyathabailgcc.com/*"
+  to = "https://poyyathabailgcc.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://www.poyyathabailgcc.com/*"
+  to = "https://poyyathabailgcc.com/:splat"
   status = 301
   force = true
 
