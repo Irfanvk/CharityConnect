@@ -3,8 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { APP_BRAND } from '@/config/appPaths';
 
 // Splash is shown until this date, then permanently hidden for all visitors.
-const SPLASH_EXPIRY = new Date('2026-07-21T00:00:00');
-const LAUNCH_DATE = '11 July 2026';
+const SPLASH_EXPIRY = new Date('2026-07-01T00:00:00');
 const STORAGE_KEY = 'pmbgcc:launch_splash_v1';
 const AUTO_CLOSE_SECONDS = 15;
 
@@ -131,7 +130,7 @@ export function LaunchSplash() {
                             className="mt-6 mb-3 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-400/20 border border-emerald-400/30 text-emerald-200 text-xs font-semibold tracking-widest uppercase"
                         >
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            Official Launch — {LAUNCH_DATE}
+                            Official Launch — {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </motion.div>
 
                         {/* App Name */}
