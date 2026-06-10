@@ -2,8 +2,9 @@ import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { APP_BRAND } from '@/config/appPaths';
 
-// Splash is shown until this date, then permanently hidden for all visitors.
-const SPLASH_EXPIRY = new Date('2026-07-01T00:00:00');
+// Splash is shown from June 12 to July 10, 2026
+const SPLASH_START = new Date('2026-06-12T00:00:00');
+const SPLASH_EXPIRY = new Date('2026-07-10T23:59:59');
 const STORAGE_KEY = 'pmbgcc:launch_splash_v1';
 const AUTO_CLOSE_SECONDS = 15;
 
@@ -15,12 +16,12 @@ const Star8 = ({ size = 20, className = '' }) => (
 );
 
 const IslamicRow = () => (
-    <div className="flex items-center gap-2 text-emerald-300/60">
-        <div className="flex-1 h-px bg-gradient-to-r from-transparent to-emerald-400/40" />
+    <div className="flex items-center gap-2 text-emerald-300/60 dark:text-emerald-600/60">
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent to-emerald-400/40 dark:to-emerald-600/40" />
         <Star8 size={9} className="opacity-50" />
         <Star8 size={16} />
         <Star8 size={9} className="opacity-50" />
-        <div className="flex-1 h-px bg-gradient-to-l from-transparent to-emerald-400/40" />
+        <div className="flex-1 h-px bg-gradient-to-l from-transparent to-emerald-400/40 dark:to-emerald-600/40" />
     </div>
 );
 
@@ -66,22 +67,24 @@ export function LaunchSplash() {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0, scale: 1.04, transition: { duration: 0.5, ease: 'easeIn' } }}
                     transition={{ duration: 0.6 }}
-                    className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-hidden"
+                    className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-hidden bg-white dark:bg-slate-950"
                     style={{
-                        background: 'linear-gradient(135deg, #064e3b 0%, #065f46 30%, #047857 60%, #059669 100%)',
+                        background: window.matchMedia('(prefers-color-scheme: dark)').matches
+                            ? 'linear-gradient(135deg, #0f172a 0%, #1a2332 30%, #164e63 60%, #0c4a6e 100%)'
+                            : 'linear-gradient(135deg, #064e3b 0%, #065f46 30%, #047857 60%, #059669 100%)',
                     }}
                 >
                     {/* Decorative background circles */}
                     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-emerald-400/10 blur-3xl" />
-                        <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-teal-300/10 blur-3xl" />
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full border border-emerald-400/10" />
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full border border-emerald-400/10" />
+                        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-emerald-400/10 dark:bg-cyan-400/10 blur-3xl" />
+                        <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-teal-300/10 dark:bg-blue-400/10 blur-3xl" />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full border border-emerald-400/10 dark:border-cyan-600/10" />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full border border-emerald-400/10 dark:border-cyan-600/10" />
                         {/* Scattered stars */}
                         {[...Array(8)].map((_, i) => (
                             <motion.div
                                 key={i}
-                                className="absolute text-emerald-300/20"
+                                className="absolute text-emerald-300/20 dark:text-cyan-400/20"
                                 style={{
                                     top: `${10 + (i * 11) % 80}%`,
                                     left: `${5 + (i * 17) % 90}%`,
@@ -100,7 +103,7 @@ export function LaunchSplash() {
                         animate={{ scale: 1, opacity: 1, y: 0 }}
                         exit={{ scale: 0.92, opacity: 0 }}
                         transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
-                        className="relative w-full max-w-lg bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-8 sm:p-10 text-center"
+                        className="relative w-full max-w-lg bg-white/5 dark:bg-slate-900/20 backdrop-blur-xl rounded-3xl border border-white/10 dark:border-cyan-500/20 shadow-2xl p-8 sm:p-10 text-center"
                     >
                         {/* Bismillah */}
                         <motion.div
@@ -110,12 +113,12 @@ export function LaunchSplash() {
                             className="mb-6"
                         >
                             <p
-                                className="text-2xl sm:text-3xl text-emerald-200 leading-loose tracking-wide"
+                                className="text-2xl sm:text-3xl text-emerald-200 dark:text-cyan-300 leading-loose tracking-wide"
                                 dir="rtl"
                             >
                                 بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
                             </p>
-                            <p className="text-xs text-emerald-300/60 mt-1 tracking-widest uppercase">
+                            <p className="text-xs text-emerald-300/60 dark:text-cyan-400/60 mt-1 tracking-widest uppercase">
                                 In the name of Allah, the Most Gracious, the Most Merciful
                             </p>
                         </motion.div>
@@ -127,10 +130,10 @@ export function LaunchSplash() {
                             initial={{ opacity: 0, scale: 0.8 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: 0.45 }}
-                            className="mt-6 mb-3 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-400/20 border border-emerald-400/30 text-emerald-200 text-xs font-semibold tracking-widest uppercase"
+                            className="mt-6 mb-3 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-400/20 dark:bg-cyan-400/20 border border-emerald-400/30 dark:border-cyan-400/30 text-emerald-200 dark:text-cyan-300 text-xs font-semibold tracking-widest uppercase"
                         >
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            Official Launch — {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 dark:bg-cyan-400 animate-pulse" />
+                            We Are Live
                         </motion.div>
 
                         {/* App Name */}
@@ -148,7 +151,7 @@ export function LaunchSplash() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.65 }}
-                            className="mt-2 text-emerald-200/80 text-base font-medium"
+                            className="mt-2 text-emerald-200/80 dark:text-cyan-300/80 text-base font-medium"
                         >
                             {APP_BRAND.TAGLINE}
                         </motion.p>
@@ -160,7 +163,7 @@ export function LaunchSplash() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.75 }}
-                            className="mt-5 text-emerald-100/70 text-sm leading-relaxed max-w-sm mx-auto"
+                            className="mt-5 text-emerald-100/70 dark:text-cyan-200/70 text-sm leading-relaxed max-w-sm mx-auto"
                         >
                             Alhamdulillah — our official member portal is now live.
                             Manage contributions, campaigns, and community welfare — all in one place,
@@ -175,7 +178,7 @@ export function LaunchSplash() {
                             whileHover={{ scale: 1.03 }}
                             whileTap={{ scale: 0.97 }}
                             onClick={dismiss}
-                            className="mt-8 w-full py-3.5 rounded-2xl bg-emerald-400 hover:bg-emerald-300 text-emerald-950 font-bold text-base tracking-wide transition-colors shadow-lg shadow-emerald-900/40"
+                            className="mt-8 w-full py-3.5 rounded-2xl bg-emerald-400 dark:bg-cyan-400 hover:bg-emerald-300 dark:hover:bg-cyan-300 text-emerald-950 dark:text-slate-950 font-bold text-base tracking-wide transition-colors shadow-lg shadow-emerald-900/40 dark:shadow-cyan-900/40"
                         >
                             Enter Portal
                         </motion.button>
@@ -185,15 +188,14 @@ export function LaunchSplash() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 1 }}
-                            className="mt-4 text-emerald-400/50 text-xs"
+                            className="mt-4 text-emerald-400/50 dark:text-cyan-500/50 text-xs"
                         >
                             Continues automatically in {countdown}s
                         </motion.p>
 
                         {/* Expiry notice */}
-                        <p className="mt-3 text-emerald-500/40 text-[10px]">
-                            This launch notice is displayed until{' '}
-                            {SPLASH_EXPIRY.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        <p className="mt-3 text-emerald-500/40 dark:text-cyan-600/40 text-[10px]">
+                            Yes, Available & live 
                         </p>
                     </motion.div>
                 </motion.div>
