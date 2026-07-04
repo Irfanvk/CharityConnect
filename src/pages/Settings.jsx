@@ -62,6 +62,10 @@ export default function Settings() {
 
   // NEW
   const [activeTab, setActiveTab] = useState("invites");
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -152,6 +156,53 @@ export default function Settings() {
     }
   };
 
+  const isSuperadmin = user?.role === 'superadmin';
+  const isAdminOnly = user?.role === 'admin';
+
+  const validatePasswordStrength = (value) => {
+    if (!value || value.length < 8) return 'Password must be at least 8 characters long.';
+    if (!/[A-Z]/.test(value)) return 'Password must include at least one uppercase letter.';
+    if (!/[a-z]/.test(value)) return 'Password must include at least one lowercase letter.';
+    if (!/\d/.test(value)) return 'Password must include at least one number.';
+    if (!/[^A-Za-z0-9]/.test(value)) return 'Password must include at least one special character.';
+    return '';
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword.trim()) {
+      toast({ title: 'Current password required', description: 'Enter your current password.', variant: 'destructive' });
+      return;
+    }
+    if (!newPassword.trim()) {
+      toast({ title: 'New password required', description: 'Enter your new password.', variant: 'destructive' });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: 'Passwords do not match', description: 'Confirm password must match new password.', variant: 'destructive' });
+      return;
+    }
+
+    const validationError = validatePasswordStrength(newPassword);
+    if (validationError) {
+      toast({ title: 'Weak password', description: validationError, variant: 'destructive' });
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const res = await charityClient.auth.changePassword(currentPassword.trim(), newPassword.trim());
+      toast({ title: 'Password changed', description: res?.message || 'Password updated successfully.' });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error) {
+      const msg = error?.message || 'Failed to change password.';
+      toast({ title: 'Password change failed', description: msg, variant: 'destructive' });
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
 
   if (!isAdmin) {
@@ -188,6 +239,7 @@ export default function Settings() {
           <TabsTrigger value="invites">Invites</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="preferences">Preferences</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>
 
         {/* INVITES TAB */}
@@ -441,6 +493,102 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* SECURITY TAB */}
+        <TabsContent value="security" className="space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800">Password & Security</h2>
+            <p className="text-sm text-slate-500">Manage your account password based on your role policy.</p>
+          </div>
+
+          {isAdminOnly ? (
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-6 space-y-4">
+                <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 p-4">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-amber-900">Superadmin approval required</p>
+                    <p className="text-sm text-amber-800 mt-1">
+                      Admin password changes require superadmin approval. Please submit a reset request through Forgot Password.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                    onClick={() => {
+                      window.location.href = '/forgotpassword';
+                    }}
+                  >
+                    Request Password Reset
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-6 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="current-password">Current Password</Label>
+                  <Input
+                    id="current-password"
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    autoComplete="current-password"
+                    placeholder="Enter current password"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">New Password</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    autoComplete="new-password"
+                    placeholder="Enter new password"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm New Password</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    autoComplete="new-password"
+                    placeholder="Re-enter new password"
+                  />
+                </div>
+
+                <p className="text-xs text-slate-500">
+                  Password must be at least 8 characters with uppercase, lowercase, number, and special character.
+                </p>
+
+                <div>
+                  <Button
+                    onClick={handleChangePassword}
+                    disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    {changingPassword && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Change Password
+                  </Button>
+                </div>
+
+                {isSuperadmin && (
+                  <p className="text-xs text-slate-500">
+                    As superadmin, you can change your own password directly by entering your current password.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
       </Tabs>

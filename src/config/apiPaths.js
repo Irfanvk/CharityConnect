@@ -10,6 +10,7 @@ export const API_PATHS = {
     register: '/auth/register',
     checkUsername: '/auth/check-username',
     logout: '/auth/logout',
+    changePassword: '/auth/change-password',
     uploadAvatar: '/auth/me/avatar',
     removeAvatar: '/auth/me/avatar',
     forgotPassword: '/auth/forgot-password',

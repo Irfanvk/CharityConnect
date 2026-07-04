@@ -19,3 +19,8 @@ export const getCurrentUser = async () => {
 export const logoutUser = async () => {
   return await charityClient.auth.logout();
 };
+
+// Change password for authenticated user
+export const changePassword = async (currentPassword, newPassword) => {
+  return await charityClient.auth.changePassword(currentPassword, newPassword);
+};

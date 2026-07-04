@@ -584,6 +584,13 @@ const charityClient = {
       window.location.href = APP_PATHS.LOGIN;
     },
 
+    changePassword: async (current_password, new_password) => {
+      return apiFetch(API_PATHS.auth.changePassword, {
+        method: 'POST',
+        body: JSON.stringify({ current_password, new_password }),
+      });
+    },
+
     redirectToLogin: () => {
       window.location.href = APP_PATHS.LOGIN;
     },
