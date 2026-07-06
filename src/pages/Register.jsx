@@ -32,6 +32,10 @@ export default function Register() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [usernameError, setUsernameError] = useState('');
+  const [inviteValidationMeta, setInviteValidationMeta] = useState({
+    allowMonthlyAmount: true,
+    registrationMode: 'new_member',
+  });
   // 'idle' | 'checking' | 'available' | 'taken'
   const [usernameCheckStatus, setUsernameCheckStatus] = useState('idle');
   const usernameDebounceRef = useRef(null);
@@ -56,20 +60,20 @@ export default function Register() {
   // Validate username format and length
   const validateUsername = (username) => {
     if (!username) return '';
-    
+
     if (username.length < 3) {
       return 'Username must be at least 3 characters long';
     }
-    
+
     if (username.length > 30) {
       return 'Username must not exceed 30 characters';
     }
-    
+
     // Allow alphanumeric, underscores, and hyphens
     if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
       return 'Username can only contain letters, numbers, underscores, and hyphens';
     }
-    
+
     return '';
   };
 
@@ -123,6 +127,71 @@ export default function Register() {
     return 'Invalid invite or registration failed. Please try again or contact support.';
   };
 
+  const validateInviteAndDetectMode = async ({ silent = false } = {}) => {
+    const normalizedCode = inviteCode.trim().toUpperCase();
+    const candidateInputs = [formData.email, formData.phone]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean);
+
+    if (!normalizedCode || candidateInputs.length === 0) {
+      return null;
+    }
+
+    let lastMessage = 'Invalid invite details. Please check your email/phone and invite code.';
+
+    for (const value of candidateInputs) {
+      try {
+        const result = await charityClient.invites.validate(value, normalizedCode);
+        if (result?.valid) {
+          const allowMonthlyAmount = result?.allow_monthly_amount !== false;
+          setInviteValidationMeta({
+            allowMonthlyAmount,
+            registrationMode: result?.registration_mode || (allowMonthlyAmount ? 'new_member' : 'existing_member'),
+          });
+          if (!silent) {
+            setError('');
+          }
+          return result;
+        }
+
+        if (result?.message) {
+          lastMessage = result.message;
+        }
+      } catch (err) {
+        lastMessage = getReadableError(err);
+      }
+    }
+
+    if (!silent) {
+      throw new Error(lastMessage);
+    }
+
+    return null;
+  };
+
+  useEffect(() => {
+    if (step !== 2) {
+      return;
+    }
+
+    const hasContactInput = String(formData.email || '').trim() || String(formData.phone || '').trim();
+    if (!inviteCode || !hasContactInput) {
+      setInviteValidationMeta({
+        allowMonthlyAmount: true,
+        registrationMode: 'new_member',
+      });
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      validateInviteAndDetectMode({ silent: true }).catch(() => {
+        // Silent mode is best-effort for UX; submit path does strict validation.
+      });
+    }, 350);
+
+    return () => clearTimeout(timeout);
+  }, [step, inviteCode, formData.email, formData.phone]);
+
   const handleRegister = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -151,10 +220,12 @@ export default function Register() {
     }
 
     try {
-      await charityClient.invites.validate(
-        formData.email || formData.phone,
-        inviteCode.trim().toUpperCase()
-      );
+      const inviteValidationResult = await validateInviteAndDetectMode();
+      if (!inviteValidationResult?.valid) {
+        throw new Error('Invite validation failed');
+      }
+
+      const allowMonthlyAmount = inviteValidationResult?.allow_monthly_amount !== false;
 
       // Register with backend - creates both User and Member
       const response = await charityClient.auth.register({
@@ -165,7 +236,7 @@ export default function Register() {
         full_name: formData.full_name,
         phone: formData.phone,
         address: formData.address || '',
-        monthly_amount: parseInt(formData.monthly_amount, 10) || 100
+        monthly_amount: allowMonthlyAmount ? (parseInt(formData.monthly_amount, 10) || 100) : 0
       });
 
       // Backend automatically:
@@ -203,28 +274,28 @@ export default function Register() {
           }}
         />
         <div className="relative z-10 flex min-h-svh items-center justify-center pb-[env(safe-area-inset-bottom)]">
-        <Card className="max-w-md w-full border-white/50 bg-white/95 text-slate-900 shadow-2xl backdrop-blur-sm dark:border-slate-500/40 dark:bg-slate-900/90 dark:text-slate-100">
-          <CardContent className="p-8 text-center">
-            <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-8 h-8 text-emerald-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Registration Successful!</h2>
-            <p className="text-slate-600 dark:text-slate-300 mb-6">
-              Your account has been created successfully! You can now access your dashboard.
-            </p>
-            <div className="flex flex-col gap-3">
-              <Button 
-                onClick={() => navigate('/dashboard')}
-                className="bg-emerald-600 hover:bg-emerald-700"
-              >
-                Go to Dashboard
-              </Button>
-              <Button asChild variant="outline">
-                <Link to={APP_PATHS.LOGIN}>Back to Login</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          <Card className="max-w-md w-full border-white/50 bg-white/95 text-slate-900 shadow-2xl backdrop-blur-sm dark:border-slate-500/40 dark:bg-slate-900/90 dark:text-slate-100">
+            <CardContent className="p-8 text-center">
+              <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-emerald-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Registration Successful!</h2>
+              <p className="text-slate-600 dark:text-slate-300 mb-6">
+                Your account has been created successfully! You can now access your dashboard.
+              </p>
+              <div className="flex flex-col gap-3">
+                <Button
+                  onClick={() => navigate('/dashboard')}
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                >
+                  Go to Dashboard
+                </Button>
+                <Button asChild variant="outline">
+                  <Link to={APP_PATHS.LOGIN}>Back to Login</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
@@ -259,225 +330,234 @@ export default function Register() {
       <div className="pointer-events-none absolute bottom-14 right-10 h-32 w-32 rounded-full border border-emerald-300/60 bg-white/50 dark:border-emerald-200/40 dark:bg-white/10" />
 
       <div className="relative z-10 flex min-h-svh items-center justify-center pb-[env(safe-area-inset-bottom)]">
-      <Card className="max-w-md w-full border-white/50 bg-white/95 text-slate-900 shadow-2xl backdrop-blur-sm dark:border-slate-500/40 dark:bg-slate-900/90 dark:text-slate-100">
-        <CardHeader className="text-center pb-6">
-          <div className="w-14 h-14 rounded-xl bg-white/80 dark:bg-slate-800/80 p-2 mx-auto mb-3 shadow-md">
-            <img
-              src={APP_IMAGES.LOGOS.PRIMARY}
-              alt={`${APP_BRAND.NAME} logo`}
-              className="h-full w-full object-contain"
-            />
-          </div>
-          {/* <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-sky-500/25">
+        <Card className="max-w-md w-full border-white/50 bg-white/95 text-slate-900 shadow-2xl backdrop-blur-sm dark:border-slate-500/40 dark:bg-slate-900/90 dark:text-slate-100">
+          <CardHeader className="text-center pb-6">
+            <div className="w-14 h-14 rounded-xl bg-white/80 dark:bg-slate-800/80 p-2 mx-auto mb-3 shadow-md">
+              <img
+                src={APP_IMAGES.LOGOS.PRIMARY}
+                alt={`${APP_BRAND.NAME} logo`}
+                className="h-full w-full object-contain"
+              />
+            </div>
+            {/* <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-sky-500/25">
             {step === 1 ? <MoonStar className="w-8 h-8 text-white" /> : <Heart className="w-8 h-8 text-white" />}
           </div> */}
-          <CardTitle className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {step === 1 ? `Join ${APP_BRAND.NAME}` : 'Complete Registration'}
-          </CardTitle>
-          <p className="text-slate-600 dark:text-slate-300 text-sm mt-2">
-            {step === 1 ? 'Enter your invite code to begin' : 'Fill in your details to create your account'}
-          </p>
-        </CardHeader>
+            <CardTitle className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+              {step === 1 ? `Join ${APP_BRAND.NAME}` : 'Complete Registration'}
+            </CardTitle>
+            <p className="text-slate-600 dark:text-slate-300 text-sm mt-2">
+              {step === 1 ? 'Enter your invite code to begin' : 'Fill in your details to create your account'}
+            </p>
+          </CardHeader>
 
-        <CardContent className="space-y-6">
-          {error && (
-            <Alert className="bg-rose-50 border-rose-200">
-              <XCircle className="w-4 h-4 text-rose-600" />
-              <AlertDescription className="text-rose-700">{error}</AlertDescription>
-            </Alert>
-          )}
+          <CardContent className="space-y-6">
+            {error && (
+              <Alert className="bg-rose-50 border-rose-200">
+                <XCircle className="w-4 h-4 text-rose-600" />
+                <AlertDescription className="text-rose-700">{error}</AlertDescription>
+              </Alert>
+            )}
 
-          {step === 1 ? (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="inviteCode" className="text-slate-800 dark:text-slate-100">Invite Code</Label>
-                <Input
-                  id="inviteCode"
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                  placeholder="INV-XXXXXX"
-                  className="text-center text-lg tracking-wider font-mono"
-                />
-              </div>
-              <Button 
-                onClick={verifyInviteCode}
-                disabled={!inviteCode}
-                className="w-full bg-emerald-600 hover:bg-emerald-700"
-              >
-                Verify Code
-              </Button>
-              <p className="text-xs text-center text-slate-600 dark:text-slate-300">
-                Don't have an invite code? Contact an administrator.
-              </p>
-            </div>
-          ) : (
-            <form onSubmit={handleRegister} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username" className="text-slate-800 dark:text-slate-100">
-                  Username * 
-                  {usernameError && (
-                    <span className="text-rose-600 dark:text-rose-400 text-xs ml-1">({usernameError})</span>
-                  )}
-                </Label>
-                <Input
-                  id="username"
-                  value={formData.username}
-                  onChange={(e) => {
-                    const username = e.target.value;
-                    setFormData({...formData, username});
-                    const formatErr = validateUsername(username);
-                    setUsernameError(formatErr);
-                    setUsernameCheckStatus('idle');
-                    if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
-                    if (!formatErr && username.length >= 3) {
-                      usernameDebounceRef.current = setTimeout(() => {
-                        checkUsernameAvailability(username);
-                      }, 450);
-                    }
-                  }}
-                  placeholder="Choose a username (3-30 characters)"
-                  autoComplete="username"
-                  required
-                  className={
-                    usernameError || usernameCheckStatus === 'taken'
-                      ? 'border-rose-500'
-                      : usernameCheckStatus === 'available'
-                      ? 'border-emerald-500'
-                      : ''
-                  }
-                />
-                {usernameCheckStatus === 'checking' && (
-                  <p className="text-xs text-slate-500 flex items-center gap-1">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Checking availability...
-                  </p>
-                )}
-                {usernameCheckStatus === 'available' && !usernameError && (
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" /> Username is available
-                  </p>
-                )}
-                {usernameCheckStatus === 'taken' && (
-                  <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1">
-                    <XCircle className="w-3 h-3" /> Username already taken — try a different one
-                  </p>
-                )}
-                {usernameCheckStatus === 'idle' && !usernameError && formData.username && (
-                  <p className="text-xs text-slate-400">Checking as you type...</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-slate-800 dark:text-slate-100">Password *</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  placeholder="At least 8 characters"
-                  autoComplete="new-password"
-                  minLength={8}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-slate-800 dark:text-slate-100">Confirm Password *</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
-                  placeholder="Re-enter your password"
-                  autoComplete="new-password"
-                  minLength={8}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="full_name" className="text-slate-800 dark:text-slate-100">Full Name *</Label>
-                <Input
-                  id="full_name"
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({...formData, full_name: e.target.value})}
-                  autoComplete="name"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-800 dark:text-slate-100">Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  autoComplete="email"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <PhoneInput
-                  id="phone"
-                  label="Phone Number"
-                  value={formData.phone}
-                  onChange={(value) => setFormData({ ...formData, phone: value })}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="monthly_amount" className="text-slate-800 dark:text-slate-100">
-                  Monthly Fixed Payment (₹) *
-                </Label>
-                <Input
-                  id="monthly_amount"
-                  type="number"
-                  value={formData.monthly_amount}
-                  onChange={(e) => setFormData({...formData, monthly_amount: e.target.value})}
-                  placeholder="Enter monthly payment amount (minimum ₹50)"
-                  min="50"
-                  max="10000"
-                  required
-                />
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  You can modify this amount later from your profile with admin approval.
+            {step === 1 ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="inviteCode" className="text-slate-800 dark:text-slate-100">Invite Code</Label>
+                  <Input
+                    id="inviteCode"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                    placeholder="INV-XXXXXX"
+                    className="text-center text-lg tracking-wider font-mono"
+                  />
+                </div>
+                <Button
+                  onClick={verifyInviteCode}
+                  disabled={!inviteCode}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                >
+                  Verify Code
+                </Button>
+                <p className="text-xs text-center text-slate-600 dark:text-slate-300">
+                  Don't have an invite code? Contact an administrator.
                 </p>
               </div>
+            ) : (
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="username" className="text-slate-800 dark:text-slate-100">
+                    Username *
+                    {usernameError && (
+                      <span className="text-rose-600 dark:text-rose-400 text-xs ml-1">({usernameError})</span>
+                    )}
+                  </Label>
+                  <Input
+                    id="username"
+                    value={formData.username}
+                    onChange={(e) => {
+                      const username = e.target.value;
+                      setFormData({ ...formData, username });
+                      const formatErr = validateUsername(username);
+                      setUsernameError(formatErr);
+                      setUsernameCheckStatus('idle');
+                      if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
+                      if (!formatErr && username.length >= 3) {
+                        usernameDebounceRef.current = setTimeout(() => {
+                          checkUsernameAvailability(username);
+                        }, 450);
+                      }
+                    }}
+                    placeholder="Choose a username (3-30 characters)"
+                    autoComplete="username"
+                    required
+                    className={
+                      usernameError || usernameCheckStatus === 'taken'
+                        ? 'border-rose-500'
+                        : usernameCheckStatus === 'available'
+                          ? 'border-emerald-500'
+                          : ''
+                    }
+                  />
+                  {usernameCheckStatus === 'checking' && (
+                    <p className="text-xs text-slate-500 flex items-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Checking availability...
+                    </p>
+                  )}
+                  {usernameCheckStatus === 'available' && !usernameError && (
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" /> Username is available
+                    </p>
+                  )}
+                  {usernameCheckStatus === 'taken' && (
+                    <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                      <XCircle className="w-3 h-3" /> Username already taken — try a different one
+                    </p>
+                  )}
+                  {usernameCheckStatus === 'idle' && !usernameError && formData.username && (
+                    <p className="text-xs text-slate-400">Checking as you type...</p>
+                  )}
+                </div>
 
-              <p className="text-xs text-slate-600 dark:text-slate-300">
-                You can complete additional profile details (address, city, etc.) after registration.
-              </p>
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-slate-800 dark:text-slate-100">Password *</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="At least 8 characters"
+                    autoComplete="new-password"
+                    minLength={8}
+                    required
+                  />
+                </div>
 
-              <div className="flex gap-3 pt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setStep(1)}
-                  className="flex-1"
-                >
-                  Back
-                </Button>
-                <Button 
-                  type="submit"
-                  disabled={loading || usernameCheckStatus === 'taken' || usernameCheckStatus === 'checking'}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                >
-                  {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Register
-                </Button>
-              </div>
-            </form>
-          )}
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword" className="text-slate-800 dark:text-slate-100">Confirm Password *</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    placeholder="Re-enter your password"
+                    autoComplete="new-password"
+                    minLength={8}
+                    required
+                  />
+                </div>
 
-          <div className="pt-2 text-center">
-            <Link to={APP_PATHS.LOGIN} className="text-sm font-medium text-emerald-700 hover:underline dark:text-emerald-300">
-              Back to Login
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+                <div className="space-y-2">
+                  <Label htmlFor="full_name" className="text-slate-800 dark:text-slate-100">Full Name *</Label>
+                  <Input
+                    id="full_name"
+                    value={formData.full_name}
+                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                    autoComplete="name"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-slate-800 dark:text-slate-100">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <PhoneInput
+                    id="phone"
+                    label="Phone Number"
+                    value={formData.phone}
+                    onChange={(value) => setFormData({ ...formData, phone: value })}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  {inviteValidationMeta.allowMonthlyAmount ? (
+                    <>
+                      <Label htmlFor="monthly_amount" className="text-slate-800 dark:text-slate-100">
+                        Monthly Fixed Payment (₹) *
+                      </Label>
+                      <Input
+                        id="monthly_amount"
+                        type="number"
+                        value={formData.monthly_amount}
+                        onChange={(e) => setFormData({ ...formData, monthly_amount: e.target.value })}
+                        placeholder="Enter monthly payment amount (minimum ₹50)"
+                        min="50"
+                        max="10000"
+                        required
+                      />
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        You can modify this amount later from your profile with admin approval.
+                      </p>
+                    </>
+                  ) : (
+                    <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-600/40 dark:bg-amber-900/20 dark:text-amber-200">
+                      Membership amount is locked for existing members during invite registration.
+                      You can request changes later from Profile and admins can approve it.
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  You can complete additional profile details (address, city, etc.) after registration.
+                </p>
+
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setStep(1)}
+                    className="flex-1"
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={loading || usernameCheckStatus === 'taken' || usernameCheckStatus === 'checking'}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Register
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            <div className="pt-2 text-center">
+              <Link to={APP_PATHS.LOGIN} className="text-sm font-medium text-emerald-700 hover:underline dark:text-emerald-300">
+                Back to Login
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
