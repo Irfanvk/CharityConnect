@@ -21,8 +21,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { format, addMonths, subMonths, parseISO } from "date-fns";
-import { Loader2, Calendar, CheckSquare, Square, Upload, FileText, Image as ImageIcon, X } from "lucide-react";
+import { Loader2, CheckSquare, Square, Upload, FileText, Image as ImageIcon, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+
+const PLATFORM_START_MONTH = "2024-08";
+const PLATFORM_START_DATE = parseISO(`${PLATFORM_START_MONTH}-01`);
 
 // Build a list of yyyy-MM strings from startYearMonth up to today (inclusive),
 // excluding any month already in paidSet.
@@ -38,8 +41,9 @@ function buildLocalMonths(startYearMonth, includeUpcoming, upcomingCount, paidSe
       throw new Error("Invalid month");
     }
   } catch {
-    cursor = subMonths(today, 12);
+    cursor = PLATFORM_START_DATE;
   }
+  if (cursor < PLATFORM_START_DATE) cursor = PLATFORM_START_DATE;
   if (cursor > today) cursor = today;
 
   const months = [];
@@ -60,11 +64,11 @@ function buildLocalMonths(startYearMonth, includeUpcoming, upcomingCount, paidSe
   return months;
 }
 
-// Generate month options for the "Start from" picker: Jan 2024 → current month
+// Generate month options for the "Start from" picker: Aug 2024 → current month
 function buildStartMonthOptions() {
   const today = new Date();
   today.setDate(1);
-  const earliest = new Date(today.getFullYear() - 6, 0, 1); // 6 years back
+  const earliest = PLATFORM_START_DATE;
   const options = [];
   let cur = earliest;
   while (cur <= today) {

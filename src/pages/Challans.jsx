@@ -115,6 +115,7 @@ const normalizeId = (value) =>
   value === null || value === undefined ? "" : String(value);
 
 const CHALLAN_FETCH_BATCH_SIZE = 200;
+const PLATFORM_START_MONTH = "2024-08";
 
 const parseAmount = (amount) => {
   if (typeof amount === "number") return amount;
@@ -123,6 +124,18 @@ const parseAmount = (amount) => {
     return Number(amount.parsedValue ?? amount.value ?? amount.source) || 0;
   }
   return 0;
+};
+
+const isChallanVisibleFromPlatformStart = (challan) => {
+  const challanType = String(challan?.type || challan?.backend_type || "").toLowerCase();
+  if (challanType !== "monthly") {
+    return true;
+  }
+  const month = String(challan?.month || "").trim();
+  if (!month) {
+    return true;
+  }
+  return month >= PLATFORM_START_MONTH;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -328,7 +341,9 @@ export default function Challans() {
   // ── Display normalisation ─────────────────────────────────────────────────
   // Server now handles status & search filtering.
   // This pass only fills in display-level fallbacks.
-  const normalisedSourceChallans = challanItems.map((challan) => {
+  const normalisedSourceChallans = challanItems
+    .filter(isChallanVisibleFromPlatformStart)
+    .map((challan) => {
     const linkedMember = members.find(
       (m) => normalizeId(m.id) === normalizeId(challan.member_id)
     );
