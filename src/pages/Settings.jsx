@@ -25,7 +25,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import { UserPlus, Shield, Loader2, Eye, EyeOff, Settings2, MessageCircle, Share2, Copy, Check } from "lucide-react";
+import {
+  UserPlus,
+  Shield,
+  Loader2,
+  Eye,
+  EyeOff,
+  Settings2,
+  MessageCircle,
+  Share2,
+  Copy,
+  Check,
+  AlertTriangle,
+} from "lucide-react";
+
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
 import UserProfilePopover, { AvatarCircle } from "@/components/UserProfilePopover";
@@ -68,6 +81,8 @@ export default function Settings() {
   const [changingPassword, setChangingPassword] = useState(false);
 
   const queryClient = useQueryClient();
+
+  const { toast } = useToast();
 
   useEffect(() => {
     charityClient.auth.me().then(setUser).catch(() => { });

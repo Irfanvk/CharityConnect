@@ -856,6 +856,19 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
               </div>
             </div>
           )}
+            {user?.role === "admin" && (
+            <Button
+              onClick={() => {
+                setEditingMember(null);
+                setFormOpen(true);
+              }}
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              <Plus className="w-4 h-4 mr-1.5" />
+              Add Member
+            </Button>
+          )}
       </div>
 
       {wipeNotice && (
