@@ -54,6 +54,7 @@ const statusConfig = {
 
 export default function Members() {
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("active");
   const [sortBy, setSortBy] = useState("name");
   const [sortDirection, setSortDirection] = useState("asc");
   const [pageSize, setPageSize] = useState(20);
@@ -183,12 +184,13 @@ export default function Members() {
   }, []);
 
 const { data: members = [], isLoading, isFetching, isError, error } = useQuery({
-  queryKey: ["members", search, sortBy, sortDirection, currentPage, pageSize],
+  queryKey: ["members", search, statusFilter, sortBy, sortDirection, currentPage, pageSize],
   queryFn: () =>
     charityClient.members.list({
       skip: (currentPage - 1) * pageSize,
       limit: pageSize,
       search,
+      status: statusFilter === "all" ? undefined : statusFilter,
       sort_by: sortBy,
       sort_order: sortDirection,
     }),
@@ -219,7 +221,7 @@ const { data: memberSummary } = useQuery({
 
 React.useEffect(() => {
   setCurrentPage(1);
-}, [search, sortBy, sortDirection, pageSize]);
+}, [search, statusFilter, sortBy, sortDirection, pageSize]);
 
 const paginatedMembers = members;
 const activeMembersCount = Number(memberSummary?.active_members ?? 0);
@@ -647,48 +649,9 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
     return `MEM-${String(maxId + 1).padStart(3, '0')}`;
   };
 
-  // const filteredMembers = members.filter(m =>
-  //   m.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-  //   m.member_id?.toLowerCase().includes(search.toLowerCase()) ||
-  //   m.phone?.includes(search)
-  // );
-
-  // const sortedMembers = [...filteredMembers].sort((a, b) => {
-  //   let left = "";
-  //   let right = "";
-
-  //   if (sortBy === "id") {
-  //     // Compare on numeric member code segment when available (e.g. MEM-0012)
-  //     const leftMatch = String(a.member_id || "").match(/(\d+)/);
-  //     const rightMatch = String(b.member_id || "").match(/(\d+)/);
-  //     const leftNum = leftMatch ? Number(leftMatch[1]) : NaN;
-  //     const rightNum = rightMatch ? Number(rightMatch[1]) : NaN;
-
-  //     if (!Number.isNaN(leftNum) && !Number.isNaN(rightNum)) {
-  //       return sortDirection === "asc" ? leftNum - rightNum : rightNum - leftNum;
-  //     }
-
-  //     left = String(a.member_id || "").toLowerCase();
-  //     right = String(b.member_id || "").toLowerCase();
-  //   } else {
-  //     left = String(a.full_name || "").toLowerCase();
-  //     right = String(b.full_name || "").toLowerCase();
-  //   }
-
-  //   const comparison = left.localeCompare(right);
-  //   return sortDirection === "asc" ? comparison : -comparison;
-  // });
-
-  // const totalItems = sortedMembers.length;
-  // const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  // const safePage = Math.min(currentPage, totalPages);
-  // const startIndex = (safePage - 1) * pageSize;
-  // const endIndex = startIndex + pageSize;
-  // const paginatedMembers = sortedMembers.slice(startIndex, endIndex);
-
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [search, sortBy, sortDirection, pageSize]);
+  }, [search, statusFilter, sortBy, sortDirection, pageSize]);
 
   React.useEffect(() => {
     if (!wipeNotice?.id) return undefined;
@@ -699,12 +662,6 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
 
     return () => clearTimeout(timeoutId);
   }, [wipeNotice?.id]);
-
-  // React.useEffect(() => {
-  //   if (currentPage > totalPages) {
-  //     setCurrentPage(totalPages);
-  //   }
-  // }, [currentPage, totalPages]);
 
   const isWipeReady =
     wipeConfirmText.trim().toUpperCase() === 'WIPE' &&
@@ -926,8 +883,50 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
         </Card>
       </div>
 
-      {/* Search + Sort */}
-      <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+      {/* Status Filter + Search/Sort — sticky so it stays reachable on long pages */}
+      <div className="sticky top-0 z-10 -mx-1 px-1 sm:-mx-0 sm:px-0 bg-slate-50/95 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80 space-y-4 py-3">
+        {/* Status Filter — segmented tab control */}
+        <div
+          role="tablist"
+          aria-label="Filter members by status"
+          className="inline-flex w-full sm:w-auto max-w-full items-center gap-1 rounded-lg bg-slate-100 p-1 overflow-x-auto sm:overflow-visible sm:flex-wrap"
+        >
+          {[
+            { key: "all", label: "All", count: Number(memberSummary?.total_members ?? 0) },
+            { key: "active", label: "Active", count: activeMembersCount },
+            { key: "inactive", label: "Inactive", count: inactiveMembersCount },
+          ].map((tab) => {
+            const isActive = statusFilter === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setStatusFilter(tab.key)}
+                className={`relative flex-shrink-0 flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 ${
+                  isActive
+                    ? "bg-white text-emerald-700 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {tab.label}
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-xs font-semibold leading-none transition-colors duration-200 ${
+                    isActive
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-slate-200 text-slate-500"
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Search + Sort */}
+        <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
         <div className="relative max-w-md w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input
@@ -968,6 +967,7 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
             <option value={100}>100</option>
           </select>
         </div>
+        </div>
       </div>
 
       {/* Members Table */}
@@ -1003,7 +1003,11 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
               ) : paginatedMembers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-slate-500">
-                    No members found
+                    {statusFilter === "active"
+                      ? "No active members found."
+                      : statusFilter === "inactive"
+                      ? "No inactive members found."
+                      : "No members found."}
                   </TableCell>
                 </TableRow>
               ) : (
