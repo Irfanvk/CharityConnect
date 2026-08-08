@@ -32,6 +32,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { PAGE_PATHS } from "@/config/appPaths";
 import CampaignForm from "@/components/campaigns/CampaignForm";
 import CampaignAnalytics from "@/components/campaigns/CampaignAnalytics";
+import CampaignDonationForm from "@/components/campaigns/CampaignDonationForm";
 import RecurringDonationForm from "@/components/campaigns/RecurringDonationForm";
 import {
   formatCampaignTargetText,
@@ -62,6 +63,8 @@ export default function Campaigns() {
   const [viewMode, setViewMode] = useState("campaigns");
   const [recurringFormOpen, setRecurringFormOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
+  const [donationFormOpen, setDonationFormOpen] = useState(false);
+  const [selectedDonationCampaign, setSelectedDonationCampaign] = useState(null);
   const [expandedCampaignId, setExpandedCampaignId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null); // { id, title }
 
@@ -343,6 +346,30 @@ export default function Campaigns() {
       queryClient.invalidateQueries({ queryKey: ['recurringDonations'] });
       setRecurringFormOpen(false);
       setSelectedCampaign(null);
+    },
+  });
+
+  const createDonationMutation = useMutation({
+    mutationFn: async ({ campaignId, data }) => {
+      return charityClient.campaigns.donate(campaignId, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['challans'] });
+      emitNotificationsChanged('updated');
+      setDonationFormOpen(false);
+      setSelectedDonationCampaign(null);
+      toast({
+        title: "Donation submitted",
+        description: "Your campaign donation is pending admin approval.",
+      });
+    },
+    onError: (err) => {
+      toast({
+        title: "Failed to donate",
+        description: err?.message || "An error occurred while recording the donation.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -758,15 +785,27 @@ export default function Campaigns() {
                       )}
 
                       {campaign.status === 'active' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => { setSelectedCampaign(campaign); setRecurringFormOpen(true); }}
-                          className="w-full mt-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50"
-                        >
-                          <Heart className="w-3 h-3 mr-1" />
-                          Set Up Recurring Donation
-                        </Button>
+                        <div className="mt-2 space-y-2">
+                          {!isAdmin && (
+                            <Button
+                              size="sm"
+                              onClick={() => { setSelectedDonationCampaign(campaign); setDonationFormOpen(true); }}
+                              className="w-full bg-emerald-600 hover:bg-emerald-700"
+                            >
+                              <Heart className="w-3 h-3 mr-1" />
+                              Donate Now
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => { setSelectedCampaign(campaign); setRecurringFormOpen(true); }}
+                            className="w-full text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                          >
+                            <Heart className="w-3 h-3 mr-1" />
+                            Set Up Recurring Donation
+                          </Button>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
@@ -816,6 +855,13 @@ export default function Campaigns() {
         onOpenChange={setRecurringFormOpen}
         campaign={selectedCampaign}
         onSubmit={createRecurringMutation.mutateAsync}
+      />
+
+      <CampaignDonationForm
+        open={donationFormOpen}
+        onOpenChange={setDonationFormOpen}
+        campaign={selectedDonationCampaign}
+        onSubmit={(data) => createDonationMutation.mutateAsync({ campaignId: selectedDonationCampaign?.id, data })}
       />
     </div>
   );

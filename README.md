@@ -227,9 +227,9 @@ React Router v6 with role-based route protection:
 
 1. Admin creates campaign (title, description, target amount, dates)
 2. Members see active campaigns on Campaigns page
-3. Member clicks "Donate" → enters amount → creates campaign-type challan
-4. Same proof upload + admin approval flow as monthly challans
-5. Campaign progress bar updates as donations are approved
+3. Member clicks "Donate" → enters amount → frontend posts to `POST /campaigns/{id}/donate`
+4. Donation is saved as a pending campaign challan until an admin approves it
+5. Campaign progress bar, profile history, and statements update only after approval
 
 ### Member Requests
 

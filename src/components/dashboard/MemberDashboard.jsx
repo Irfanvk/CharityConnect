@@ -119,7 +119,7 @@ export default function MemberDashboard({
 
   const donatedCampaignIds = new Set(
     myChallans
-      .filter((challan) => challan.type === "donation" && challan.campaign_id)
+      .filter((challan) => challan.type === "donation" && challan.status === "approved" && challan.campaign_id)
       .map((challan) => challan.campaign_id)
   );
 

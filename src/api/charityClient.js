@@ -979,6 +979,12 @@ const charityClient = {
       }));
     },
 
+    donate: async (id, data) =>
+      normalizeChallan(await apiFetch(API_PATHS.campaigns.donate(id), {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })),
+
     delete: (id) =>
       apiFetch(API_PATHS.campaigns.byId(id), { method: 'DELETE' }),
 

@@ -183,8 +183,8 @@ export default function Profile() {
 
   // User's challans
   const userChallans = challans.filter(c => c.created_by === user?.email);
-  const totalContributed = userChallans
-    .filter(c => c.status === 'approved')
+  const approvedUserChallans = userChallans.filter((challan) => challan.status === 'approved');
+  const totalContributed = approvedUserChallans
     .reduce((sum, c) => sum + (c.amount || 0), 0);
   const pendingChallans = userChallans.filter(c =>
     c.status !== 'approved' && c.status !== 'rejected'
@@ -639,7 +639,7 @@ export default function Profile() {
                       </div>
                       <div>
                         <p className="text-xl font-bold text-slate-900">
-                          {userChallans.filter(c => c.status === 'approved').length}
+                          {approvedUserChallans.length}
                         </p>
                         <p className="text-xs text-slate-500">Approved</p>
                       </div>
@@ -719,11 +719,11 @@ export default function Profile() {
                   <CardTitle className="text-lg">Recent Payments</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {userChallans.length === 0 ? (
+                  {approvedUserChallans.length === 0 ? (
                     <p className="text-center py-8 text-slate-500">No payment history yet</p>
                   ) : (
                     <div className="space-y-3">
-                      {userChallans.slice(0, 5).map((challan) => (
+                      {approvedUserChallans.slice(0, 5).map((challan) => (
                         <div key={challan.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center border">
@@ -753,7 +753,7 @@ export default function Profile() {
             </TabsContent>
 
             <TabsContent value="history">
-              <ContributionHistory challans={userChallans} />
+              <ContributionHistory challans={approvedUserChallans} />
             </TabsContent>
 
             <TabsContent value="recurring">

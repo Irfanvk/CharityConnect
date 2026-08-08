@@ -61,6 +61,7 @@ export const API_PATHS = {
   },
   campaigns: {
     list: '/campaigns/',
+    donate: (id) => `/campaigns/${id}/donate`,
     importPayments: '/campaigns/import/payments',
     importPaymentsJob: '/campaigns/import/payments/jobs',
     importPaymentsJobStatus: (jobId) => `/campaigns/import/payments/jobs/${jobId}`,
