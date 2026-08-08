@@ -646,7 +646,7 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
       return match ? parseInt(match[1]) : 0;
     });
     const maxId = Math.max(...ids, 0);
-    return `MEM-${String(maxId + 1).padStart(3, '0')}`;
+    return `MEM-${String(maxId + 1).padStart(4, '0')}`;
   };
 
   React.useEffect(() => {
