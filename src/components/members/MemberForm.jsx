@@ -71,7 +71,7 @@ export default function MemberForm({ open, onOpenChange, member, onSubmit, sugge
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[calc(100vh-2rem)] max-h-[calc(100dvh-2rem)] overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+1rem)]">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             {member ? 'Edit Member' : 'Add New Member'}
@@ -224,7 +224,7 @@ export default function MemberForm({ open, onOpenChange, member, onSubmit, sugge
             </div>
           )}
 
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="sticky bottom-0 z-10 flex justify-end gap-3 border-t bg-background/95 pt-4 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] backdrop-blur supports-[backdrop-filter]:bg-background/80">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>

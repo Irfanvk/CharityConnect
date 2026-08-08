@@ -201,6 +201,21 @@ const { data: memberSummary } = useQuery({
   queryFn: () => charityClient.members.summary(),
 });
 
+const { data: latestMemberForSuggestedId = null } = useQuery({
+  queryKey: ["members", "latest-for-suggested-id"],
+  queryFn: async () => {
+    const latest = await charityClient.members.list({
+      skip: 0,
+      limit: 1,
+      sort_by: "id",
+      sort_order: "desc",
+    });
+    return latest[0] || null;
+  },
+  enabled: Boolean(formOpen && !editingMember?.id && isAdmin),
+  staleTime: 30_000,
+});
+
   const { data: importPrerequisites = { membersTotal: 0, hasCampaigns: false, hasChallans: false } } = useQuery({
     queryKey: ["imports", "prerequisites"],
     queryFn: async () => {
@@ -640,12 +655,10 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
   };
 
   const getSuggestedId = () => {
-    if (members.length === 0) return "MEM-001";
-    const ids = members.map(m => {
-      const match = m.member_id?.match(/MEM-(\d+)/);
-      return match ? parseInt(match[1]) : 0;
-    });
-    const maxId = Math.max(...ids, 0);
+    const latestCode = latestMemberForSuggestedId?.member_id || latestMemberForSuggestedId?.member_code || "";
+    const match = String(latestCode).match(/MEM-(\d+)/i) || String(latestCode).match(/(\d+)/);
+    if (!match) return "MEM-001";
+    const maxId = parseInt(match[1], 10) || 0;
     return `MEM-${String(maxId + 1).padStart(4, '0')}`;
   };
 
