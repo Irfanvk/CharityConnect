@@ -2,7 +2,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, Clock, Receipt } from "lucide-react";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 
 function filterByPeriod(items, period, value) {
   if (period === "all") return items;

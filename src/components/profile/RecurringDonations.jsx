@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Heart, Calendar, Pause, Play, X } from "lucide-react";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 
 export default function RecurringDonations({ recurringDonations, user }) {
   const queryClient = useQueryClient();

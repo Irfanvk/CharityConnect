@@ -13,7 +13,7 @@ import {
   Mail, Phone, MapPin, Calendar, Receipt,
   TrendingUp, CheckCircle, Clock, Loader2, UserCircle, Trash2, AlertTriangle, CreditCard, Pencil, Camera, X, AtSign, XCircle
 } from "lucide-react";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 import ContributionHistory from "@/components/profile/ContributionHistory";
 import ReminderSettings from "@/components/profile/ReminderSettings";
 import RecurringDonations from "@/components/profile/RecurringDonations";

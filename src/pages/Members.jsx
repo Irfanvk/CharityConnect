@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Plus, Search, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2, X, Download, ChevronDown, ChevronUp, AlertTriangle, UserPlus, MessageCircle, Copy, CheckCircle2 } from "lucide-react";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 import MemberForm from "@/components/members/MemberForm";
 import UserProfilePopover, { AvatarCircle } from "@/components/UserProfilePopover";
 

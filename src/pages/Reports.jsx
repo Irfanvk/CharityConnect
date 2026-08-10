@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { format, formatISTDateTime } from "@/lib/dateTime";
 import { useSearchParams } from "react-router-dom";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -47,7 +47,7 @@ const PDF_BORDER = [200, 220, 210];
 function downloadPDF({ headers, rows, filename, reportName, periodLabel }) {
   const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
-  const generatedAt = format(new Date(), "dd MMM yyyy, hh:mm a");
+  const generatedAt = `${formatISTDateTime(new Date())} IST`;  
 
   // ── Header band ──────────────────────────────────────────────────────────
   doc.setFillColor(...PDF_BRAND_COLOR);
@@ -63,7 +63,7 @@ function downloadPDF({ headers, rows, filename, reportName, periodLabel }) {
   if (periodLabel) {
     doc.text(periodLabel, pageW - 28, 22, { align: "right" });
   }
-  doc.text(`Generated: ${generatedAt}`, pageW - 28, 36, { align: "right" });
+  doc.text(`Generated (IST): ${generatedAt}`, pageW - 28, 36, { align: "right" });
 
   // ── Table ─────────────────────────────────────────────────────────────────
   autoTable(doc, {
@@ -215,7 +215,7 @@ function buildChallanPivotData(challans, members, period, value, extraFilters = 
 function downloadPivotPDF({ headers, tableBody, statusMatrix, filename, reportName, periodLabel }) {
   const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
-  const generatedAt = format(new Date(), "dd MMM yyyy, hh:mm a");
+  const generatedAt = `${formatISTDateTime(new Date())} IST`;  
 
   // Header band
   doc.setFillColor(...PDF_BRAND_COLOR);
@@ -224,7 +224,7 @@ function downloadPivotPDF({ headers, tableBody, statusMatrix, filename, reportNa
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
   doc.text("PMB GCC PORTAL", 28, 22);
-  doc.text(`Generated: ${generatedAt}`, pageW - 28, 36, { align: "right" });
+  doc.text(`Generated (IST): ${generatedAt}`, pageW - 28, 36, { align: "right" });
 
   // ── Minimal legend strip ──────────────────────────────────────────────────
   const legends = [

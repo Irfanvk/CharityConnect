@@ -1,4 +1,4 @@
-import { startOfDay, startOfWeek, startOfMonth, startOfYear, isAfter, isEqual } from "date-fns";
+import { startOfDay, startOfWeek, startOfMonth, startOfYear, isAfter, isEqual } from "@/lib/dateTime";
 
 const MEMBER_STATS_VISIBLE_KEY = "cc_member_stats_visible";
 

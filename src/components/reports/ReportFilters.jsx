@@ -1,6 +1,6 @@
 import React from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format, subMonths } from "date-fns";
+import { format, subMonths } from "@/lib/dateTime";
 
 export function getMonthOptions(count = 24) {
   const months = [];

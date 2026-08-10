@@ -3,7 +3,7 @@ import { formatMemberId } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, UserCheck, UserX, UserPlus } from "lucide-react";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 
 export function filterMembersByPeriod(members, period, value) {
   if (period === "all") return members;

@@ -180,13 +180,22 @@ function normalizeAmount(amount) {
 function normalizeChallan(challan) {
   const normalized = withDateAliases(challan || {});
   const backendType = normalized.type;
+  const rawStatus = normalized.status;
+  const status = typeof rawStatus === 'string' ? rawStatus.toLowerCase() : rawStatus;
   return {
     ...normalized,
     type: backendType === 'campaign' ? 'donation' : backendType,
     backend_type: backendType,
+    status,
     amount: normalizeAmount(normalized.amount),
     proof_url: normalized.proof_url || normalized.proof_path || null,
     proof_path: normalized.proof_path || normalized.proof_url || null,
+    created_date:
+      normalized.approved_at ||
+      normalized.proof_uploaded_at ||
+      normalized.created_date ||
+      normalized.created_at ||
+      null,
   };
 }
 
@@ -1193,14 +1202,14 @@ const charityClient = {
 
     subscribe: (callback) => {
       if (typeof window === 'undefined' || typeof callback !== 'function') {
-        return () => {};
+        return () => { };
       }
 
       const configuredStreamUrl = String(import.meta.env.VITE_NOTIFICATIONS_STREAM_URL || '').trim();
       const token = getAuthToken();
 
       if (!token || typeof EventSource === 'undefined') {
-        return () => {};
+        return () => { };
       }
 
       const streamUrl = configuredStreamUrl

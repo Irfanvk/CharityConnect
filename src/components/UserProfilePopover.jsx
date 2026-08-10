@@ -3,7 +3,7 @@ import { formatMemberId } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Mail, Phone, Calendar, MapPin, MessageCircle, BadgeCheck } from "lucide-react";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 
 function AvatarCircle({ avatarUrl, name, size = "lg" }) {
   const initial = name?.charAt(0)?.toUpperCase() || "?";

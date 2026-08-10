@@ -2,7 +2,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Receipt, Heart, Calendar } from "lucide-react";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 
 const statusConfig = {
   generated: { label: "Generated", color: "bg-slate-100 text-slate-700" },

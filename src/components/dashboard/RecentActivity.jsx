@@ -1,6 +1,6 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 import { Receipt, CheckCircle2, XCircle, Clock, Upload } from "lucide-react";
 
 const statusConfig = {

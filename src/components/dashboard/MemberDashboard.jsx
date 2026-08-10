@@ -1,7 +1,7 @@
 import React from "react";
 import { formatMemberId } from "@/lib/utils";
 import { Link, useNavigate } from "react-router-dom";
-import { format, addMonths, startOfMonth, formatDistanceToNow } from "date-fns";
+import { format, addMonths, startOfMonth, formatDistanceToNow } from "@/lib/dateTime";
 import {
   TrendingUp,
   Clock,

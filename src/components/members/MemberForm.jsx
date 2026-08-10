@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import DatePickerField from "@/components/ui/date-picker-field";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 import { Info, Loader2 } from "lucide-react";
 
 const getInitialFormData = (member, suggestedId) => ({

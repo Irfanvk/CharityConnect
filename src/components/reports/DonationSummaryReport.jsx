@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { TrendingUp, Heart, Receipt } from "lucide-react";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 
 function filterByPeriod(items, period, value) {
   if (period === "all") return items;

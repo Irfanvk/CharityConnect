@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import DatePickerField from "@/components/ui/date-picker-field";
 import { getCampaignEndDateMode, getCampaignTargetMode } from "@/lib/campaigns";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { charityClient } from "@/api/charityClient";
 

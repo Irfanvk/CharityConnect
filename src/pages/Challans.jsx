@@ -58,7 +58,7 @@ import {
   Trash2,
   Layers,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 import ChallanForm from "@/components/challans/ChallanForm";
 import ProofUpload from "@/components/challans/ProofUpload";
 import PullToRefresh from "@/components/mobile/PullToRefresh";
@@ -1047,10 +1047,12 @@ export default function Challans() {
 
                         {/* Date */}
                         <TableCell>
-                          {format(
-                            new Date(challan.created_date),
-                            "MMM d, yyyy"
-                          )}
+                          {challan.created_date || challan.approved_at || challan.proof_uploaded_at
+                            ? format(
+                              new Date(challan.created_date || challan.approved_at || challan.proof_uploaded_at),
+                              "MMM d, yyyy"
+                            )
+                            : "N/A"}
                         </TableCell>
 
                         {/* Status */}

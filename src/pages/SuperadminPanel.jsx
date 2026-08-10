@@ -26,7 +26,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Shield, UserCog, Loader2, Crown, Check, Search } from "lucide-react";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 
 const SUPERADMIN_USERS_BATCH_LIMIT = 200;
 

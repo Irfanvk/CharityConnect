@@ -39,7 +39,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 import { Switch } from "@/components/ui/switch";
 import UserProfilePopover, { AvatarCircle } from "@/components/UserProfilePopover";
 import { useToast } from "@/components/ui/use-toast";

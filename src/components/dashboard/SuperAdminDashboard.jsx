@@ -9,7 +9,7 @@ import { Users, Heart, AlertCircle, CheckCircle,
   Activity, Clock, BarChart3, Shield, ArrowRight,
   UserCheck, DollarSign, Target, FileText
 } from "lucide-react";
-import { format, subDays, isAfter } from "date-fns";
+import { format, subDays, isAfter } from "@/lib/dateTime";
 import {
   LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer

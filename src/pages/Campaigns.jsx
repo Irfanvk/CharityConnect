@@ -530,7 +530,7 @@ export default function Campaigns() {
                         <td className="px-4 py-3 text-slate-600">{row.paymentMethod}</td>
                         <td className="px-4 py-3 text-slate-600">{row.month}</td>
                         <td className="px-4 py-3 text-slate-600">
-                          {row.donatedOn ? new Date(row.donatedOn).toLocaleDateString() : 'N/A'}
+                          {row.donatedOn ? format(new Date(row.donatedOn), "MMM d, yyyy") : 'N/A'}
                         </td>
                         <td className="px-4 py-3 text-slate-600 max-w-[220px] truncate" title={row.notes}>{row.notes}</td>
                       </tr>

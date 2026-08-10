@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Search, Shield, Calendar, User, Activity } from "lucide-react";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 
 const actionConfig = {
   app_settings_update: { label: "App Settings Updated", color: "bg-indigo-100 text-indigo-700", icon: "⚙" },

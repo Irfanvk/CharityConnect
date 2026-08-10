@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { format } from "date-fns";
+import { format, formatISTDateTime } from "@/lib/dateTime";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -141,6 +141,7 @@ export default function FinancialSummaryPanel({
     const ytd = challanStats?.this_year ?? 0;
 
     const asOfDate = format(new Date(), "dd MMM yyyy");
+    const generatedAtIST = () => `${formatISTDateTime(new Date())} IST`;
 
     // ── Metric rows for export ────────────────────────────────────────────────
     const metrics = [
@@ -154,7 +155,7 @@ export default function FinancialSummaryPanel({
 
     // ── Receivables CSV download ──────────────────────────────────────────────
     function handleReceivablesCSV() {
-        const generatedAt = format(new Date(), "dd MMM yyyy, hh:mm a");
+        const generatedAt = generatedAtIST();
         const headerRow = ["#", "Challan ID", "Member Name", "Month", "Type", "Amount (INR)", "Status", "Raised On"];
         const dataRows = pendingChallans.map((c, i) => [
             i + 1,
@@ -171,7 +172,7 @@ export default function FinancialSummaryPanel({
             "", ""];
         const rows = [
             [`PMB GCC PORTAL – Outstanding Receivables as of ${asOfDate}`],
-            [`Generated: ${generatedAt}`],
+            [`Generated (IST): ${generatedAt}`],
             [],
             headerRow,
             ...dataRows,
@@ -192,7 +193,7 @@ export default function FinancialSummaryPanel({
     function handleReceivablesPDF() {
         const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
         const pageW = doc.internal.pageSize.getWidth();
-        const generatedAt = format(new Date(), "dd MMM yyyy, hh:mm a");
+        const generatedAt = generatedAtIST();
 
         doc.setFillColor(...PDF_BRAND);
         doc.rect(0, 0, pageW, 52, "F");
@@ -202,7 +203,7 @@ export default function FinancialSummaryPanel({
         doc.text("PMB GCC PORTAL", 28, 22);
         doc.setFontSize(9);
         doc.text(`As of: ${asOfDate}`, pageW - 28, 26, { align: "right" });
-        doc.text(`Generated: ${generatedAt}`, pageW - 28, 40, { align: "right" });
+        doc.text(`Generated (IST): ${generatedAt}`, pageW - 28, 40, { align: "right" });
 
         const tableBody = pendingChallans.map((c, i) => [
             String(i + 1),
@@ -268,10 +269,10 @@ export default function FinancialSummaryPanel({
 
     // ── CSV export ────────────────────────────────────────────────────────────
     function handleDownloadCSV() {
-        const generatedAt = format(new Date(), "dd MMM yyyy, hh:mm a");
+        const generatedAt = generatedAtIST();
         const rows = [
             ["PMB GCC PORTAL – Financial Position Statement"],
-            [`Generated: ${generatedAt}`],
+            [`Generated (IST): ${generatedAt}`],
             [],
             ["Metric", "Amount (INR)", "Notes"],
             ...metrics.map((m) => [
@@ -296,7 +297,7 @@ export default function FinancialSummaryPanel({
     function handleDownloadPDF() {
         const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
         const pageW = doc.internal.pageSize.getWidth();
-        const generatedAt = format(new Date(), "dd MMM yyyy, hh:mm a");
+        const generatedAt = generatedAtIST();
 
         // Header band
         doc.setFillColor(...PDF_BRAND);
@@ -309,7 +310,7 @@ export default function FinancialSummaryPanel({
         doc.setFontSize(12);
         doc.text("Financial Position Statement", 36, 44);
         doc.setFontSize(9);
-        doc.text(`Generated: ${generatedAt}`, pageW - 36, 44, { align: "right" });
+        doc.text(`Generated (IST): ${generatedAt}`, pageW - 36, 44, { align: "right" });
 
         // Disclaimer note
         doc.setTextColor(80, 80, 80);

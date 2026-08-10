@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Download, FileText, Calendar, TrendingUp } from "lucide-react";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 import {
   formatCampaignTargetText,
   getCampaignAbsoluteEndLabel,

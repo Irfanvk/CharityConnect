@@ -10,6 +10,7 @@ import {
   TrendingUp, Users, DollarSign, Target, 
   Award, Calendar, Activity 
 } from "lucide-react";
+import { format } from "@/lib/dateTime";
 import CampaignReports from "./CampaignReports";
 import {
   formatCampaignTargetText,
@@ -59,7 +60,7 @@ export default function CampaignAnalytics({ campaigns, challans, showReports = f
         challans
           .filter(ch => ch.type === 'donation' && ch.status === 'approved')
           .reduce((acc, ch) => {
-            const month = new Date(ch.created_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            const month = format(new Date(ch.created_date), 'MMM yyyy');
             if (!acc[month]) acc[month] = { month, amount: 0, count: 0 };
             acc[month].amount += ch.amount;
             acc[month].count += 1;

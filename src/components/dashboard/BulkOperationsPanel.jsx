@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { CheckCircle2, ExternalLink, Layers, Loader2, Search, XCircle } from "lucide-react";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 import { emitNotificationsChanged } from "@/lib/notificationState";
 import { loadBulkGroups, saveBulkGroup, updateBulkGroupStatus } from "@/lib/bulkGroupStore";
 

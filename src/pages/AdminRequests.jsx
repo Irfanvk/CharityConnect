@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, Inbox, KeyRound, MessageCircle, CheckCircle2 } from "lucide-react";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 import { useMemo } from "react";
 import { emitNotificationsChanged } from "@/lib/notificationState";
 

@@ -1,4 +1,4 @@
-import { differenceInDays, format } from "date-fns";
+import { differenceInDays, format } from "@/lib/dateTime";
 
 export function getCampaignTargetMode(campaign) {
   if (!campaign || typeof campaign !== "object") return "targeted";

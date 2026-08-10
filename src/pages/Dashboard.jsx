@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { Users, Heart, TrendingUp, Calendar, Clock, Bell, BookOpen, LogOut, MapPinned, Receipt, User, Wallet } from "lucide-react";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StatsCard from "@/components/dashboard/StatsCard";
 import RecentActivity from "@/components/dashboard/RecentActivity";

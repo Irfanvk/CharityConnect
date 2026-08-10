@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
-import { format } from "date-fns";
+import { format } from "@/lib/dateTime";
 import { Loader2, Trash2 } from "lucide-react";
 
 const statusColor = {
