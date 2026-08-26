@@ -220,23 +220,48 @@ export default function FinancialSummaryPanel({
         doc.text(`As of: ${asOfDate}`, pageW - 28, 26, { align: "right" });
         doc.text(`Generated (IST): ${generatedAt}`, pageW - 28, 40, { align: "right" });
 
-        const tableBody = exportRows.map((c, i) => [
-            String(i + 1),
-            String(c.id),
-            memberName(c),
-            c.month || "",
-            c.type || "",
-            Number(c.amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 }),
-            c.status,
-            c.created_date ? format(new Date(c.created_date), "dd MMM yyyy") : "",
+        const memberMatrix = Object.values(exportRows.reduce((groups, challan) => {
+            const memberId = String(challan.member_id ?? "unknown");
+            const isCampaign = challan.backend_type === "campaign" || challan.type === "donation";
+            const group = groups[memberId] || {
+                memberId,
+                name: memberName(challan),
+                monthlyCount: 0,
+                monthlyAmount: 0,
+                campaignCount: 0,
+                campaignAmount: 0,
+                totalAmount: 0,
+            };
+            const amount = Number(challan.amount || 0);
+            if (isCampaign) {
+                group.campaignCount += 1;
+                group.campaignAmount += amount;
+            } else {
+                group.monthlyCount += 1;
+                group.monthlyAmount += amount;
+            }
+            group.totalAmount += amount;
+            groups[memberId] = group;
+            return groups;
+        }, {})).sort((first, second) => first.name.localeCompare(second.name));
+
+        const money = (amount) => Number(amount).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+        const tableBody = memberMatrix.map((group, index) => [
+            String(index + 1),
+            group.memberId,
+            group.name,
+            String(group.monthlyCount),
+            money(group.monthlyAmount),
+            String(group.campaignCount),
+            money(group.campaignAmount),
+            String(group.monthlyCount + group.campaignCount),
+            money(group.totalAmount),
         ]);
 
         autoTable(doc, {
-            head: [["#", "Challan ID", "Member Name", "Month", "Type", "Amount (INR)", "Status", "Raised On"]],
+            head: [["#", "Member ID", "Member Name", "Monthly\nCount", "Monthly\nAmount", "Campaign\nCount", "Campaign\nAmount", "Total\nCount", "Outstanding\n(INR)"]],
             body: tableBody,
-            foot: [["", "", "", "", "TOTAL",
-                Number(exportData.total_amount).toLocaleString("en-IN", { maximumFractionDigits: 2 }),
-                "", ""]],
+            foot: [["", "", "TOTAL", "", money(memberMatrix.reduce((sum, group) => sum + group.monthlyAmount, 0)), "", money(memberMatrix.reduce((sum, group) => sum + group.campaignAmount, 0)), String(exportRows.length), money(exportData.total_amount)]],
             showFoot: "lastPage",
             startY: 64,
             margin: { left: 28, right: 28 },
@@ -253,19 +278,15 @@ export default function FinancialSummaryPanel({
             columnStyles: {
                 0: { cellWidth: 24, halign: "center" },
                 1: { cellWidth: 52, halign: "center" },
-                5: { halign: "right", fontStyle: "bold" },
-                6: { cellWidth: 62, halign: "center" },
-                7: { cellWidth: 72, halign: "center" },
+                3: { cellWidth: 42, halign: "center" },
+                4: { cellWidth: 62, halign: "right" },
+                5: { cellWidth: 42, halign: "center" },
+                6: { cellWidth: 62, halign: "right" },
+                7: { cellWidth: 42, halign: "center" },
+                8: { cellWidth: 78, halign: "right", fontStyle: "bold" },
             },
             tableLineColor: PDF_BORDER,
             tableLineWidth: 0.3,
-            didParseCell: ({ cell, column, section }) => {
-                if (section === "body" && column.index === 6) {
-                    const st = String(cell.raw || "").toLowerCase();
-                    if (st === "pending") { cell.styles.fillColor = [255, 251, 235]; cell.styles.textColor = [161, 98, 7]; }
-                    else if (st === "generated") { cell.styles.fillColor = [245, 247, 250]; cell.styles.textColor = [60, 80, 100]; }
-                }
-            },
         });
 
         const totalPages = doc.internal.getNumberOfPages();
