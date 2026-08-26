@@ -97,10 +97,10 @@ export default function Campaigns() {
     },
   });
 
-  // ✅ Lazy-load challans only when analytics view is opened
-  const { data: challans = [] } = useQuery({
+  const { data: challans = [], isLoading: challansLoading } = useQuery({
     queryKey: ['challans'],
-    enabled: viewMode === "analytics", // Only fetch when analytics is open
+    // Load donor data when analytics or a donor list/detail view needs it.
+    enabled: viewMode === "analytics" || expandedCampaignId !== null || searchParams.get('campaign') !== null,
     queryFn: async () => {
       let allChallans = [];
       let skip = 0;
@@ -743,7 +743,9 @@ export default function Campaigns() {
 
                       {String(expandedCampaignId) === String(campaign.id) && (
                         <div className="mt-2 rounded-lg border bg-slate-50 p-3 space-y-2">
-                          {campaignDonations.length === 0 ? (
+                          {challansLoading ? (
+                            <p className="text-xs text-slate-500">Loading donor list...</p>
+                          ) : campaignDonations.length === 0 ? (
                             <p className="text-xs text-slate-500">No approved donations for this campaign yet.</p>
                           ) : (
                             <>

@@ -733,6 +733,18 @@ const charityClient = {
       };
     },
 
+    outstanding: async (query = {}) => {
+      const data = await apiFetch(API_PATHS.challans.outstanding, { method: 'GET' }, query);
+      const items = extractArray(data).map(normalizeChallan);
+      return {
+        items,
+        total: extractTotal(data, items.length),
+        total_amount: Number(data?.total_amount || 0),
+        skip: Number(data?.skip || query?.skip || 0),
+        limit: Number(data?.limit || query?.limit || items.length || 0),
+      };
+    },
+
     communityStats: async () => {
       const data = await apiFetch(API_PATHS.challans.communityStats, { method: 'GET' });
       return {

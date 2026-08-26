@@ -31,6 +31,8 @@ import {
     AlertCircle,
     Download,
     FileDown,
+    ChevronLeft,
+    ChevronRight,
 } from "lucide-react";
 
 /** Format a number as Indian-locale currency with Rs. prefix */
@@ -108,14 +110,19 @@ export default function FinancialSummaryPanel({
     pendingAmount = 0,
     pendingCount = 0,
     pendingChallans = [],
+    pendingPage = 0,
+    pendingPageSize = 100,
+    pendingTotal = 0,
+    onPendingPageChange,
+    loadAllPendingChallans,
     members = [],
     isLoading = false,
     isAdmin = false,
 }) {
+    const [receivablesOpen, setReceivablesOpen] = useState(false);
+
     // Guard: render nothing for non-admin users
     if (!isAdmin) return null;
-
-    const [receivablesOpen, setReceivablesOpen] = useState(false);
 
     // Member name lookup
     const mlookup = {};
@@ -154,10 +161,14 @@ export default function FinancialSummaryPanel({
     ];
 
     // ── Receivables CSV download ──────────────────────────────────────────────
-    function handleReceivablesCSV() {
+    async function handleReceivablesCSV() {
+        const exportData = loadAllPendingChallans
+            ? await loadAllPendingChallans()
+            : { items: pendingChallans, total_amount: pendingAmount };
+        const exportRows = exportData.items;
         const generatedAt = generatedAtIST();
         const headerRow = ["#", "Challan ID", "Member Name", "Month", "Type", "Amount (INR)", "Status", "Raised On"];
-        const dataRows = pendingChallans.map((c, i) => [
+        const dataRows = exportRows.map((c, i) => [
             i + 1,
             c.id,
             memberName(c),
@@ -168,7 +179,7 @@ export default function FinancialSummaryPanel({
             c.created_date ? format(new Date(c.created_date), "dd MMM yyyy") : "",
         ]);
         const totalRow = ["", "", "", "", "TOTAL",
-            Number(pendingAmount).toLocaleString("en-IN", { maximumFractionDigits: 2 }),
+            Number(exportData.total_amount).toLocaleString("en-IN", { maximumFractionDigits: 2 }),
             "", ""];
         const rows = [
             [`PMB GCC PORTAL – Outstanding Receivables as of ${asOfDate}`],
@@ -190,7 +201,11 @@ export default function FinancialSummaryPanel({
     }
 
     // ── Receivables PDF download ──────────────────────────────────────────────
-    function handleReceivablesPDF() {
+    async function handleReceivablesPDF() {
+        const exportData = loadAllPendingChallans
+            ? await loadAllPendingChallans()
+            : { items: pendingChallans, total_amount: pendingAmount };
+        const exportRows = exportData.items;
         const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
         const pageW = doc.internal.pageSize.getWidth();
         const generatedAt = generatedAtIST();
@@ -205,7 +220,7 @@ export default function FinancialSummaryPanel({
         doc.text(`As of: ${asOfDate}`, pageW - 28, 26, { align: "right" });
         doc.text(`Generated (IST): ${generatedAt}`, pageW - 28, 40, { align: "right" });
 
-        const tableBody = pendingChallans.map((c, i) => [
+        const tableBody = exportRows.map((c, i) => [
             String(i + 1),
             String(c.id),
             memberName(c),
@@ -220,7 +235,7 @@ export default function FinancialSummaryPanel({
             head: [["#", "Challan ID", "Member Name", "Month", "Type", "Amount (INR)", "Status", "Raised On"]],
             body: tableBody,
             foot: [["", "", "", "", "TOTAL",
-                Number(pendingAmount).toLocaleString("en-IN", { maximumFractionDigits: 2 }),
+                Number(exportData.total_amount).toLocaleString("en-IN", { maximumFractionDigits: 2 }),
                 "", ""]],
             showFoot: "lastPage",
             startY: 64,
@@ -516,7 +531,7 @@ export default function FinancialSummaryPanel({
                                 <TableBody>
                                     {pendingChallans.map((c, i) => (
                                         <TableRow key={c.id ?? i}>
-                                            <TableCell className="text-slate-400 text-xs">{i + 1}</TableCell>
+                                            <TableCell className="text-slate-400 text-xs">{pendingPage * pendingPageSize + i + 1}</TableCell>
                                             <TableCell className="font-medium text-sm">{memberName(c)}</TableCell>
                                             <TableCell className="text-sm">{c.month || "—"}</TableCell>
                                             <TableCell className="text-sm capitalize">{c.type || "—"}</TableCell>
@@ -542,6 +557,38 @@ export default function FinancialSummaryPanel({
                         )}
                     </div>
                     <Separator />
+                    {pendingTotal > pendingPageSize && (
+                        <div className="flex items-center justify-between pt-1">
+                            <span className="text-xs text-slate-400">
+                                Showing {pendingPage * pendingPageSize + 1}-{Math.min((pendingPage + 1) * pendingPageSize, pendingTotal)} of {pendingTotal}
+                            </span>
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2"
+                                    disabled={pendingPage === 0 || isLoading}
+                                    onClick={() => onPendingPageChange?.(pendingPage - 1)}
+                                    aria-label="Previous receivables page"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </Button>
+                                <span className="text-xs text-slate-500 tabular-nums">
+                                    Page {pendingPage + 1} of {Math.ceil(pendingTotal / pendingPageSize)}
+                                </span>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2"
+                                    disabled={(pendingPage + 1) * pendingPageSize >= pendingTotal || isLoading}
+                                    onClick={() => onPendingPageChange?.(pendingPage + 1)}
+                                    aria-label="Next receivables page"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                     <DialogFooter className="flex items-center justify-between !flex-row pt-1">
                         <span className="text-xs text-slate-400">All figures are as of {asOfDate}. Includes all pending and generated challans.</span>
                         <Button variant="ghost" size="sm" onClick={() => setReceivablesOpen(false)}>Close</Button>

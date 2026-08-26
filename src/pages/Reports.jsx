@@ -22,6 +22,7 @@ import FinancialSummaryPanel from "@/components/reports/FinancialSummaryPanel";
 const MEMBERS_REPORT_BATCH_SIZE = 200;
 const CHALLANS_REPORT_BATCH_SIZE = 200;
 const CAMPAIGNS_REPORT_BATCH_SIZE = 200;
+const OUTSTANDING_RECEIVABLES_PAGE_SIZE = 100;
 
 function downloadCSV({ headers, rows, filename }) {
   const csvContent = [
@@ -366,6 +367,7 @@ export default function Reports() {
   // Pivot PDF year picker
   const [pivotYearDialog, setPivotYearDialog] = useState(false);
   const [pivotYear, setPivotYear] = useState(String(new Date().getFullYear()));
+  const [receivablesPage, setReceivablesPage] = useState(0);
 
   const { data: user } = useQuery({
     queryKey: ["me"],
@@ -416,6 +418,7 @@ export default function Reports() {
 
   const { data: challans = [] } = useQuery({
     queryKey: ["challans"],
+    enabled: activeTab !== "members",
     queryFn: async () => {
       let allChallans = [];
       let skip = 0;
@@ -438,6 +441,16 @@ export default function Reports() {
 
       return allChallans;
     },
+  });
+
+  const { data: outstandingReceivables, isLoading: outstandingReceivablesLoading } = useQuery({
+    queryKey: ["challans", "outstanding", receivablesPage],
+    enabled: user?.role === "admin" || user?.role === "superadmin",
+    queryFn: () => charityClient.challans.outstanding({
+      skip: receivablesPage * OUTSTANDING_RECEIVABLES_PAGE_SIZE,
+      limit: OUTSTANDING_RECEIVABLES_PAGE_SIZE,
+    }),
+    staleTime: 60 * 1000,
   });
 
   const { data: campaigns = [] } = useQuery({
@@ -473,15 +486,31 @@ export default function Reports() {
 
   // Outstanding receivables: sum of pending + generated challan amounts
   const { pendingChallans, pendingAmount, pendingCount } = useMemo(() => {
-    const pending = challans.filter(
-      (c) => c.status === "pending" || c.status === "generated"
-    );
+    const pending = outstandingReceivables?.items || [];
     return {
       pendingChallans: pending,
-      pendingAmount: pending.reduce((sum, c) => sum + (Number(c.amount) || 0), 0),
-      pendingCount: pending.length,
+      pendingAmount: Number(outstandingReceivables?.total_amount || 0),
+      pendingCount: Number(outstandingReceivables?.total || 0),
     };
-  }, [challans]);
+  }, [outstandingReceivables]);
+
+  const loadAllPendingChallans = async () => {
+    let allPendingChallans = [];
+    let skip = 0;
+    let total = 0;
+
+    do {
+      const page = await charityClient.challans.outstanding({
+        skip,
+        limit: OUTSTANDING_RECEIVABLES_PAGE_SIZE,
+      });
+      allPendingChallans = allPendingChallans.concat(page.items);
+      total = page.total;
+      skip += OUTSTANDING_RECEIVABLES_PAGE_SIZE;
+    } while (allPendingChallans.length < total);
+
+    return { items: allPendingChallans, total_amount: pendingAmount };
+  };
 
   const campaignOptions = useMemo(
     () => campaigns.map((campaign) => ({ id: String(campaign.id), name: campaign.title || `Campaign #${campaign.id}` })),
@@ -795,8 +824,13 @@ export default function Reports() {
         pendingAmount={pendingAmount}
         pendingCount={pendingCount}
         pendingChallans={pendingChallans}
+        pendingPage={receivablesPage}
+        pendingPageSize={OUTSTANDING_RECEIVABLES_PAGE_SIZE}
+        pendingTotal={pendingCount}
+        onPendingPageChange={setReceivablesPage}
+        loadAllPendingChallans={loadAllPendingChallans}
         members={members}
-        isLoading={challanStatsLoading || fundSummaryLoading}
+        isLoading={challanStatsLoading || fundSummaryLoading || outstandingReceivablesLoading}
         isAdmin={isAdmin}
       />
 

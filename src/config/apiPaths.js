@@ -32,6 +32,7 @@ export const API_PATHS = {
     list: '/challans/',
     summary: '/challans/summary',
     collectionStats: '/challans/collection-stats',
+    outstanding: '/challans/outstanding',
     communityStats: '/challans/community-stats',
     payableMonths: '/challans/payable-months',
     importHistory: '/challans/import/history',
