@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Plus, Search, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2, X, Download, ChevronDown, ChevronUp, AlertTriangle, UserPlus, MessageCircle, Copy, CheckCircle2 } from "lucide-react";
-import { format } from "@/lib/dateTime";
+import { format } from "date-fns";
 import MemberForm from "@/components/members/MemberForm";
 import UserProfilePopover, { AvatarCircle } from "@/components/UserProfilePopover";
 
@@ -180,41 +180,41 @@ export default function Members() {
   };
 
   React.useEffect(() => {
-    charityClient.auth.me().then(setUser).catch(() => {});
+    charityClient.auth.me().then(setUser).catch(() => { });
   }, []);
 
-const { data: members = [], isLoading, isFetching, isError, error } = useQuery({
-  queryKey: ["members", search, statusFilter, sortBy, sortDirection, currentPage, pageSize],
-  queryFn: () =>
-    charityClient.members.list({
-      skip: (currentPage - 1) * pageSize,
-      limit: pageSize,
-      search,
-      status: statusFilter === "all" ? undefined : statusFilter,
-      sort_by: sortBy,
-      sort_order: sortDirection,
-    }),
-});
+  const { data: members = [], isLoading, isFetching, isError, error } = useQuery({
+    queryKey: ["members", search, statusFilter, sortBy, sortDirection, currentPage, pageSize],
+    queryFn: () =>
+      charityClient.members.list({
+        skip: (currentPage - 1) * pageSize,
+        limit: pageSize,
+        search,
+        status: statusFilter === "all" ? undefined : statusFilter,
+        sort_by: sortBy,
+        sort_order: sortDirection,
+      }),
+  });
 
-const { data: memberSummary } = useQuery({
-  queryKey: ["members", "summary-counts"],
-  queryFn: () => charityClient.members.summary(),
-});
+  const { data: memberSummary } = useQuery({
+    queryKey: ["members", "summary-counts"],
+    queryFn: () => charityClient.members.summary(),
+  });
 
-const { data: latestMemberForSuggestedId = null } = useQuery({
-  queryKey: ["members", "latest-for-suggested-id"],
-  queryFn: async () => {
-    const latest = await charityClient.members.list({
-      skip: 0,
-      limit: 1,
-      sort_by: "id",
-      sort_order: "desc",
-    });
-    return latest[0] || null;
-  },
-  enabled: Boolean(formOpen && !editingMember?.id && isAdmin),
-  staleTime: 30_000,
-});
+  const { data: latestMemberForSuggestedId = null } = useQuery({
+    queryKey: ["members", "latest-for-suggested-id"],
+    queryFn: async () => {
+      const latest = await charityClient.members.list({
+        skip: 0,
+        limit: 1,
+        sort_by: "id",
+        sort_order: "desc",
+      });
+      return latest[0] || null;
+    },
+    enabled: Boolean(formOpen && !editingMember?.id && isAdmin),
+    staleTime: 30_000,
+  });
 
   const { data: importPrerequisites = { membersTotal: 0, hasCampaigns: false, hasChallans: false } } = useQuery({
     queryKey: ["imports", "prerequisites"],
@@ -234,13 +234,13 @@ const { data: latestMemberForSuggestedId = null } = useQuery({
     enabled: isSuperAdmin,
   });
 
-React.useEffect(() => {
-  setCurrentPage(1);
-}, [search, statusFilter, sortBy, sortDirection, pageSize]);
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, sortBy, sortDirection, pageSize]);
 
-const paginatedMembers = members;
-const activeMembersCount = Number(memberSummary?.active_members ?? 0);
-const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 0) - activeMembersCount);
+  const paginatedMembers = members;
+  const activeMembersCount = Number(memberSummary?.active_members ?? 0);
+  const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 0) - activeMembersCount);
 
   const {
     data: editingMemberDetails,
@@ -657,7 +657,7 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
   const getSuggestedId = () => {
     const latestCode = latestMemberForSuggestedId?.member_id || latestMemberForSuggestedId?.member_code || "";
     const match = String(latestCode).match(/MEM-(\d+)/i) || String(latestCode).match(/(\d+)/);
-    if (!match) return "MEM-001";
+    if (!match) return "MEM-0001";
     const maxId = parseInt(match[1], 10) || 0;
     return `MEM-${String(maxId + 1).padStart(4, '0')}`;
   };
@@ -691,163 +691,162 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
           <h1 className="text-2xl font-bold text-slate-900">Members</h1>
           <p className="text-slate-500">Manage your charity members</p>
         </div>
-          {isSuperAdmin && (
-            <div className="flex flex-col items-start gap-3">
+        {isSuperAdmin && (
+          <div className="flex flex-col items-start gap-3">
 
-              {/* First-time setup guide toggle */}
-              <button
-                type="button"
-                onClick={() => setShowSetupGuide((v) => !v)}
-                className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-900 transition-colors"
-              >
-                {showSetupGuide ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                First-time data setup guide
-              </button>
-
-              {showSetupGuide && (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 space-y-3 max-w-2xl">
-                  <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wide">Initial Dataset Import — Required Order</p>
-                  <ol className="space-y-2 text-xs text-slate-700">
-                    <li className="flex gap-2">
-                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">1</span>
-                      <span><strong>Create campaigns</strong> on the Campaigns page before importing campaign payments. The CSV column <code className="bg-white px-1 rounded text-[10px]">suggested_campaign_name</code> must exactly match an existing campaign title.</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">2</span>
-                      <span><strong>Import Members</strong> using <code className="bg-white px-1 rounded text-[10px]">member_import.csv</code>. This creates user accounts and member profiles.</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">3</span>
-                      <span><strong>Import Challan History</strong> using <code className="bg-white px-1 rounded text-[10px]">challan_history_monthly.csv</code>. One row per member per month. Use <code className="bg-white px-1 rounded text-[10px]">status=approved</code> for paid and <code className="bg-white px-1 rounded text-[10px]">status=pending</code> for unpaid months. Members must exist first.</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">4</span>
-                      <span><strong>Import Campaign Payments</strong> using <code className="bg-white px-1 rounded text-[10px]">campaign_payments.csv</code>. Requires both members and campaigns to exist first.</span>
-                    </li>
-                  </ol>
-                  <div className="pt-2 border-t border-emerald-200 flex flex-wrap gap-3 text-xs">
-                    <a href="/files/member_import.csv" download className="flex items-center gap-1 text-emerald-700 hover:text-emerald-900 font-medium">
-                      <Download className="w-3 h-3" /> member_import.csv
-                    </a>
-                    <a href="/files/challan_history_monthly.csv" download className="flex items-center gap-1 text-emerald-700 hover:text-emerald-900 font-medium">
-                      <Download className="w-3 h-3" /> challan_history_monthly.csv
-                    </a>
-                    <a href="/files/campaign_payments.csv" download className="flex items-center gap-1 text-emerald-700 hover:text-emerald-900 font-medium">
-                      <Download className="w-3 h-3" /> campaign_payments.csv
-                    </a>
-                  </div>
-                </div>
-              )}
-
-              {/* Hidden file inputs */}
-              <input ref={importFileInputRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={handleImportFileSelected} />
-              <input ref={challanImportFileInputRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={handleChallanImportFileSelected} />
-              <input ref={campaignImportFileInputRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={handleCampaignImportFileSelected} />
-
-              {/* Action buttons */}
-              <div className="flex flex-wrap items-end gap-3">
-
-                {/* Step 2 */}
-                <div className="flex flex-col items-start gap-0.5">
-                  <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Step 2</span>
-                  <Button type="button" variant="outline" size="sm" onClick={handleImportClick} disabled={importMutation.isPending}>
-                    {importMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
-                    Import Members
-                  </Button>
-                  {memberImportProgress && (
-                    <div className="w-full max-w-[260px] space-y-1 pt-1">
-                      <div className="flex items-center justify-between text-[10px] text-slate-500">
-                        <span className="truncate pr-2">{memberImportProgress.fileName}</span>
-                        <span>{memberImportProgress.percent}%</span>
-                      </div>
-                      <Progress value={memberImportProgress.percent} className="h-1.5" />
-                      <p className="text-[10px] text-slate-500">{memberImportProgress.status}</p>
-                    </div>
-                  )}
-                  <label className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                    <input type="checkbox" className="w-3 h-3" checked={includeDonations} onChange={(e) => setIncludeDonations(e.target.checked)} />
-                    Include donations from file
-                  </label>
-                  <span className="text-[10px] text-amber-600 max-w-[260px] leading-tight break-words">Recommended OFF for clean initial import. Use Step 3/4 for payment history.</span>
-                </div>
-
-                {/* Step 3 */}
-                <div className="flex flex-col items-start gap-0.5">
-                  <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Step 3</span>
-                  <Button type="button" variant="outline" size="sm" onClick={handleChallanImportClick} disabled={challanImportMutation.isPending}>
-                    {challanImportMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
-                    Import Challan History
-                  </Button>
-                  {challanImportProgress && (
-                    <div className="w-full max-w-[260px] space-y-1 pt-1">
-                      <div className="flex items-center justify-between text-[10px] text-slate-500">
-                        <span className="truncate pr-2">{challanImportProgress.fileName}</span>
-                        <span>{challanImportProgress.percent}%</span>
-                      </div>
-                      <Progress value={challanImportProgress.percent} className="h-1.5" />
-                      <p className="text-[10px] text-slate-500">{challanImportProgress.status}</p>
-                    </div>
-                  )}
-                  <span className="text-[10px] text-slate-400">Requires members first</span>
-                </div>
-
-                {/* Step 4 */}
-                <div className="flex flex-col items-start gap-0.5">
-                  <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Step 4</span>
-                  <Button type="button" variant="outline" size="sm" onClick={handleCampaignImportClick} disabled={campaignImportMutation.isPending}>
-                    {campaignImportMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
-                    Import Campaign Payments
-                  </Button>
-                  {campaignImportProgress && (
-                    <div className="w-full max-w-[260px] space-y-1 pt-1">
-                      <div className="flex items-center justify-between text-[10px] text-slate-500">
-                        <span className="truncate pr-2">{campaignImportProgress.fileName}</span>
-                        <span>{campaignImportProgress.percent}%</span>
-                      </div>
-                      <Progress value={campaignImportProgress.percent} className="h-1.5" />
-                      <p className="text-[10px] text-slate-500">{campaignImportProgress.status}</p>
-                    </div>
-                  )}
-                  <span className="text-[10px] text-amber-600 flex items-center gap-0.5">
-                    <AlertTriangle className="w-3 h-3" /> Create campaigns first (Step 1)
-                  </span>
-                </div>
-
-                <div className="border-l border-slate-200 self-stretch hidden sm:block" />
-
-                <Button onClick={() => { setEditingMember(null); setFormOpen(true); }} size="sm" className="bg-emerald-600 hover:bg-emerald-700">
-                  <Plus className="w-4 h-4 mr-1.5" />
-                  Add Member
-                </Button>
-
-                <Button type="button" variant="outline" size="sm" onClick={() => setWipeOpen(true)} className="border-rose-200 text-rose-700 hover:bg-rose-50">
-                  Wipe Data
-                </Button>
-              </div>
-            </div>
-          )}
-            {user?.role === "admin" && (
-            <Button
-              onClick={() => {
-                setEditingMember(null);
-                setFormOpen(true);
-              }}
-              size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700"
+            {/* First-time setup guide toggle */}
+            <button
+              type="button"
+              onClick={() => setShowSetupGuide((v) => !v)}
+              className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-900 transition-colors"
             >
-              <Plus className="w-4 h-4 mr-1.5" />
-              Add Member
-            </Button>
-          )}
+              {showSetupGuide ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              First-time data setup guide
+            </button>
+
+            {showSetupGuide && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 space-y-3 max-w-2xl">
+                <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wide">Initial Dataset Import — Required Order</p>
+                <ol className="space-y-2 text-xs text-slate-700">
+                  <li className="flex gap-2">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">1</span>
+                    <span><strong>Create campaigns</strong> on the Campaigns page before importing campaign payments. The CSV column <code className="bg-white px-1 rounded text-[10px]">suggested_campaign_name</code> must exactly match an existing campaign title.</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">2</span>
+                    <span><strong>Import Members</strong> using <code className="bg-white px-1 rounded text-[10px]">member_import.csv</code>. This creates user accounts and member profiles.</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">3</span>
+                    <span><strong>Import Challan History</strong> using <code className="bg-white px-1 rounded text-[10px]">challan_history_monthly.csv</code>. One row per member per month. Use <code className="bg-white px-1 rounded text-[10px]">status=approved</code> for paid and <code className="bg-white px-1 rounded text-[10px]">status=pending</code> for unpaid months. Members must exist first.</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">4</span>
+                    <span><strong>Import Campaign Payments</strong> using <code className="bg-white px-1 rounded text-[10px]">campaign_payments.csv</code>. Requires both members and campaigns to exist first.</span>
+                  </li>
+                </ol>
+                <div className="pt-2 border-t border-emerald-200 flex flex-wrap gap-3 text-xs">
+                  <a href="/files/member_import.csv" download className="flex items-center gap-1 text-emerald-700 hover:text-emerald-900 font-medium">
+                    <Download className="w-3 h-3" /> member_import.csv
+                  </a>
+                  <a href="/files/challan_history_monthly.csv" download className="flex items-center gap-1 text-emerald-700 hover:text-emerald-900 font-medium">
+                    <Download className="w-3 h-3" /> challan_history_monthly.csv
+                  </a>
+                  <a href="/files/campaign_payments.csv" download className="flex items-center gap-1 text-emerald-700 hover:text-emerald-900 font-medium">
+                    <Download className="w-3 h-3" /> campaign_payments.csv
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {/* Hidden file inputs */}
+            <input ref={importFileInputRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={handleImportFileSelected} />
+            <input ref={challanImportFileInputRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={handleChallanImportFileSelected} />
+            <input ref={campaignImportFileInputRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={handleCampaignImportFileSelected} />
+
+            {/* Action buttons */}
+            <div className="flex flex-wrap items-end gap-3">
+
+              {/* Step 2 */}
+              <div className="flex flex-col items-start gap-0.5">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Step 2</span>
+                <Button type="button" variant="outline" size="sm" onClick={handleImportClick} disabled={importMutation.isPending}>
+                  {importMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
+                  Import Members
+                </Button>
+                {memberImportProgress && (
+                  <div className="w-full max-w-[260px] space-y-1 pt-1">
+                    <div className="flex items-center justify-between text-[10px] text-slate-500">
+                      <span className="truncate pr-2">{memberImportProgress.fileName}</span>
+                      <span>{memberImportProgress.percent}%</span>
+                    </div>
+                    <Progress value={memberImportProgress.percent} className="h-1.5" />
+                    <p className="text-[10px] text-slate-500">{memberImportProgress.status}</p>
+                  </div>
+                )}
+                <label className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                  <input type="checkbox" className="w-3 h-3" checked={includeDonations} onChange={(e) => setIncludeDonations(e.target.checked)} />
+                  Include donations from file
+                </label>
+                <span className="text-[10px] text-amber-600 max-w-[260px] leading-tight break-words">Recommended OFF for clean initial import. Use Step 3/4 for payment history.</span>
+              </div>
+
+              {/* Step 3 */}
+              <div className="flex flex-col items-start gap-0.5">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Step 3</span>
+                <Button type="button" variant="outline" size="sm" onClick={handleChallanImportClick} disabled={challanImportMutation.isPending}>
+                  {challanImportMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
+                  Import Challan History
+                </Button>
+                {challanImportProgress && (
+                  <div className="w-full max-w-[260px] space-y-1 pt-1">
+                    <div className="flex items-center justify-between text-[10px] text-slate-500">
+                      <span className="truncate pr-2">{challanImportProgress.fileName}</span>
+                      <span>{challanImportProgress.percent}%</span>
+                    </div>
+                    <Progress value={challanImportProgress.percent} className="h-1.5" />
+                    <p className="text-[10px] text-slate-500">{challanImportProgress.status}</p>
+                  </div>
+                )}
+                <span className="text-[10px] text-slate-400">Requires members first</span>
+              </div>
+
+              {/* Step 4 */}
+              <div className="flex flex-col items-start gap-0.5">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Step 4</span>
+                <Button type="button" variant="outline" size="sm" onClick={handleCampaignImportClick} disabled={campaignImportMutation.isPending}>
+                  {campaignImportMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
+                  Import Campaign Payments
+                </Button>
+                {campaignImportProgress && (
+                  <div className="w-full max-w-[260px] space-y-1 pt-1">
+                    <div className="flex items-center justify-between text-[10px] text-slate-500">
+                      <span className="truncate pr-2">{campaignImportProgress.fileName}</span>
+                      <span>{campaignImportProgress.percent}%</span>
+                    </div>
+                    <Progress value={campaignImportProgress.percent} className="h-1.5" />
+                    <p className="text-[10px] text-slate-500">{campaignImportProgress.status}</p>
+                  </div>
+                )}
+                <span className="text-[10px] text-amber-600 flex items-center gap-0.5">
+                  <AlertTriangle className="w-3 h-3" /> Create campaigns first (Step 1)
+                </span>
+              </div>
+
+              <div className="border-l border-slate-200 self-stretch hidden sm:block" />
+
+              <Button onClick={() => { setEditingMember(null); setFormOpen(true); }} size="sm" className="bg-emerald-600 hover:bg-emerald-700">
+                <Plus className="w-4 h-4 mr-1.5" />
+                Add Member
+              </Button>
+
+              <Button type="button" variant="outline" size="sm" onClick={() => setWipeOpen(true)} className="border-rose-200 text-rose-700 hover:bg-rose-50">
+                Wipe Data
+              </Button>
+            </div>
+          </div>
+        )}
+        {user?.role === "admin" && (
+          <Button
+            onClick={() => {
+              setEditingMember(null);
+              setFormOpen(true);
+            }}
+            size="sm"
+            className="bg-emerald-600 hover:bg-emerald-700"
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            Add Member
+          </Button>
+        )}
       </div>
 
       {wipeNotice && (
         <div
-          className={`rounded-lg border px-4 py-3 pr-12 relative ${
-            wipeNotice.type === "error"
-              ? "border-rose-200 bg-rose-50 text-rose-900"
-              : "border-emerald-200 bg-emerald-50 text-emerald-900"
-          }`}
+          className={`rounded-lg border px-4 py-3 pr-12 relative ${wipeNotice.type === "error"
+            ? "border-rose-200 bg-rose-50 text-rose-900"
+            : "border-emerald-200 bg-emerald-50 text-emerald-900"
+            }`}
         >
           <p className="font-semibold text-sm">{wipeNotice.title}</p>
           <p className="text-sm mt-1 opacity-90">{wipeNotice.description}</p>
@@ -917,19 +916,17 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
                 role="tab"
                 aria-selected={isActive}
                 onClick={() => setStatusFilter(tab.key)}
-                className={`relative flex-shrink-0 flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 ${
-                  isActive
-                    ? "bg-white text-emerald-700 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
+                className={`relative flex-shrink-0 flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 ${isActive
+                  ? "bg-white text-emerald-700 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+                  }`}
               >
                 {tab.label}
                 <span
-                  className={`rounded-full px-1.5 py-0.5 text-xs font-semibold leading-none transition-colors duration-200 ${
-                    isActive
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-slate-200 text-slate-500"
-                  }`}
+                  className={`rounded-full px-1.5 py-0.5 text-xs font-semibold leading-none transition-colors duration-200 ${isActive
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-slate-200 text-slate-500"
+                    }`}
                 >
                   {tab.count}
                 </span>
@@ -940,46 +937,46 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
 
         {/* Search + Sort */}
         <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
-        <div className="relative max-w-md w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input
-            placeholder="Search by name, ID, or phone..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+          <div className="relative max-w-md w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input
+              placeholder="Search by name, ID, or phone..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
 
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-slate-600 whitespace-nowrap">Sort by</label>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
-          >
-            <option value="name">Member Name</option>
-            <option value="id">Member ID</option>
-          </select>
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-slate-600 whitespace-nowrap">Sort by</label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
+            >
+              <option value="name">Member Name</option>
+              <option value="id">Member ID</option>
+            </select>
 
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setSortDirection(prev => (prev === "asc" ? "desc" : "asc"))}
-          >
-            {sortDirection === "asc" ? "Asc" : "Desc"}
-          </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSortDirection(prev => (prev === "asc" ? "desc" : "asc"))}
+            >
+              {sortDirection === "asc" ? "Asc" : "Desc"}
+            </Button>
 
-          <label className="text-sm text-slate-600 whitespace-nowrap ml-2">Per page</label>
-          <select
-            value={pageSize}
-            onChange={(e) => setPageSize(Number(e.target.value))}
-            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
-          >
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
-        </div>
+            <label className="text-sm text-slate-600 whitespace-nowrap ml-2">Per page</label>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
+            >
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -1019,8 +1016,8 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
                     {statusFilter === "active"
                       ? "No active members found."
                       : statusFilter === "inactive"
-                      ? "No inactive members found."
-                      : "No members found."}
+                        ? "No inactive members found."
+                        : "No members found."}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -1081,12 +1078,12 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
                             <Pencil className="w-4 h-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
-                          
+
                           {/* Status toggle for all admins */}
                           {member.status === 'active' ? (
-                            <DropdownMenuItem 
-                              onClick={() => updateMutation.mutate({ 
-                                id: member.id, 
+                            <DropdownMenuItem
+                              onClick={() => updateMutation.mutate({
+                                id: member.id,
                                 data: { status: 'inactive' },
                                 logStatusChange: true,
                                 oldStatus: 'active'
@@ -1097,9 +1094,9 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
                               Mark Inactive
                             </DropdownMenuItem>
                           ) : (
-                            <DropdownMenuItem 
-                              onClick={() => updateMutation.mutate({ 
-                                id: member.id, 
+                            <DropdownMenuItem
+                              onClick={() => updateMutation.mutate({
+                                id: member.id,
                                 data: { status: 'active' },
                                 logStatusChange: true,
                                 oldStatus: member.status
@@ -1110,7 +1107,7 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
                               Mark Active
                             </DropdownMenuItem>
                           )}
-                          
+
                           {/* Send Invite — only for offline/unregistered members, admins only */}
                           {isAdmin && !member.is_active && (
                             <DropdownMenuItem
@@ -1124,7 +1121,7 @@ const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 
 
                           {/* Delete only for super admins */}
                           {isSuperAdmin && (
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               onClick={() => setDeleteTarget({ id: member.id, name: member.full_name })}
                               className="text-rose-600"
                             >
