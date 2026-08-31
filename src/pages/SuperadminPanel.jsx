@@ -25,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Shield, UserCog, Loader2, Crown, Check, Search, Bell, Smartphone, Clock3 } from "lucide-react";
+import { Shield, UserCog, Loader2, Crown, Check, Search, Bell, Smartphone, Clock3, ChevronRight } from "lucide-react";
 import { format, formatISTDateTime } from "@/lib/dateTime";
 
 const SUPERADMIN_USERS_BATCH_LIMIT = 200;
@@ -33,13 +33,14 @@ const SUPERADMIN_USERS_BATCH_LIMIT = 200;
 export default function SuperadminPanel() {
   const [user, setUser] = useState(null);
   const [search, setSearch] = useState("");
+  const [activeSection, setActiveSection] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ open: false, userId: null, targetRole: null, userName: null });
-  
+
   const queryClient = useQueryClient();
   const isSuperadmin = user?.role === 'superadmin';
 
   useEffect(() => {
-    charityClient.auth.me().then(setUser).catch(() => {});
+    charityClient.auth.me().then(setUser).catch(() => { });
   }, []);
 
   const { data: users = [], isLoading } = useQuery({
@@ -65,12 +66,13 @@ export default function SuperadminPanel() {
 
       return allUsers;
     },
+    enabled: isSuperadmin && activeSection === 'roles',
   });
 
   const { data: monitoringData, isLoading: isMonitoringLoading } = useQuery({
     queryKey: ['admin', 'user-monitoring'],
     queryFn: () => charityClient.admin.userMonitoring(),
-    enabled: isSuperadmin,
+    enabled: isSuperadmin && activeSection === 'monitoring',
   });
 
   const filteredUsers = useMemo(() => {
@@ -115,12 +117,12 @@ export default function SuperadminPanel() {
     }
 
     if (targetRole) {
-      setConfirmDialog({ 
-        open: true, 
-        userId, 
-        targetRole, 
+      setConfirmDialog({
+        open: true,
+        userId,
+        targetRole,
         userName,
-        currentRole 
+        currentRole
       });
     }
   };
@@ -135,21 +137,21 @@ export default function SuperadminPanel() {
     }
 
     if (targetRole) {
-      setConfirmDialog({ 
-        open: true, 
-        userId, 
-        targetRole, 
+      setConfirmDialog({
+        open: true,
+        userId,
+        targetRole,
         userName,
-        currentRole 
+        currentRole
       });
     }
   };
 
   const confirmRoleChange = () => {
     if (confirmDialog.userId && confirmDialog.targetRole) {
-      updateRoleMutation.mutate({ 
-        userId: confirmDialog.userId, 
-        role: confirmDialog.targetRole 
+      updateRoleMutation.mutate({
+        userId: confirmDialog.userId,
+        role: confirmDialog.targetRole
       });
     }
   };
@@ -191,6 +193,11 @@ export default function SuperadminPanel() {
     return 'bg-amber-100 text-amber-700';
   };
 
+  const openSection = (section) => {
+    setSearch("");
+    setActiveSection(section);
+  };
+
   if (!isSuperadmin) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -216,8 +223,42 @@ export default function SuperadminPanel() {
         </div>
       </div>
 
-      {/* Role Management Card */}
-      <Card>
+      {!activeSection && (
+        <div className="border border-slate-200 bg-white">
+          <button
+            type="button"
+            onClick={() => openSection('roles')}
+            className="flex w-full items-center gap-4 border-b border-slate-200 px-4 py-4 text-left transition-colors hover:bg-slate-50"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-emerald-100 text-emerald-700"><UserCog className="w-5 h-5" /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold text-slate-900">Role Management</span>
+              <span className="block text-sm text-slate-500">Review users and change member, admin, and superadmin roles.</span>
+            </span>
+            <ChevronRight className="w-5 h-5 shrink-0 text-slate-400" />
+          </button>
+          <button
+            type="button"
+            onClick={() => openSection('monitoring')}
+            className="flex w-full items-center gap-4 px-4 py-4 text-left transition-colors hover:bg-slate-50"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-sky-100 text-sky-700"><Bell className="w-5 h-5" /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold text-slate-900">Activity & Notification Monitoring</span>
+              <span className="block text-sm text-slate-500">See last activity, notification enrollment, and active devices.</span>
+            </span>
+            <ChevronRight className="w-5 h-5 shrink-0 text-slate-400" />
+          </button>
+        </div>
+      )}
+
+      {activeSection && (
+        <Button type="button" variant="ghost" size="sm" onClick={() => setActiveSection(null)}>
+          Back to administration options
+        </Button>
+      )}
+
+      {activeSection === 'roles' && <Card>
         <CardContent className="p-6">
           <div className="flex items-center gap-2 mb-4">
             <UserCog className="w-5 h-5 text-slate-600" />
@@ -340,9 +381,9 @@ export default function SuperadminPanel() {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
-      <Card>
+      {activeSection === 'monitoring' && <Card>
         <CardContent className="p-6">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -400,7 +441,7 @@ export default function SuperadminPanel() {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
       {/* Confirmation Dialog */}
       <AlertDialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog({ open: false, userId: null, targetRole: null, userName: null })}>
@@ -419,7 +460,7 @@ export default function SuperadminPanel() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={updateRoleMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={confirmRoleChange}
               disabled={updateRoleMutation.isPending}
             >
