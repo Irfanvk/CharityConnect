@@ -948,6 +948,10 @@ const charityClient = {
       return apiFetch(API_PATHS.admin.dashboardCharts, { method: 'GET' }, params);
     },
 
+    userMonitoring: async () => {
+      return apiFetch(API_PATHS.admin.userMonitoring, { method: 'GET' });
+    },
+
     getSettings: async () => {
       return apiFetch(API_PATHS.admin.settings, { method: 'GET' });
     },
@@ -1454,6 +1458,13 @@ const charityClient = {
     list: async (query = {}) => {
       const data = await apiFetch(API_PATHS.users.list, { method: 'GET' }, query);
       return extractArray(data).map(normalizeUser);
+    },
+
+    reportDeviceStatus: async (payload) => {
+      return apiFetch(API_PATHS.users.deviceStatus, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
     },
 
     get: async (id) => normalizeUser(await apiFetch(API_PATHS.users.byId(id), { method: 'GET' })),

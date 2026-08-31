@@ -25,8 +25,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Shield, UserCog, Loader2, Crown, Check, Search } from "lucide-react";
-import { format } from "@/lib/dateTime";
+import { Shield, UserCog, Loader2, Crown, Check, Search, Bell, Smartphone, Clock3 } from "lucide-react";
+import { format, formatISTDateTime } from "@/lib/dateTime";
 
 const SUPERADMIN_USERS_BATCH_LIMIT = 200;
 
@@ -36,6 +36,7 @@ export default function SuperadminPanel() {
   const [confirmDialog, setConfirmDialog] = useState({ open: false, userId: null, targetRole: null, userName: null });
   
   const queryClient = useQueryClient();
+  const isSuperadmin = user?.role === 'superadmin';
 
   useEffect(() => {
     charityClient.auth.me().then(setUser).catch(() => {});
@@ -64,6 +65,12 @@ export default function SuperadminPanel() {
 
       return allUsers;
     },
+  });
+
+  const { data: monitoringData, isLoading: isMonitoringLoading } = useQuery({
+    queryKey: ['admin', 'user-monitoring'],
+    queryFn: () => charityClient.admin.userMonitoring(),
+    enabled: isSuperadmin,
   });
 
   const filteredUsers = useMemo(() => {
@@ -164,7 +171,25 @@ export default function SuperadminPanel() {
     }
   };
 
-  const isSuperadmin = user?.role === 'superadmin';
+  const monitoredUsers = monitoringData?.users || [];
+
+  const notificationStatus = (status) => {
+    const labels = {
+      enabled: 'Enabled',
+      disabled: 'Blocked',
+      permission_granted_no_subscription: 'Needs resync',
+      not_requested: 'Not requested',
+      unsupported: 'Unsupported',
+      unknown: 'Not reported',
+    };
+    return labels[status] || 'Not reported';
+  };
+
+  const notificationStatusClass = (status) => {
+    if (status === 'enabled') return 'bg-emerald-100 text-emerald-700';
+    if (status === 'disabled') return 'bg-rose-100 text-rose-700';
+    return 'bg-amber-100 text-amber-700';
+  };
 
   if (!isSuperadmin) {
     return (
@@ -310,6 +335,66 @@ export default function SuperadminPanel() {
                       </TableCell>
                     </TableRow>
                   ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Bell className="w-5 h-5 text-slate-600" />
+              <h2 className="text-lg font-semibold text-slate-800">Activity & Notification Monitoring</h2>
+            </div>
+            <Badge variant="outline" className={monitoringData?.web_push_configured ? 'text-emerald-700' : 'text-rose-700'}>
+              {monitoringData?.web_push_configured ? 'Web Push configured' : 'Web Push not configured'}
+            </Badge>
+          </div>
+
+          {isMonitoringLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+            </div>
+          ) : (
+            <div className="rounded-md border overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Last activity (IST)</TableHead>
+                    <TableHead>Notifications</TableHead>
+                    <TableHead>Devices</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {monitoredUsers.map((monitoredUser) => (
+                    <TableRow key={monitoredUser.user_id}>
+                      <TableCell>
+                        <div className="leading-tight">
+                          <p className="font-medium">{monitoredUser.full_name || monitoredUser.username || 'User'}</p>
+                          <p className="text-xs text-slate-500">@{monitoredUser.username} · {monitoredUser.role}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-slate-600 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5"><Clock3 className="w-3.5 h-3.5" />{monitoredUser.last_seen_at ? formatISTDateTime(monitoredUser.last_seen_at) : 'Never'}</span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <Badge variant="outline" className={notificationStatusClass(monitoredUser.notification_status)}>{notificationStatus(monitoredUser.notification_status)}</Badge>
+                          <p className="text-xs text-slate-500">Permission: {monitoredUser.notification_permission} · {monitoredUser.device_display_mode || 'unknown mode'}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-slate-600">
+                        <span className="inline-flex items-center gap-1.5"><Smartphone className="w-3.5 h-3.5" />{monitoredUser.push_devices?.length || 0} active</span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {monitoredUsers.length === 0 && (
+                    <TableRow><TableCell colSpan={4} className="py-8 text-center text-slate-500">No monitoring data available.</TableCell></TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>

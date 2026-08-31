@@ -55,6 +55,7 @@ export const API_PATHS = {
   admin: {
     wipeData: '/admin/system/wipe',
     dashboardCharts: '/admin/dashboard/charts',
+    userMonitoring: '/admin/user-monitoring',
     settings: '/admin/settings',
     passwordResetRequests: '/admin/password-reset-requests',
     approvePasswordReset: (id) => `/admin/password-reset-requests/${id}/approve`,
@@ -107,6 +108,7 @@ export const API_PATHS = {
   },
   users: {
     list: '/users/',
+    deviceStatus: '/users/me/device-status',
     byId: (id) => `/users/${id}`,
   },
   fundUtilizations: {

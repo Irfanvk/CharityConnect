@@ -25,6 +25,13 @@ export default function NotificationManager({ user }) {
   );
   const { notifications } = useNotifications();
 
+  const deviceDisplayMode =
+    typeof window !== "undefined" && window.matchMedia?.("(display-mode: standalone)").matches
+      ? "standalone"
+      : "standalone" in window.navigator && window.navigator.standalone === true
+        ? "standalone"
+        : "browser";
+
   const relevantUnreadNotifications = useMemo(() => {
     if (!user) return [];
 
@@ -48,6 +55,17 @@ export default function NotificationManager({ user }) {
       window.Notification.requestPermission().then(setPermission);
     }
   }, [hasNotificationApi, permission, user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    charityClient.users.reportDeviceStatus({
+      notification_permission: hasNotificationApi ? permission : "unsupported",
+      device_display_mode: deviceDisplayMode,
+    }).catch(() => {
+      // Status reporting must not affect normal notification use.
+    });
+  }, [deviceDisplayMode, hasNotificationApi, permission, user]);
 
   useEffect(() => {
     if (!user) return;
