@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Download, FileText, FileDown, Search, X } from "lucide-react";
+import { Download, FileText, FileDown, Search, X, AlertTriangle, RefreshCw } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import ReportFilters from "@/components/reports/ReportFilters";
@@ -443,7 +443,13 @@ export default function Reports() {
     },
   });
 
-  const { data: outstandingReceivables, isLoading: outstandingReceivablesLoading } = useQuery({
+  const {
+    data: outstandingReceivables,
+    isLoading: outstandingReceivablesLoading,
+    isError: outstandingReceivablesError,
+    error: outstandingReceivablesQueryError,
+    refetch: refetchOutstandingReceivables,
+  } = useQuery({
     queryKey: ["challans", "outstanding", receivablesPage],
     enabled: user?.role === "admin" || user?.role === "superadmin",
     queryFn: () => charityClient.challans.outstanding({
@@ -833,6 +839,22 @@ export default function Reports() {
         isLoading={challanStatsLoading || fundSummaryLoading || outstandingReceivablesLoading}
         isAdmin={isAdmin}
       />
+
+      {isAdmin && outstandingReceivablesError && (
+        <div className="flex flex-col gap-3 border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+            <div>
+              <p className="font-medium">Outstanding receivables could not be loaded.</p>
+              <p className="text-sm text-amber-800">{outstandingReceivablesQueryError?.message || "Check the production API deployment and try again."}</p>
+            </div>
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={() => refetchOutstandingReceivables()} className="border-amber-400 bg-white text-amber-900 hover:bg-amber-100">
+            <RefreshCw className="mr-1.5 h-4 w-4" />
+            Retry
+          </Button>
+        </div>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
