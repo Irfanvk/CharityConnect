@@ -560,16 +560,18 @@ export default function FinancialSummaryPanel({
                                             <TableCell>
                                                 <Badge
                                                     className={
-                                                        c.status === "pending"
+                                                        c.is_inferred_due
+                                                            ? "bg-rose-100 text-rose-700 border-0"
+                                                            : c.status === "pending"
                                                             ? "bg-amber-100 text-amber-700 border-0"
                                                             : "bg-slate-100 text-slate-600 border-0"
                                                     }
                                                 >
-                                                    {c.status}
+                                                    {c.is_inferred_due ? "due" : c.status}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-xs text-slate-500">
-                                                {c.created_date ? format(new Date(c.created_date), "dd MMM yyyy") : "—"}
+                                                {c.is_inferred_due ? "Missing monthly record" : c.created_date ? format(new Date(c.created_date), "dd MMM yyyy") : "—"}
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -611,7 +613,7 @@ export default function FinancialSummaryPanel({
                         </div>
                     )}
                     <DialogFooter className="flex items-center justify-between !flex-row pt-1">
-                        <span className="text-xs text-slate-400">All figures are as of {asOfDate}. Includes all pending and generated challans.</span>
+                        <span className="text-xs text-slate-400">All figures are as of {asOfDate}. Includes unpaid challans and missing monthly dues.</span>
                         <Button variant="ghost" size="sm" onClick={() => setReceivablesOpen(false)}>Close</Button>
                     </DialogFooter>
                 </DialogContent>
