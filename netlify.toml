@@ -8,14 +8,9 @@
 #   Key:   VITE_CHARITY_APP_BASE_URL
 #   Value: https://api.poyyathabailgcc.com   ← your KVM1 backend URL
 #
-# Set VITE_WEB_PUSH_PUBLIC_KEY to the same VAPID public key configured on Render.
+# Set VITE_WEB_PUSH_PUBLIC_KEY to the same VAPID public key configured on the KVM backend.
 # Both values are safe to expose publicly (they are not secrets).
 # ─────────────────────────────────────────────────────────────────────────────
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
 
 # Force HTTP → HTTPS upgrade
 [[redirects]]
@@ -29,6 +24,11 @@
   to = "https://poyyathabailgcc.com/:splat"
   status = 301
   force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
 
 [[headers]]
   for = "/*"
