@@ -44,6 +44,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Search, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2, X, Download, ChevronDown, ChevronUp, AlertTriangle, UserPlus, MessageCircle, Copy, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import MemberForm from "@/components/members/MemberForm";
+import MemberTimelineDialog from "@/components/members/MemberTimelineDialog";
 import UserProfilePopover, { AvatarCircle } from "@/components/UserProfilePopover";
 
 const statusConfig = {
@@ -61,6 +62,7 @@ export default function Members() {
   const [currentPage, setCurrentPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
+  const [timelineMember, setTimelineMember] = useState(null);
   const [user, setUser] = useState(null);
   const [includeDonations, setIncludeDonations] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null); // { id, name }
@@ -1024,7 +1026,7 @@ export default function Members() {
                 paginatedMembers.map((member) => (
                   <TableRow key={member.id} className="hover:bg-slate-50/50">
                     <TableCell>
-                      <UserProfilePopover user={member}>
+                      <UserProfilePopover user={member} onViewTimeline={setTimelineMember}>
                         <div className="flex items-center gap-3">
                           <AvatarCircle avatarUrl={member.avatar_url} name={member.full_name} size="sm" />
                           <div>
@@ -1171,6 +1173,13 @@ export default function Members() {
           </div>
         </div>
       )}
+
+      {/* Member Timeline Dialog */}
+      <MemberTimelineDialog
+        member={timelineMember}
+        open={Boolean(timelineMember)}
+        onOpenChange={(open) => { if (!open) setTimelineMember(null); }}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>

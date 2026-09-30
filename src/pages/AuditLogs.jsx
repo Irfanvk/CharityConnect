@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 
 import {
@@ -13,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Shield, Calendar, User, Activity } from "lucide-react";
+import { Search, Shield, Calendar, User, Activity, Download } from "lucide-react";
 import { format } from "@/lib/dateTime";
 
 const actionConfig = {
@@ -91,10 +92,17 @@ const formatDetailValue = (value) => {
 export default function AuditLogs() {
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const { data: logs = [], isLoading } = useQuery({
-    queryKey: ['auditLogs'],
-    queryFn: () => charityClient.auditLogs.list({ order: '-created_date', limit: 1000 }),
+    queryKey: ['auditLogs', startDate, endDate],
+    queryFn: () => charityClient.auditLogs.list({
+      order: '-created_date',
+      limit: 1000,
+      ...(startDate ? { start_date: startDate } : {}),
+      ...(endDate ? { end_date: endDate } : {}),
+    }),
   });
 
   const availableActions = useMemo(
@@ -153,6 +161,35 @@ export default function AuditLogs() {
     () => logs.filter((log) => log.performed_by_role === 'superadmin').length,
     [logs]
   );
+
+  const exportLogsCSV = () => {
+    const headers = ["Date", "Time", "Action", "Performed By", "Role", "Target", "Entity Type"];
+    const rows = filteredLogs.map((log) => {
+      const rawDate = log.created_date || log.created_at;
+      const dateObj = rawDate ? new Date(rawDate) : null;
+      return [
+        dateObj ? format(dateObj, "yyyy-MM-dd") : "",
+        dateObj ? format(dateObj, "h:mm a") : "",
+        formatActionLabel(log.action_type),
+        log.performed_by_name || log.performed_by || "System",
+        log.performed_by_role || "",
+        log.target_name || "",
+        log.entity_type || "",
+      ];
+    });
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `audit-logs-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    anchor.click();
+    window.URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-6">
@@ -247,6 +284,12 @@ export default function AuditLogs() {
                 ))}
               </SelectContent>
             </Select>
+            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full sm:w-40" />
+            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full sm:w-40" />
+            <Button variant="outline" onClick={exportLogsCSV} disabled={filteredLogs.length === 0} className="gap-2 whitespace-nowrap">
+              <Download className="w-4 h-4" />
+              Export CSV
+            </Button>
           </div>
         </CardContent>
       </Card>

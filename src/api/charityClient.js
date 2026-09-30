@@ -981,6 +981,10 @@ const charityClient = {
         body: JSON.stringify({ rejection_reason, admin_notes: admin_notes || undefined }),
       });
     },
+
+    notificationDeliveryPreview: async (targetType = 'all') => {
+      return apiFetch(API_PATHS.admin.notificationDeliveryPreview, { method: 'GET' }, { target_type: targetType });
+    },
   },
 
   campaigns: {

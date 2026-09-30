@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, Inbox, KeyRound, MessageCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, Inbox, KeyRound, MessageCircle, CheckCircle2, Receipt } from "lucide-react";
 import { format } from "@/lib/dateTime";
 import { useMemo } from "react";
 import { emitNotificationsChanged } from "@/lib/notificationState";
@@ -37,7 +37,7 @@ const getRequestLabel = (request) => {
 };
 
 export default function AdminRequests() {
-  const [activeTab, setActiveTab] = useState("member"); // "member" | "password"
+  const [activeTab, setActiveTab] = useState("member"); // "member" | "password" | "challans"
   const [status, setStatus] = useState("all");
   const [requestType, setRequestType] = useState("all");
   const [search, setSearch] = useState("");
@@ -48,6 +48,11 @@ export default function AdminRequests() {
   const [rejectionReason, setRejectionReason] = useState("");
   const pageSize = 20;
 
+  // Bulk selection state (Member Requests tab)
+  const [selectedRequestIds, setSelectedRequestIds] = useState([]);
+  const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
+  const [bulkRejectReason, setBulkRejectReason] = useState("");
+
   // Password reset state
   const [prStatus, setPrStatus] = useState("pending");
   const [prReviewOpen, setPrReviewOpen] = useState(false);
@@ -55,6 +60,12 @@ export default function AdminRequests() {
   const [prAdminNotes, setPrAdminNotes] = useState("");
   const [prRejectionReason, setPrRejectionReason] = useState("");
   const [prApprovedResult, setPrApprovedResult] = useState(null); // holds approval response for WhatsApp share
+
+  // Pending challans (individual + bulk) state
+  const [challanReviewOpen, setChallanReviewOpen] = useState(false);
+  const [selectedChallanItem, setSelectedChallanItem] = useState(null);
+  const [challanRejectReason, setChallanRejectReason] = useState("");
+  const [approvingChallanKey, setApprovingChallanKey] = useState(null);
 
   // Sanitise any backend-generated URL that may contain a localhost origin
   const fixWhatsAppUrl = sanitizeShareUrl;
@@ -89,6 +100,76 @@ export default function AdminRequests() {
     ),
     enabled: isAdmin && activeTab === "password",
   });
+
+  // Pending challans queries (individual + bulk groups awaiting review)
+  const { data: pendingChallanPage = { items: [], total: 0 }, isLoading: pendingChallansLoading } = useQuery({
+    queryKey: ["admin", "pending-challans"],
+    queryFn: () => charityClient.challans.listPaginated({ status: "pending", skip: 0, limit: 100 }),
+    enabled: isAdmin && activeTab === "challans",
+  });
+
+  const { data: pendingBulkPage = { pending: 0, bulk_operations: [] }, isLoading: pendingBulkLoading } = useQuery({
+    queryKey: ["admin", "pending-bulk"],
+    queryFn: () => charityClient.bulkOperations.listPending(),
+    enabled: isAdmin && activeTab === "challans",
+  });
+
+  const pendingChallanItems = useMemo(() => {
+    const individual = (pendingChallanPage.items || []).map((c) => ({ ...c, is_bulk_group: false, key: `c-${c.id}` }));
+    const bulk = (pendingBulkPage.bulk_operations || [])
+      .filter((b) => b.status === "pending")
+      .map((b) => ({ ...b, is_bulk_group: true, key: `b-${b.bulk_group_id}` }));
+    return [...bulk, ...individual].sort(
+      (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+    );
+  }, [pendingChallanPage.items, pendingBulkPage.bulk_operations]);
+
+  const pendingChallanCount = Number(pendingChallanPage.total || 0) + Number(pendingBulkPage.pending || 0);
+
+  const invalidatePendingChallans = () => {
+    queryClient.invalidateQueries({ queryKey: ["admin", "pending-challans"] });
+    queryClient.invalidateQueries({ queryKey: ["admin", "pending-bulk"] });
+  };
+
+  const approveChallanMutation = useMutation({
+    mutationFn: (item) =>
+      item.is_bulk_group
+        ? charityClient.bulkOperations.approve(item.bulk_group_id, { approved: true })
+        : charityClient.challans.approve(item.id),
+    onSuccess: () => {
+      invalidatePendingChallans();
+      emitNotificationsChanged('updated');
+      toast({ title: "Challan approved." });
+    },
+    onError: (error) => {
+      toast({ title: "Approval failed", description: error?.message || "Please try again.", variant: "destructive" });
+    },
+    onSettled: () => setApprovingChallanKey(null),
+  });
+
+  const rejectChallanMutation = useMutation({
+    mutationFn: ({ item, reason }) =>
+      item.is_bulk_group
+        ? charityClient.bulkOperations.reject(item.bulk_group_id, { reason, action: "reject" })
+        : charityClient.challans.reject(item.id, { rejection_reason: reason }),
+    onSuccess: () => {
+      invalidatePendingChallans();
+      emitNotificationsChanged('updated');
+      toast({ title: "Challan rejected." });
+      setChallanReviewOpen(false);
+      setSelectedChallanItem(null);
+      setChallanRejectReason("");
+    },
+    onError: (error) => {
+      toast({ title: "Rejection failed", description: error?.message || "Please try again.", variant: "destructive" });
+    },
+  });
+
+  const handleApproveChallanItem = (item) => {
+    if (approvingChallanKey) return;
+    setApprovingChallanKey(item.key);
+    approveChallanMutation.mutate(item);
+  };
 
   const approveMutation = useMutation({
     mutationFn: ({ requestId, notes }) => charityClient.requests.approve(requestId, notes),
@@ -172,6 +253,52 @@ export default function AdminRequests() {
     });
   }, [requestPage.items, search]);
 
+  const selectablePendingIds = useMemo(
+    () => filteredItems.filter((request) => request.status === "pending").map((request) => request.id),
+    [filteredItems]
+  );
+  const allPendingSelected = selectablePendingIds.length > 0 && selectedRequestIds.length === selectablePendingIds.length;
+
+  const toggleRequestSelected = (requestId) => {
+    setSelectedRequestIds((prev) =>
+      prev.includes(requestId) ? prev.filter((id) => id !== requestId) : [...prev, requestId]
+    );
+  };
+
+  const toggleSelectAllPending = () => {
+    setSelectedRequestIds(allPendingSelected ? [] : selectablePendingIds);
+  };
+
+  const clearSelection = () => setSelectedRequestIds([]);
+
+  const bulkApproveMutation = useMutation({
+    mutationFn: (ids) => Promise.all(ids.map((id) => charityClient.requests.approve(id, ""))),
+    onSuccess: async (_data, ids) => {
+      await queryClient.invalidateQueries({ queryKey: ["requests"] });
+      emitNotificationsChanged('updated');
+      toast({ title: `${ids.length} request(s) approved`, description: "Members have been notified." });
+      clearSelection();
+    },
+    onError: (error) => {
+      toast({ title: "Bulk approval failed", description: error?.message || "Please try again.", variant: "destructive" });
+    },
+  });
+
+  const bulkRejectMutation = useMutation({
+    mutationFn: ({ ids, reason }) => Promise.all(ids.map((id) => charityClient.requests.reject(id, reason, ""))),
+    onSuccess: async (_data, { ids }) => {
+      await queryClient.invalidateQueries({ queryKey: ["requests"] });
+      emitNotificationsChanged('updated');
+      toast({ title: `${ids.length} request(s) rejected`, description: "Members have been notified." });
+      clearSelection();
+      setBulkRejectOpen(false);
+      setBulkRejectReason("");
+    },
+    onError: (error) => {
+      toast({ title: "Bulk rejection failed", description: error?.message || "Please try again.", variant: "destructive" });
+    },
+  });
+
   if (!isAdmin) {
     return (
       <Card className="border-0 shadow-sm">
@@ -209,6 +336,18 @@ export default function AdminRequests() {
           {prRequests.filter(r => r.status === "pending").length > 0 && (
             <span className="ml-1 inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-xs w-5 h-5">
               {prRequests.filter(r => r.status === "pending").length}
+            </span>
+          )}
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "challans" ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          onClick={() => setActiveTab("challans")}
+        >
+          <Receipt className="w-3.5 h-3.5" />
+          Pending Challans
+          {pendingChallanCount > 0 && (
+            <span className="ml-1 inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-xs w-5 h-5">
+              {pendingChallanCount}
             </span>
           )}
         </button>
@@ -258,20 +397,59 @@ export default function AdminRequests() {
             </Card>
           ) : (
             <div className="space-y-3">
+              {selectablePendingIds.length > 0 && (
+                <div className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                  <label className="flex items-center gap-2 text-sm text-slate-700">
+                    <input type="checkbox" checked={allPendingSelected} onChange={toggleSelectAllPending} />
+                    Select all pending ({selectablePendingIds.length})
+                  </label>
+                  {selectedRequestIds.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-500">{selectedRequestIds.length} selected</span>
+                      <Button
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-700"
+                        disabled={bulkApproveMutation.isPending}
+                        onClick={() => bulkApproveMutation.mutate(selectedRequestIds)}
+                      >
+                        {bulkApproveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Approve Selected"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => setBulkRejectOpen(true)}
+                      >
+                        Reject Selected
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {filteredItems.map((request) => (
                 <Card key={request.id} className="border-0 shadow-sm">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-slate-900">{request.member_name || "Member"}</p>
-                          {request.member_code && <Badge variant="outline">{formatMemberId(request.member_code)}</Badge>}
-                          <Badge variant="outline">{getRequestLabel(request)}</Badge>
-                          <Badge className={request.status === "pending" ? "bg-amber-100 text-amber-700" : request.status === "approved" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}>{request.status}</Badge>
+                      <div className="flex items-start gap-3 min-w-0">
+                        {request.status === "pending" && (
+                          <input
+                            type="checkbox"
+                            className="mt-1.5 shrink-0"
+                            checked={selectedRequestIds.includes(request.id)}
+                            onChange={() => toggleRequestSelected(request.id)}
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-semibold text-slate-900">{request.member_name || "Member"}</p>
+                            {request.member_code && <Badge variant="outline">{formatMemberId(request.member_code)}</Badge>}
+                            <Badge variant="outline">{getRequestLabel(request)}</Badge>
+                            <Badge className={request.status === "pending" ? "bg-amber-100 text-amber-700" : request.status === "approved" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}>{request.status}</Badge>
+                          </div>
+                          <p className="mt-1 text-sm font-medium text-slate-800">{request.subject || "Request"}</p>
+                          <p className="text-sm text-slate-600 line-clamp-2">{request.message}</p>
+                          <p className="mt-1 text-xs text-slate-500">{format(new Date(request.created_at), "MMM d, yyyy 'at' h:mm a")}</p>
                         </div>
-                        <p className="mt-1 text-sm font-medium text-slate-800">{request.subject || "Request"}</p>
-                        <p className="text-sm text-slate-600 line-clamp-2">{request.message}</p>
-                        <p className="mt-1 text-xs text-slate-500">{format(new Date(request.created_at), "MMM d, yyyy 'at' h:mm a")}</p>
                       </div>
                       <Button
                         variant="outline"
@@ -362,6 +540,65 @@ export default function AdminRequests() {
                             Send Link
                           </a>
                         )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Pending Challans tab (individual + bulk groups) ── */}
+      {activeTab === "challans" && (
+        <div className="space-y-6">
+          {(pendingChallansLoading || pendingBulkLoading) ? (
+            <Card className="border-0 shadow-sm"><CardContent className="py-12 text-center text-slate-500">Loading pending challans...</CardContent></Card>
+          ) : pendingChallanItems.length === 0 ? (
+            <Card className="border-0 shadow-sm">
+              <CardContent className="py-12 text-center text-slate-500">
+                <Receipt className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                No challans awaiting review.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {pendingChallanItems.map((item) => (
+                <Card key={item.key} className="border-0 shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-slate-900">{item.member_name || "Member"}</p>
+                          {item.member_code && <Badge variant="outline">{formatMemberId(item.member_code)}</Badge>}
+                          {item.is_bulk_group ? (
+                            <Badge className="bg-sky-100 text-sky-700">Bulk · {item.months_count} months</Badge>
+                          ) : (
+                            <Badge variant="outline">{item.month || item.type}</Badge>
+                          )}
+                        </div>
+                        <p className="mt-1 text-sm font-medium text-slate-800">
+                          Rs {Number(item.total_amount ?? item.amount ?? 0).toLocaleString()}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">{format(new Date(item.created_at), "MMM d, yyyy 'at' h:mm a")}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1.5 shrink-0">
+                        <Button
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-700"
+                          disabled={approvingChallanKey === item.key}
+                          onClick={() => handleApproveChallanItem(item)}
+                        >
+                          {approvingChallanKey === item.key ? <Loader2 className="w-4 h-4 animate-spin" /> : "Approve"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => { setSelectedChallanItem(item); setChallanReviewOpen(true); }}
+                        >
+                          Reject
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -590,6 +827,81 @@ export default function AdminRequests() {
               </div>
             )
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Pending challan reject dialog */}
+      <Dialog
+        open={challanReviewOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setChallanReviewOpen(false);
+            setSelectedChallanItem(null);
+            setChallanRejectReason("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Reject Challan</DialogTitle>
+          </DialogHeader>
+
+          {selectedChallanItem && (
+            <div className="space-y-4">
+              <div className="rounded-md border p-3 text-sm space-y-1">
+                <p><span className="text-slate-500">Member:</span> {selectedChallanItem.member_name || "—"}</p>
+                <p><span className="text-slate-500">Amount:</span> Rs {Number(selectedChallanItem.total_amount ?? selectedChallanItem.amount ?? 0).toLocaleString()}</p>
+                {selectedChallanItem.is_bulk_group && (
+                  <p><span className="text-slate-500">Months:</span> {(selectedChallanItem.months || []).join(", ")}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Rejection reason (required)</label>
+                <Textarea value={challanRejectReason} onChange={(e) => setChallanRejectReason(e.target.value)} rows={3} />
+              </div>
+              <Button
+                variant="destructive"
+                className="w-full"
+                disabled={rejectChallanMutation.isPending || !challanRejectReason.trim()}
+                onClick={() => rejectChallanMutation.mutate({ item: selectedChallanItem, reason: challanRejectReason })}
+              >
+                {rejectChallanMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Reject Challan"}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk reject dialog (Member Requests tab) */}
+      <Dialog
+        open={bulkRejectOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBulkRejectOpen(false);
+            setBulkRejectReason("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Reject {selectedRequestIds.length} Request(s)</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">This reason will be sent to all selected members.</p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Rejection reason (required)</label>
+              <Textarea value={bulkRejectReason} onChange={(e) => setBulkRejectReason(e.target.value)} rows={3} />
+            </div>
+            <Button
+              variant="destructive"
+              className="w-full"
+              disabled={bulkRejectMutation.isPending || !bulkRejectReason.trim()}
+              onClick={() => bulkRejectMutation.mutate({ ids: selectedRequestIds, reason: bulkRejectReason })}
+            >
+              {bulkRejectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Reject Selected"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

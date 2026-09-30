@@ -34,7 +34,7 @@ import {
 import {
   Bell, BellOff, Plus, Trash2, Loader2,
   Info, CheckCircle, AlertTriangle, Receipt, Heart,
-  CheckCircle2, Clock, Users, Megaphone,
+  CheckCircle2, Clock, Users, Megaphone, Radio, Smartphone,
 } from "lucide-react";
 import { format } from "@/lib/dateTime";
 import { useToast } from "@/components/ui/use-toast";
@@ -84,6 +84,12 @@ export default function Notifications() {
     queryKey: ["notifications", "sent-batches"],
     queryFn: () => charityClient.notifications.listSentBatches({ minutes: 10080, limit: 25 }),
     enabled: isAdmin,
+  });
+
+  const { data: deliveryPreview, isLoading: isLoadingDeliveryPreview } = useQuery({
+    queryKey: ["admin", "notification-delivery-preview", formData.target_type],
+    queryFn: () => charityClient.admin.notificationDeliveryPreview(formData.target_type),
+    enabled: isAdmin && formOpen,
   });
 
   const userNotifications = notifications.filter((n) => {
@@ -459,6 +465,28 @@ export default function Notifications() {
                 </Select>
               </div>
             </div>
+
+            {isLoadingDeliveryPreview ? (
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking delivery reach…
+              </div>
+            ) : deliveryPreview && (
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 space-y-1.5">
+                <div className="flex items-center gap-1.5 font-medium text-slate-700">
+                  <Radio className="w-3.5 h-3.5 text-emerald-600" />
+                  {deliveryPreview.push_enabled_count} of {deliveryPreview.total_recipients} will get an instant push notification
+                </div>
+                {deliveryPreview.in_app_only_count > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <Smartphone className="w-3.5 h-3.5 text-amber-600" />
+                    {deliveryPreview.in_app_only_count} will only see it in-app next time they open the app (e.g. iOS, or push not enabled)
+                  </div>
+                )}
+                {!deliveryPreview.web_push_configured && (
+                  <p className="text-amber-700">Web Push is not configured on this server — everyone will rely on in-app delivery.</p>
+                )}
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>

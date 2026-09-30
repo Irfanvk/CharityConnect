@@ -69,8 +69,18 @@ export default function Layout({ children, currentPageName }) {
 
       const isAdminUser = currentUserRole === 'admin' || currentUserRole === 'superadmin';
       if (isAdminUser) {
-        const page = await charityClient.requests.adminList({ status: 'pending', skip: 0, limit: 1 });
-        setPendingRequestsCount(Number(page?.total || 0));
+        const [requestsPage, passwordResets, pendingChallans, pendingBulk] = await Promise.all([
+          charityClient.requests.adminList({ status: 'pending', skip: 0, limit: 1 }),
+          charityClient.admin.listPasswordResetRequests({ status: 'pending' }).catch(() => []),
+          charityClient.challans.listPaginated({ status: 'pending', skip: 0, limit: 1 }).catch(() => ({ total: 0 })),
+          charityClient.bulkOperations.listPending().catch(() => ({ pending: 0 })),
+        ]);
+        const total =
+          Number(requestsPage?.total || 0) +
+          (Array.isArray(passwordResets) ? passwordResets.length : 0) +
+          Number(pendingChallans?.total || 0) +
+          Number(pendingBulk?.pending || 0);
+        setPendingRequestsCount(total);
         return;
       }
 

@@ -60,6 +60,7 @@ export const API_PATHS = {
     passwordResetRequests: '/admin/password-reset-requests',
     approvePasswordReset: (id) => `/admin/password-reset-requests/${id}/approve`,
     rejectPasswordReset: (id) => `/admin/password-reset-requests/${id}/reject`,
+    notificationDeliveryPreview: '/admin/notifications/delivery-preview',
   },
   campaigns: {
     list: '/campaigns/',

@@ -2,7 +2,7 @@ import React from "react";
 import { formatMemberId } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Phone, Calendar, MapPin, MessageCircle, BadgeCheck } from "lucide-react";
+import { Mail, Phone, Calendar, MapPin, MessageCircle, BadgeCheck, History } from "lucide-react";
 import { format } from "@/lib/dateTime";
 
 function AvatarCircle({ avatarUrl, name, size = "lg" }) {
@@ -28,7 +28,7 @@ function AvatarCircle({ avatarUrl, name, size = "lg" }) {
   );
 }
 
-export default function UserProfilePopover({ user, children }) {
+export default function UserProfilePopover({ user, children, onViewTimeline }) {
   if (!user) return children || null;
 
   const fullName = user.full_name?.trim() || user.name?.trim() || null;
@@ -135,6 +135,18 @@ export default function UserProfilePopover({ user, children }) {
               <MessageCircle className="w-4 h-4" />
               Direct Message Member
             </a>
+          </div>
+        )}
+        {onViewTimeline && (
+          <div className="border-t border-slate-100 dark:border-slate-800 p-3">
+            <button
+              type="button"
+              onClick={() => onViewTimeline(user)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800"
+            >
+              <History className="w-4 h-4" />
+              View Full Timeline
+            </button>
           </div>
         )}
       </PopoverContent>
