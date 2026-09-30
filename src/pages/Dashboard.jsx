@@ -240,6 +240,21 @@ export default function Dashboard() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Truly-missing monthly dues (no challan record at all yet), distinct from
+  // challans that already exist but await payment/approval.
+  const { data: payableMonths } = useQuery({
+    queryKey: ['challans', 'payable-months', 'member-dashboard'],
+    queryFn: async () => {
+      try {
+        return await charityClient.challans.payableMonths({ include_upcoming: false });
+      } catch {
+        return null;
+      }
+    },
+    enabled: isMember,
+    staleTime: 2 * 60 * 1000,
+  });
+
   const { data: appSettings } = useQuery({
     queryKey: ['admin', 'settings'],
     queryFn: () => charityClient.admin.getSettings(),
@@ -471,6 +486,7 @@ export default function Dashboard() {
             onOpenSetup={() => setShowOnboarding(true)}
             showCollectionStats={appSettings?.member_stats_visible === true}
             collectionStats={collectionStats}
+            payableMonths={payableMonths}
           />
         </div>
       </PullToRefresh>

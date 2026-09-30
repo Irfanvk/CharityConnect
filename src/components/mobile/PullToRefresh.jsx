@@ -5,6 +5,7 @@ export default function PullToRefresh({ onRefresh, children }) {
   const [pulling, setPulling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const startY = useRef(0);
+  const startTime = useRef(0);
   const pullDistance = useRef(0);
   const containerRef = useRef(null);
   const refreshingRef = useRef(false);
@@ -14,36 +15,59 @@ export default function PullToRefresh({ onRefresh, children }) {
   }, [refreshing]);
 
   const handleTouchStart = useCallback((e) => {
+    // Reset on every touch so a stale startY from a previous (non-top) touch
+    // never leaks into this gesture — without this, fast scrolling that
+    // happens to settle at scrollY 0 mid-fling could compute a huge bogus
+    // "pull distance" from the old startY and trigger an unwanted refresh.
     if (window.scrollY === 0) {
       startY.current = e.touches[0].clientY;
+      startTime.current = e.timeStamp;
+    } else {
+      startY.current = 0;
+      startTime.current = 0;
     }
   }, []);
 
   const handleTouchMove = useCallback((e) => {
     if (startY.current === 0 || refreshingRef.current) return;
-    
+
     const currentY = e.touches[0].clientY;
     const distance = currentY - startY.current;
-    
+
     if (distance > 0 && window.scrollY === 0) {
-      pullDistance.current = Math.min(distance, 100);
+      // Resistance curve so a fast flick needs much more finger travel to
+      // reach the trigger threshold than a deliberate slow pull.
+      pullDistance.current = Math.min(distance * 0.5, 100);
       setPulling(pullDistance.current > 60);
-      
+
       if (pullDistance.current > 0) {
         e.preventDefault();
       }
+    } else {
+      // Scrolled away from the top (or moved upward) mid-gesture — cancel
+      // the pull so a fast scroll can't be mistaken for a refresh drag.
+      startY.current = 0;
+      pullDistance.current = 0;
+      setPulling(false);
     }
   }, []);
 
-  const handleTouchEnd = useCallback(async () => {
-    if (pullDistance.current > 60 && !refreshingRef.current) {
+  const handleTouchEnd = useCallback(async (e) => {
+    const elapsed = startTime.current ? e.timeStamp - startTime.current : 0;
+    // A genuine pull-to-refresh is a slow, deliberate drag. A fast flick can
+    // rack up the same pixel distance in a fraction of the time — require a
+    // minimum duration so quick scroll gestures never trigger a refresh.
+    const isDeliberatePull = elapsed >= 200;
+
+    if (pullDistance.current > 60 && isDeliberatePull && !refreshingRef.current) {
       setRefreshing(true);
       await onRefresh();
       setRefreshing(false);
     }
-    
+
     setPulling(false);
     startY.current = 0;
+    startTime.current = 0;
     pullDistance.current = 0;
   }, [onRefresh]);
 

@@ -70,6 +70,7 @@ export default function MemberDashboard({
   communitySummary = null,
   communityFundSummary = null,
   communityFundRecords = [],
+  payableMonths = null,
 }) {
   const navigate = useNavigate();
   const memberIdentifiers = new Set(
@@ -98,9 +99,35 @@ export default function MemberDashboard({
   const monthlyAmount = memberProfile?.monthly_amount || 0;
 
   const pendingMonthlyChallans = myChallans
-    .filter((c) => c.type === 'monthly' && c.status === 'pending')
+    // Include both "generated" (awaiting payment/proof) and "pending" (proof
+    // submitted, awaiting admin review) — both are still outstanding dues.
+    // Previously only "pending" was checked, so a month with a freshly
+    // created but unpaid challan incorrectly showed as "all up to date".
+    .filter((c) => c.type === 'monthly' && (c.status === 'generated' || c.status === 'pending'))
     .sort((a, b) => (a.month || '').localeCompare(b.month || ''));
-  const totalOutstanding = pendingMonthlyChallans.reduce((sum, c) => sum + (c.amount || 0), 0);
+
+  // Months with no challan record at all yet (member never even started a
+  // payment for that month) — these are real dues too but were previously
+  // invisible here since there's no challan row to filter on.
+  const monthsWithChallan = new Set(pendingMonthlyChallans.map((c) => c.month).filter(Boolean));
+  const missingMonths = [
+    ...(payableMonths?.pending_months || []),
+    ...(payableMonths?.current_month_payable ? [payableMonths.current_month] : []),
+  ].filter((month) => month && !monthsWithChallan.has(month));
+
+  const syntheticDueEntries = missingMonths.map((month) => ({
+    id: `missing-${month}`,
+    month,
+    amount: monthlyAmount,
+    isMissing: true,
+  }));
+
+  const allDueEntries = [...pendingMonthlyChallans, ...syntheticDueEntries].sort(
+    (a, b) => (a.month || '').localeCompare(b.month || '')
+  );
+
+  const totalOutstanding = allDueEntries.reduce((sum, c) => sum + (c.amount || 0), 0);
+  const dueThroughMonth = allDueEntries.length > 0 ? allDueEntries[allDueEntries.length - 1].month : null;
 
   const upcomingMonths = [];
   const paidMonths = new Set(
@@ -240,6 +267,13 @@ export default function MemberDashboard({
                 <div className="text-right flex-shrink-0">
                   <p className="text-xs text-slate-500">Monthly Due</p>
                   <p className="text-lg font-bold text-emerald-600">₹{monthlyAmount}</p>
+                  {dueThroughMonth ? (
+                    <p className="text-xs font-medium text-amber-600 mt-1">
+                      Due through {format(new Date(`${dueThroughMonth}-01`), "MMM yyyy")}
+                    </p>
+                  ) : (
+                    <p className="text-xs font-medium text-emerald-600 mt-1">Up to date</p>
+                  )}
                 </div>
               )}
             </div>
@@ -419,22 +453,27 @@ export default function MemberDashboard({
               <Receipt className="w-4 h-4 text-amber-500" />
               Upcoming Dues
             </CardTitle>
-            {pendingMonthlyChallans.length > 0 && (
+            {allDueEntries.length > 0 && (
               <Badge className="bg-amber-100 text-amber-700 border-0">
-                Outstanding: ₹{totalOutstanding.toLocaleString()} across {pendingMonthlyChallans.length} month{pendingMonthlyChallans.length !== 1 ? 's' : ''}
+                Outstanding: ₹{totalOutstanding.toLocaleString()} across {allDueEntries.length} month{allDueEntries.length !== 1 ? 's' : ''}
               </Badge>
             )}
           </div>
+          {dueThroughMonth && (
+            <p className="text-xs text-slate-500 mt-1">
+              Dues pending through {format(new Date(`${dueThroughMonth}-01`), 'MMMM yyyy')}
+            </p>
+          )}
         </CardHeader>
         <CardContent>
-          {pendingMonthlyChallans.length === 0 ? (
+          {allDueEntries.length === 0 ? (
             <div className="flex items-center gap-2 text-emerald-600 text-sm py-3">
               <CheckCircle2 className="w-5 h-5" />
               <span className="font-medium">All payments up to date</span>
             </div>
           ) : (
             <div className="space-y-2">
-              {pendingMonthlyChallans.map((challan) => (
+              {allDueEntries.map((challan) => (
                 <div
                   key={challan.id}
                   className="flex items-center justify-between p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800"
@@ -445,14 +484,24 @@ export default function MemberDashboard({
                       <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
                         {challan.month ? format(new Date(`${challan.month}-01`), 'MMMM yyyy') : '—'}
                       </p>
-                      <p className="text-xs text-slate-500">{challan.challan_number || `#${challan.id}`}</p>
+                      <p className="text-xs text-slate-500">
+                        {challan.isMissing ? 'Not yet created' : (challan.challan_number || `#${challan.id}`)}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-semibold text-amber-700">₹{(challan.amount || 0).toLocaleString()}</span>
-                    <Badge className="text-xs bg-amber-100 text-amber-700 border-0">Pending</Badge>
+                    <Badge className="text-xs bg-amber-100 text-amber-700 border-0">
+                      {challan.isMissing ? 'Due' : 'Pending'}
+                    </Badge>
                     <button
-                      onClick={() => navigate(`${PAGE_PATHS.CHALLANS}?challan=${challan.id}`)}
+                      onClick={() =>
+                        navigate(
+                          challan.isMissing
+                            ? `${PAGE_PATHS.CHALLANS}?month=${challan.month}`
+                            : `${PAGE_PATHS.CHALLANS}?challan=${challan.id}`
+                        )
+                      }
                       className="text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors"
                     >
                       Pay Now
