@@ -1,7 +1,8 @@
 import React from "react";
 import { formatMemberId } from "@/lib/utils";
 import { Link, useNavigate } from "react-router-dom";
-import { format, addMonths, startOfMonth, formatDistanceToNow } from "@/lib/dateTime";
+import { format, formatDistanceToNow } from "@/lib/dateTime";
+import { addBusinessMonths, currentBusinessMonth, formatBusinessDate, parseBackendDate } from "@/lib/businessTime";
 import {
   TrendingUp,
   Clock,
@@ -140,7 +141,7 @@ export default function MemberDashboard({
   );
 
   for (let i = 0; i < 3; i += 1) {
-    const month = format(addMonths(startOfMonth(new Date()), i), "yyyy-MM");
+    const month = addBusinessMonths(payableMonths?.current_month || currentBusinessMonth(), i);
     if (!paidMonths.has(month)) upcomingMonths.push(month);
   }
 
@@ -155,7 +156,7 @@ export default function MemberDashboard({
   );
 
   const recentChallans = [...myChallans]
-    .sort((a, b) => new Date(b.created_date) - new Date(a.created_date))
+    .sort((a, b) => parseBackendDate(b.created_date) - parseBackendDate(a.created_date))
     .slice(0, 5);
 
   const displayPhone = memberProfile?.phone || user?.phone || memberSetupData?.phone;
@@ -197,7 +198,7 @@ export default function MemberDashboard({
           <div className="flex items-center gap-2 text-sm text-slate-500">
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             <span>
-              Setup completed {formatDistanceToNow(new Date(setupCompletedAt), { addSuffix: true })}
+              Setup completed {formatDistanceToNow(parseBackendDate(setupCompletedAt), { addSuffix: true })}
             </span>
           </div>
         )}
@@ -253,7 +254,7 @@ export default function MemberDashboard({
                   {memberProfile.join_date && (
                     <div className="flex items-center gap-2">
                       <Calendar className="w-3.5 h-3.5" />
-                      Joined {format(new Date(memberProfile.join_date), "MMM yyyy")}
+                      Joined {formatBusinessDate(memberProfile.join_date, { month: "short", year: "numeric", day: undefined })}
                     </div>
                   )}
                   {displayAddress && (
@@ -405,7 +406,7 @@ export default function MemberDashboard({
                         <div>
                           <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{record.title || "Utilization entry"}</p>
                           <p className="text-xs text-slate-500">
-                            {record.category || "Other"} • {record.date ? format(new Date(record.date), "dd MMM yyyy") : "—"}
+                            {record.category || "Other"} • {record.date ? formatBusinessDate(record.date, { month: "short", day: "2-digit", year: "numeric" }) : "—"}
                           </p>
                         </div>
                         <span className="text-sm font-semibold text-rose-600">₹{Number(record.amount || 0).toLocaleString()}</span>

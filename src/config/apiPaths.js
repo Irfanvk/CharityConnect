@@ -51,6 +51,7 @@ export const API_PATHS = {
     byGroupId: (bulkGroupId) => `/admin/bulk/${bulkGroupId}`,
     approve: (bulkGroupId) => `/admin/bulk/${bulkGroupId}/approve`,
     reject: (bulkGroupId) => `/admin/bulk/${bulkGroupId}/reject`,
+    revert: (bulkGroupId) => `/admin/bulk/${bulkGroupId}/revert`,
   },
   admin: {
     wipeData: '/admin/system/wipe',
@@ -116,5 +117,8 @@ export const API_PATHS = {
     list: '/fund-utilizations/',
     summary: '/fund-utilizations/summary',
     byId: (id) => `/fund-utilizations/${id}`,
+    approve: (id) => `/fund-utilizations/${id}/approve`,
+    reject: (id) => `/fund-utilizations/${id}/reject`,
+    revert: (id) => `/fund-utilizations/${id}/revert`,
   },
 };

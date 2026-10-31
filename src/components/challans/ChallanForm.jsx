@@ -20,60 +20,44 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { format, addMonths, subMonths, parseISO } from "@/lib/dateTime";
+import { format, parseISO } from "@/lib/dateTime";
+import { addBusinessMonths, currentBusinessMonth } from "@/lib/businessTime";
 import { Loader2, CheckSquare, Square, Upload, FileText, Image as ImageIcon, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const PLATFORM_START_MONTH = "2024-08";
-const PLATFORM_START_DATE = parseISO(`${PLATFORM_START_MONTH}-01`);
 
-// Build a list of yyyy-MM strings from startYearMonth up to today (inclusive),
-// excluding any month already in paidSet.
-function buildLocalMonths(startYearMonth, includeUpcoming, upcomingCount, paidSet) {
-  const today = new Date();
-  today.setDate(1);
-  today.setHours(0, 0, 0, 0);
-
-  let cursor;
-  try {
-    cursor = parseISO(startYearMonth + "-01");
-    if (Number.isNaN(cursor.getTime())) {
-      throw new Error("Invalid month");
-    }
-  } catch {
-    cursor = PLATFORM_START_DATE;
-  }
-  if (cursor < PLATFORM_START_DATE) cursor = PLATFORM_START_DATE;
-  if (cursor > today) cursor = today;
+// Build a list of yyyy-MM strings from startYearMonth up to the current business
+// month (inclusive), excluding any month already in paidSet. Pure string math so
+// the result never depends on the viewer's timezone.
+function buildLocalMonths(startYearMonth, includeUpcoming, upcomingCount, paidSet, currentMonth = currentBusinessMonth()) {
+  let cursor = /^\d{4}-\d{2}$/.test(startYearMonth || "") ? startYearMonth : PLATFORM_START_MONTH;
+  if (cursor < PLATFORM_START_MONTH) cursor = PLATFORM_START_MONTH;
+  if (cursor > currentMonth) cursor = currentMonth;
 
   const months = [];
-  while (cursor <= today) {
-    const key = format(cursor, "yyyy-MM");
-    if (!paidSet.has(key)) months.push(key);
-    cursor = addMonths(cursor, 1);
+  while (cursor <= currentMonth) {
+    if (!paidSet.has(cursor)) months.push(cursor);
+    cursor = addBusinessMonths(cursor, 1);
   }
 
   if (includeUpcoming) {
-    let fut = addMonths(today, 1);
+    let fut = addBusinessMonths(currentMonth, 1);
     for (let i = 0; i < upcomingCount; i++) {
-      const key = format(fut, "yyyy-MM");
-      if (!paidSet.has(key)) months.push(key);
-      fut = addMonths(fut, 1);
+      if (!paidSet.has(fut)) months.push(fut);
+      fut = addBusinessMonths(fut, 1);
     }
   }
   return months;
 }
 
-// Generate month options for the "Start from" picker: Aug 2024 → current month
-function buildStartMonthOptions() {
-  const today = new Date();
-  today.setDate(1);
-  const earliest = PLATFORM_START_DATE;
+// Generate month options for the "Start from" picker: Aug 2024 → current business month
+function buildStartMonthOptions(currentMonth = currentBusinessMonth()) {
   const options = [];
-  let cur = earliest;
-  while (cur <= today) {
-    options.push(format(cur, "yyyy-MM"));
-    cur = addMonths(cur, 1);
+  let cur = PLATFORM_START_MONTH;
+  while (cur <= currentMonth) {
+    options.push(cur);
+    cur = addBusinessMonths(cur, 1);
   }
   return options.reverse(); // newest first
 }
@@ -190,8 +174,9 @@ export default function ChallanForm({
 
     // When user explicitly chooses a start month, ensure that month range is always
     // available even if backend returns a narrower set.
+    const serverMonth = payableMonthsData?.current_month || currentBusinessMonth();
     if (fromMonth) {
-      const localMonths = buildLocalMonths(fromMonth, includeUpcomingMonths, 3, paidSet);
+      const localMonths = buildLocalMonths(fromMonth, includeUpcomingMonths, 3, paidSet, serverMonth);
       return Array.from(new Set([...backendMonths, ...localMonths])).sort();
     }
 
@@ -200,8 +185,8 @@ export default function ChallanForm({
     }
 
     // Local fallback (when backend returns empty due to join_date/new-member edge cases)
-    const start = format(subMonths(new Date(), 12), "yyyy-MM");
-    return buildLocalMonths(start, includeUpcomingMonths, 3, paidSet);
+    const start = addBusinessMonths(serverMonth, -12);
+    return buildLocalMonths(start, includeUpcomingMonths, 3, paidSet, serverMonth);
   }, [payableMonthsData, fromMonth, includeUpcomingMonths, paidSet]);
 
   // Keep selection valid when selectable months change
@@ -258,7 +243,10 @@ export default function ChallanForm({
   const activeMember = members.find((m) => areSameId(m.id, formData.member_id)) || myMember;
   const monthlyAmount = activeMember?.monthly_amount || 100;
   const activeCampaigns = campaigns.filter((c) => c.status === "active");
-  const startMonthOptions = useMemo(buildStartMonthOptions, []);
+  const startMonthOptions = useMemo(
+    () => buildStartMonthOptions(payableMonthsData?.current_month || currentBusinessMonth()),
+    [payableMonthsData?.current_month]
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();

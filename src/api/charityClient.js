@@ -108,7 +108,8 @@ function parseErrorMessage(data, fallback = 'Unexpected error occurred') {
   if (Array.isArray(data?.detail) && data.detail.length > 0) {
     const messages = data.detail
       .map((item) => item?.msg || item?.message || item?.detail)
-      .filter(Boolean);
+      .filter(Boolean)
+      .map((msg) => String(msg).replace(/^Value error,\s*/i, ''));
     if (messages.length > 0) return messages.join(', ');
   }
   return fallback;
@@ -865,9 +866,10 @@ const charityClient = {
     },
 
     revert: async (id, payload = {}) => {
+      const reason = typeof payload === 'string' ? payload : (payload?.reason || '');
       return normalizeChallan(await apiFetch(API_PATHS.challans.revert(id), {
         method: 'PATCH',
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ reason }),
       }));
     },
 
@@ -933,6 +935,14 @@ const charityClient = {
         body: JSON.stringify(payload),
       });
       return normalizeBulkOperation(data);
+    },
+
+    revert: async (bulkGroupId, payload = {}) => {
+      const reason = typeof payload === 'string' ? payload : (payload?.reason || '');
+      return apiFetch(API_PATHS.bulk.revert(bulkGroupId), {
+        method: 'PATCH',
+        body: JSON.stringify({ reason }),
+      });
     },
   },
 
@@ -1423,6 +1433,21 @@ const charityClient = {
     delete: (id) =>
       apiFetch(API_PATHS.fundUtilizations.byId(id), {
         method: 'DELETE',
+      }),
+
+    approve: (id) =>
+      apiFetch(API_PATHS.fundUtilizations.approve(id), { method: 'PATCH' }),
+
+    reject: (id, reason) =>
+      apiFetch(API_PATHS.fundUtilizations.reject(id), {
+        method: 'PATCH',
+        body: JSON.stringify({ reason: typeof reason === 'string' ? reason : (reason?.reason || '') }),
+      }),
+
+    revert: (id, reason) =>
+      apiFetch(API_PATHS.fundUtilizations.revert(id), {
+        method: 'PATCH',
+        body: JSON.stringify({ reason: typeof reason === 'string' ? reason : (reason?.reason || '') }),
       }),
   },
 

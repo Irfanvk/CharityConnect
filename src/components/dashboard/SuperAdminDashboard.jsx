@@ -9,7 +9,8 @@ import { Users, Heart, AlertCircle, CheckCircle,
   Activity, Clock, BarChart3, Shield, ArrowRight,
   UserCheck, DollarSign, Target, FileText
 } from "lucide-react";
-import { format, subDays, isAfter } from "@/lib/dateTime";
+import { subDays, isAfter } from "@/lib/dateTime";
+import { formatBusinessDateTime, parseBackendDate } from "@/lib/businessTime";
 import {
   LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
@@ -38,7 +39,7 @@ export default function SuperAdminDashboard({
   const activeMembers = members.filter(m => m.status === 'active').length;
   const totalMembers = members.length;
   const recentDonations = challans
-    .filter(c => c.status === 'approved' && isAfter(new Date(c.created_date), subDays(new Date(), 7)))
+    .filter(c => c.status === 'approved' && isAfter(parseBackendDate(c.created_date), subDays(new Date(), 7)))
     .reduce((sum, c) => sum + c.amount, 0);
   
   const pendingApprovals = challans.filter(c => 
@@ -77,7 +78,7 @@ export default function SuperAdminDashboard({
   // Top contributors (fallback from challans if dashboard aggregate is unavailable)
   const recentChallans = challans.filter(c => 
     c.status === 'approved' && 
-    isAfter(new Date(c.created_date), subDays(new Date(), 30))
+    isAfter(parseBackendDate(c.created_date), subDays(new Date(), 30))
   );
   const contributorMap = {};
   recentChallans.forEach(c => {
@@ -301,7 +302,7 @@ export default function SuperAdminDashboard({
                       </p>
                       <p className="text-xs text-slate-500 truncate">{log.target_name}</p>
                       <p className="text-xs text-slate-400">
-                        {format(new Date(log.created_date), 'MMM dd, HH:mm')}
+                        {formatBusinessDateTime(log.created_date, { month: "short", day: "2-digit", year: undefined, hour12: false })}
                       </p>
                     </div>
                   </div>

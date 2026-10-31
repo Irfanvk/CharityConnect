@@ -14,6 +14,9 @@ import { format } from "@/lib/dateTime";
 import { emitNotificationsChanged } from "@/lib/notificationState";
 import { loadBulkGroups, saveBulkGroup, updateBulkGroupStatus } from "@/lib/bulkGroupStore";
 
+const MIN_REASON_LENGTH = 10;
+const OWN_PAYMENT_LABEL = "Your payment — another admin will review";
+
 export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -140,11 +143,29 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
   };
 
   const handleReject = async () => {
-    if (!selectedBulkGroupId || !rejectReason.trim()) return;
+    if (!selectedBulkGroupId || rejectReason.trim().length < MIN_REASON_LENGTH) return;
     await rejectMutation.mutateAsync({
       bulkGroupId: selectedBulkGroupId,
       reason: rejectReason.trim(),
     });
+  };
+
+  const { data: currentUser } = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: () => charityClient.auth.me(),
+  });
+
+  // Separation of duties: an admin never reviews their own bulk payment.
+  const isOwnBulk = (groupId, details) => {
+    const op =
+      details?.member_user_id != null
+        ? details
+        : bulkOperations.find((o) => String(o.bulk_group_id) === String(groupId));
+    return (
+      op?.member_user_id != null &&
+      currentUser?.id != null &&
+      Number(op.member_user_id) === Number(currentUser.id)
+    );
   };
 
   const proofUrl = selectedBulkDetails?.proof_url || null;
@@ -270,7 +291,10 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
                         >
                           View Details
                         </Button>
-                        {opIsPending && (
+                        {opIsPending && isOwnBulk(bulk.bulk_group_id, bulk) && (
+                          <p className="text-xs text-slate-500 italic self-center">{OWN_PAYMENT_LABEL}</p>
+                        )}
+                        {opIsPending && !isOwnBulk(bulk.bulk_group_id, bulk) && (
                           <>
                             <Button
                               className="bg-emerald-600 hover:bg-emerald-700"
@@ -381,6 +405,10 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
                 <Button variant="outline" onClick={() => setDetailsOpen(false)}>
                   Close
                 </Button>
+                {isOwnBulk(selectedBulkDetails.bulk_group_id || selectedBulkGroupId, selectedBulkDetails) ? (
+                  <p className="text-xs text-slate-500 italic self-center">{OWN_PAYMENT_LABEL}</p>
+                ) : (
+                  <>
                 <Button
                   className="bg-emerald-600 hover:bg-emerald-700"
                   disabled={approveMutation.isPending || rejectMutation.isPending}
@@ -401,6 +429,8 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
                 >
                   Reject All
                 </Button>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -416,16 +446,19 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
             <Textarea
               value={rejectReason}
               onChange={(event) => setRejectReason(event.target.value)}
-              placeholder="Enter rejection reason..."
+              placeholder="Enter rejection reason (min 10 characters)..."
               rows={4}
             />
+            <p className={`text-xs ${rejectReason.trim().length < MIN_REASON_LENGTH ? "text-rose-600" : "text-slate-500"}`}>
+              {rejectReason.trim().length}/{MIN_REASON_LENGTH} characters minimum
+            </p>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
                 Cancel
               </Button>
               <Button
                 variant="destructive"
-                disabled={!rejectReason.trim() || rejectMutation.isPending}
+                disabled={rejectReason.trim().length < MIN_REASON_LENGTH || rejectMutation.isPending}
                 onClick={handleReject}
               >
                 {rejectMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

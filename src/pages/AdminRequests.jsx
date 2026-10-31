@@ -79,7 +79,10 @@ export default function AdminRequests() {
   });
 
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
-
+  const OWN_REQUEST_LABEL = "Your request — another admin will review";
+  const OWN_PAYMENT_LABEL = "Your payment — another admin will review";
+  const MIN_REASON_LENGTH = 10;
+  const isOwnUser = (id) => id != null && user?.id != null && Number(id) === Number(user.id);
   const { data: requestPage = { items: [], total: 0, skip: 0, limit: pageSize }, isLoading } = useQuery({
     queryKey: queryKeys.requests.all({ status, requestType, search, currentPage, pageSize }),
     queryFn: () =>
@@ -254,8 +257,8 @@ export default function AdminRequests() {
   }, [requestPage.items, search]);
 
   const selectablePendingIds = useMemo(
-    () => filteredItems.filter((request) => request.status === "pending").map((request) => request.id),
-    [filteredItems]
+    () => filteredItems.filter((request) => request.status === "pending" && !isOwnUser(request.user_id)).map((request) => request.id),
+    [filteredItems, user?.id]
   );
   const allPendingSelected = selectablePendingIds.length > 0 && selectedRequestIds.length === selectablePendingIds.length;
 
@@ -431,7 +434,7 @@ export default function AdminRequests() {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3 min-w-0">
-                        {request.status === "pending" && (
+                        {request.status === "pending" && !isOwnUser(request.user_id) && (
                           <input
                             type="checkbox"
                             className="mt-1.5 shrink-0"
@@ -449,6 +452,9 @@ export default function AdminRequests() {
                           <p className="mt-1 text-sm font-medium text-slate-800">{request.subject || "Request"}</p>
                           <p className="text-sm text-slate-600 line-clamp-2">{request.message}</p>
                           <p className="mt-1 text-xs text-slate-500">{format(new Date(request.created_at), "MMM d, yyyy 'at' h:mm a")}</p>
+                          {request.status === "pending" && isOwnUser(request.user_id) && (
+                            <p className="mt-1 text-xs text-slate-500 italic">{OWN_REQUEST_LABEL}</p>
+                          )}
                         </div>
                       </div>
                       <Button
@@ -456,7 +462,7 @@ export default function AdminRequests() {
                         size="sm"
                         onClick={() => { setSelectedRequest(request); setReviewOpen(true); }}
                       >
-                        {request.status === "pending" ? "Review" : "View"}
+                        {request.status === "pending" && !isOwnUser(request.user_id) ? "Review" : "View"}
                       </Button>
                     </div>
                   </CardContent>
@@ -520,7 +526,10 @@ export default function AdminRequests() {
                         <p className="text-xs text-slate-400">{format(new Date(req.created_at), "MMM d, yyyy 'at' h:mm a")}</p>
                       </div>
                       <div className="flex flex-col items-end gap-1.5 shrink-0">
-                        {req.status === "pending" && (
+                        {req.status === "pending" && isOwnUser(req.user_id) && (
+                          <p className="text-xs text-slate-500 italic">{OWN_REQUEST_LABEL}</p>
+                        )}
+                        {req.status === "pending" && !isOwnUser(req.user_id) && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -564,7 +573,9 @@ export default function AdminRequests() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {pendingChallanItems.map((item) => (
+              {pendingChallanItems.map((item) => {
+                const ownItem = isOwnUser(item.member_user_id);
+                return (
                 <Card key={item.key} className="border-0 shadow-sm">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
@@ -584,6 +595,10 @@ export default function AdminRequests() {
                         <p className="mt-1 text-xs text-slate-500">{format(new Date(item.created_at), "MMM d, yyyy 'at' h:mm a")}</p>
                       </div>
                       <div className="flex flex-col items-end gap-1.5 shrink-0">
+                        {ownItem ? (
+                          <p className="text-xs text-slate-500 italic">{OWN_PAYMENT_LABEL}</p>
+                        ) : (
+                          <>
                         <Button
                           size="sm"
                           className="bg-emerald-600 hover:bg-emerald-700"
@@ -599,11 +614,14 @@ export default function AdminRequests() {
                         >
                           Reject
                         </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -667,7 +685,7 @@ export default function AdminRequests() {
                 <p className="text-slate-700">{selectedRequest.message}</p>
               </div>
 
-              {selectedRequest.status === "pending" ? (
+              {selectedRequest.status === "pending" && !isOwnUser(selectedRequest.user_id) ? (
                 <>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-slate-700">Admin notes (optional)</label>
@@ -698,6 +716,7 @@ export default function AdminRequests() {
               ) : (
                 <div className="text-sm text-slate-600 rounded-md border p-3">
                   Status: <strong>{selectedRequest.status}</strong>
+                  {selectedRequest.status === "pending" && <p className="mt-2 italic">{OWN_REQUEST_LABEL}</p>}
                   {selectedRequest.admin_notes && <p className="mt-2">Admin notes: {selectedRequest.admin_notes}</p>}
                   {selectedRequest.rejection_reason && <p className="mt-2">Reason: {selectedRequest.rejection_reason}</p>}
                 </div>
@@ -858,11 +877,12 @@ export default function AdminRequests() {
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">Rejection reason (required)</label>
                 <Textarea value={challanRejectReason} onChange={(e) => setChallanRejectReason(e.target.value)} rows={3} />
+                <p className={`text-xs ${challanRejectReason.trim().length < MIN_REASON_LENGTH ? "text-rose-600" : "text-slate-500"}`}>{challanRejectReason.trim().length}/{MIN_REASON_LENGTH} characters minimum</p>
               </div>
               <Button
                 variant="destructive"
                 className="w-full"
-                disabled={rejectChallanMutation.isPending || !challanRejectReason.trim()}
+                disabled={rejectChallanMutation.isPending || challanRejectReason.trim().length < MIN_REASON_LENGTH}
                 onClick={() => rejectChallanMutation.mutate({ item: selectedChallanItem, reason: challanRejectReason })}
               >
                 {rejectChallanMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Reject Challan"}

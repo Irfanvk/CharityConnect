@@ -59,6 +59,7 @@ import {
   Layers,
 } from "lucide-react";
 import { format } from "@/lib/dateTime";
+import { currentBusinessMonth, formatBusinessDate } from "@/lib/businessTime";
 import ChallanForm from "@/components/challans/ChallanForm";
 import ProofUpload from "@/components/challans/ProofUpload";
 import PullToRefresh from "@/components/mobile/PullToRefresh";
@@ -115,6 +116,9 @@ const normalizeId = (value) =>
   value === null || value === undefined ? "" : String(value);
 
 const CHALLAN_FETCH_BATCH_SIZE = 200;
+const MIN_REASON_LENGTH = 10;
+const OWN_PAYMENT_LABEL = "Your payment — another admin will review";
+const OWN_APPROVAL_TOOLTIP = "A different admin must reverse your approval";
 const PLATFORM_START_MONTH = "2024-08";
 
 const parseAmount = (amount) => {
@@ -174,6 +178,8 @@ export default function Challans() {
   const [proofViewOpen, setProofViewOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [revertTarget, setRevertTarget] = useState(null);
+  const [revertReason, setRevertReason] = useState("");
   // Tracks which challan is mid-approve to show inline spinner & block double-tap
   const [approvingId, setApprovingId] = useState(null);
 
@@ -229,6 +235,17 @@ export default function Challans() {
   // - Members: single-item array so ChallanForm can resolve the name
   const membersForForm = isAdmin ? members : (myMember ? [myMember] : []);
 
+  // Separation of duties: an admin never reviews their own payments.
+  const isOwnRecord = useCallback(
+    (item) => {
+      if (!isAdmin || !user || !item) return false;
+      if (item.member_user_id != null) {
+        return Number(item.member_user_id) === Number(user.id);
+      }
+      return !!myMember && normalizeId(item.member_id) === normalizeId(myMember.id);
+    },
+    [isAdmin, user, myMember]
+  );
   // ── Server-side filter param builder ─────────────────────────────────────
   /**
    * Returns the query-string params object passed to charityClient.challans.list().
@@ -483,14 +500,19 @@ export default function Challans() {
   }, [normalisedSourceChallans, adminBulkOps]);
 
   const filteredGroupedChallans = useMemo(() => {
+    let entries = groupedChallans;
+    // Own payments are reviewed by another admin, so keep them out of the review queue.
+    if (isAdmin && statusFilter === "pending") {
+      entries = entries.filter((entry) => !isOwnRecord(entry));
+    }
     if (entryFilter === "bulk") {
-      return groupedChallans.filter((entry) => entry.is_bulk_group);
+      return entries.filter((entry) => entry.is_bulk_group);
     }
     if (entryFilter === "individual") {
-      return groupedChallans.filter((entry) => !entry.is_bulk_group);
+      return entries.filter((entry) => !entry.is_bulk_group);
     }
-    return groupedChallans;
-  }, [groupedChallans, entryFilter]);
+    return entries;
+  }, [groupedChallans, entryFilter, isAdmin, statusFilter, isOwnRecord]);
 
   const normalisedChallans = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -714,9 +736,7 @@ export default function Challans() {
         return;
       }
 
-      await charityClient.challans.approve(challan.id, {
-        approved_by_admin_id: user?.id,
-      });
+      await charityClient.challans.approve(challan.id, {});
 
       await refreshChallanData();
       emitNotificationsChanged('updated');
@@ -736,27 +756,31 @@ export default function Challans() {
   // FIX: try/catch added — original silently dropped errors.
   const handleReject = async () => {
     if (!selectedChallan) return;
+    const reason = rejectReason.trim();
+    if (reason.length < MIN_REASON_LENGTH) return;
     try {
       if (selectedChallan.is_bulk_group && selectedChallan.bulk_group_id) {
         await charityClient.bulkOperations.reject(selectedChallan.bulk_group_id, {
-          reason: rejectReason,
+          reason,
           action: "reject",
         });
         updateBulkGroupStatus(selectedChallan.bulk_group_id, 'rejected');
 
         await refreshChallanData();
         setRejectReason("");
+        setRejectOpen(false);
         emitNotificationsChanged('updated');
         toast({ title: "Bulk challan rejected." });
         return;
       }
 
       await charityClient.challans.reject(selectedChallan.id, {
-        rejection_reason: rejectReason,
+        rejection_reason: reason,
       });
 
       await refreshChallanData();
       setRejectReason("");
+      setRejectOpen(false);
       emitNotificationsChanged('updated');
       toast({ title: "Challan rejected." });
     } catch (error) {
@@ -769,11 +793,22 @@ export default function Challans() {
   };
 
   // ── Revert to Pending ─────────────────────────────────────────────────────
-  const handleRevert = async (challan) => {
+  const handleRevert = async () => {
+    if (!revertTarget) return;
+    const reason = revertReason.trim();
+    if (reason.length < MIN_REASON_LENGTH) return;
     try {
-      await charityClient.challans.revert(challan.id, {});
+      if (revertTarget.is_bulk_group && revertTarget.bulk_group_id) {
+        await charityClient.bulkOperations.revert(revertTarget.bulk_group_id, { reason });
+        updateBulkGroupStatus(revertTarget.bulk_group_id, 'pending_approval');
+      } else {
+        await charityClient.challans.revert(revertTarget.id, { reason });
+      }
 
       await refreshChallanData();
+      setRevertTarget(null);
+      setRevertReason("");
+      emitNotificationsChanged('updated');
       toast({ title: "Challan reverted to pending." });
     } catch (error) {
       toast({
@@ -787,7 +822,7 @@ export default function Challans() {
   // ── Misc helpers ──────────────────────────────────────────────────────────
   const getSuggestedNumber = () => {
     const prefix = "CHN";
-    const year = format(new Date(), "yy");
+    const year = currentBusinessMonth().slice(2, 4);
     const count = normalisedSourceChallans.length + 1;
     return `${prefix}${year}-${String(count).padStart(4, "0")}`;
   };
@@ -961,8 +996,13 @@ export default function Challans() {
                     const isOwner =
                       myMember &&
                       normalizeId(challan.member_id) === normalizeId(myMember.id);
+                    const isOwnPayment = isOwnRecord(challan);
+                    const approvedByMe =
+                      challan.status === "approved" &&
+                      challan.approved_by_admin_id != null &&
+                      Number(challan.approved_by_admin_id) === Number(user?.id);
                     const canMutateBeforeApproval =
-                      !challan.is_bulk_group && challan.status !== "approved" && (isAdmin || isOwner);
+                      !challan.is_bulk_group && challan.status !== "approved" && (isAdmin || isOwner) && !isOwnPayment;
                     const linkedMember = members.find(
                       (m) => normalizeId(m.id) === normalizeId(challan.member_id)
                     );
@@ -1048,9 +1088,9 @@ export default function Challans() {
                         {/* Date */}
                         <TableCell>
                           {challan.created_date || challan.approved_at || challan.proof_uploaded_at
-                            ? format(
-                              new Date(challan.created_date || challan.approved_at || challan.proof_uploaded_at),
-                              "MMM d, yyyy"
+                            ? formatBusinessDate(
+                              challan.created_date || challan.approved_at || challan.proof_uploaded_at,
+                              { month: "short", day: "numeric", year: "numeric" }
                             )
                             : "N/A"}
                         </TableCell>
@@ -1074,6 +1114,20 @@ export default function Challans() {
                                   Reason: {challan.rejection_reason}
                                 </p>
                               )}
+                            {isAdmin && challan.approved_by_name && (
+                              <p className="text-xs text-slate-500">
+                                Approved by {challan.approved_by_name}
+                              </p>
+                            )}
+                            {isAdmin && challan.reversed_by_name && (
+                              <p className="text-xs text-amber-700">
+                                Reversed by {challan.reversed_by_name}
+                                {challan.reversal_reason ? `: ${challan.reversal_reason}` : ""}
+                              </p>
+                            )}
+                            {isOwnPayment && (
+                              <p className="text-xs text-slate-500 italic">{OWN_PAYMENT_LABEL}</p>
+                            )}
                           </div>
                         </TableCell>
 
@@ -1146,7 +1200,7 @@ export default function Challans() {
                               )}
 
                               {/* Admin: Approve / Reject */}
-                              {isAdmin &&
+                              {isAdmin && !isOwnPayment &&
                                 (challan.status === "proof_uploaded" ||
                                   challan.status === "pending") && (
                                   <>
@@ -1177,11 +1231,16 @@ export default function Challans() {
                                 )}
 
                               {/* Admin: Revert / Reject approved challan */}
-                              {isAdmin && !challan.is_bulk_group && challan.status === "approved" && (
+                              {isAdmin && !isOwnPayment && !challan.is_bulk_group && challan.status === "approved" && (
                                 <>
                                   <DropdownMenuItem
-                                    onClick={() => handleRevert(challan)}
+                                    onClick={() => {
+                                      setRevertTarget(challan);
+                                      setRevertReason("");
+                                    }}
                                     className="text-amber-600"
+                                    disabled={approvedByMe}
+                                    title={approvedByMe ? OWN_APPROVAL_TOOLTIP : undefined}
                                   >
                                     <Undo2 className="w-4 h-4 mr-2" />
                                     Revert to Pending
@@ -1192,6 +1251,8 @@ export default function Challans() {
                                       setRejectOpen(true);
                                     }}
                                     className="text-rose-600"
+                                    disabled={approvedByMe}
+                                    title={approvedByMe ? OWN_APPROVAL_TOOLTIP : undefined}
                                   >
                                     <XCircle className="w-4 h-4 mr-2" />
                                     Reject
@@ -1200,9 +1261,12 @@ export default function Challans() {
                               )}
 
                               {/* Admin: Revert rejected challan */}
-                              {isAdmin && !challan.is_bulk_group && challan.status === "rejected" && (
+                              {isAdmin && !isOwnPayment && !challan.is_bulk_group && challan.status === "rejected" && (
                                 <DropdownMenuItem
-                                  onClick={() => handleRevert(challan)}
+                                  onClick={() => {
+                                    setRevertTarget(challan);
+                                    setRevertReason("");
+                                  }}
                                   className="text-amber-600"
                                 >
                                   <Undo2 className="w-4 h-4 mr-2" />
@@ -1407,11 +1471,14 @@ export default function Challans() {
             </DialogHeader>
             <div className="space-y-4">
               <Textarea
-                placeholder="Enter rejection reason..."
+                placeholder="Enter rejection reason (min 10 characters)..."
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 rows={3}
               />
+              <p className={`text-xs ${rejectReason.trim().length < MIN_REASON_LENGTH ? "text-rose-600" : "text-slate-500"}`}>
+                {rejectReason.trim().length}/{MIN_REASON_LENGTH} characters minimum
+              </p>
               <div className="flex justify-end gap-3">
                 <Button
                   variant="outline"
@@ -1425,9 +1492,55 @@ export default function Challans() {
                 <Button
                   onClick={handleReject}
                   className="bg-rose-600 hover:bg-rose-700"
-                  disabled={!rejectReason}
+                  disabled={rejectReason.trim().length < MIN_REASON_LENGTH}
                 >
                   Reject
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Revert Dialog */}
+        <Dialog
+          open={!!revertTarget}
+          onOpenChange={(open) => {
+            if (!open) {
+              setRevertTarget(null);
+              setRevertReason("");
+            }
+          }}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Revert to Pending</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Textarea
+                placeholder="Enter reason for reverting (min 10 characters)..."
+                value={revertReason}
+                onChange={(e) => setRevertReason(e.target.value)}
+                rows={3}
+              />
+              <p className={`text-xs ${revertReason.trim().length < MIN_REASON_LENGTH ? "text-rose-600" : "text-slate-500"}`}>
+                {revertReason.trim().length}/{MIN_REASON_LENGTH} characters minimum
+              </p>
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setRevertTarget(null);
+                    setRevertReason("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleRevert}
+                  className="bg-amber-600 hover:bg-amber-700"
+                  disabled={revertReason.trim().length < MIN_REASON_LENGTH}
+                >
+                  Revert
                 </Button>
               </div>
             </div>

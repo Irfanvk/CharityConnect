@@ -5,7 +5,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { Users, Heart, TrendingUp, Calendar, Clock, Bell, BookOpen, LogOut, MapPinned, Receipt, User, Wallet } from "lucide-react";
-import { format } from "@/lib/dateTime";
+import { currentBusinessMonth, formatBusinessDate } from "@/lib/businessTime";
+
+const businessTodayLabel = () =>
+  `${formatBusinessDate(new Date(), { weekday: "long", month: "long", day: "numeric", year: "numeric" })} (IST)`;
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StatsCard from "@/components/dashboard/StatsCard";
 import RecentActivity from "@/components/dashboard/RecentActivity";
@@ -35,7 +38,7 @@ export default function Dashboard() {
   const [adminTab, setAdminTab] = useState("overview");
   const [showWayfinding, setShowWayfinding] = useState(false);
   const queryClient = useQueryClient();
-  const currentMonth = format(new Date(), 'yyyy-MM');
+  const currentMonth = currentBusinessMonth();
 
   const isSuperAdmin = user?.is_superadmin === true || user?.role === 'superadmin';
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
@@ -422,7 +425,7 @@ export default function Dashboard() {
               </p>
               <div className="flex items-center gap-2 mt-4 text-purple-100">
                 <Calendar className="w-4 h-4" />
-                <span>{format(new Date(), "EEEE, MMMM d, yyyy")}</span>
+                <span>{businessTodayLabel()}</span>
               </div>
             </div>
           </div>
@@ -466,7 +469,7 @@ export default function Dashboard() {
               <p className="text-emerald-100">Track your contributions and stay connected</p>
               <div className="flex items-center gap-2 mt-3 text-emerald-100 text-sm">
                 <Calendar className="w-4 h-4" />
-                <span>{format(new Date(), "EEEE, MMMM d, yyyy")}</span>
+                <span>{businessTodayLabel()}</span>
               </div>
             </div>
           </div>
@@ -518,7 +521,7 @@ export default function Dashboard() {
             </p>
             <div className="flex items-center gap-2 mt-4 text-emerald-100">
               <Calendar className="w-4 h-4" />
-              <span>{format(new Date(), "EEEE, MMMM d, yyyy")}</span>
+              <span>{businessTodayLabel()}</span>
             </div>
           </div>
         </div>

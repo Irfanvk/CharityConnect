@@ -96,7 +96,20 @@ export default function FundUtilization() {
   const [editingRecord, setEditingRecord] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [tab, setTab] = useState("all");
+  const [reasonAction, setReasonAction] = useState(null); // { type: "reject" | "revert", record }
+  const [reason, setReason] = useState("");
 
+  const { data: currentUser } = useQuery({
+    queryKey: ["auth", "me", "fund-utilization"],
+    queryFn: () => charityClient.auth.me(),
+  });
+  const isMine = (record) =>
+    currentUser?.id != null && Number(record.registered_by_admin_id) === Number(currentUser.id);
+  const approvedByMe = (record) =>
+    currentUser?.id != null &&
+    record.approved_by_admin_id != null &&
+    Number(record.approved_by_admin_id) === Number(currentUser.id);
   // ── Queries ───────────────────────────────────────────────────────────────
   const { data: summary, isLoading: summaryLoading } = useQuery({
     queryKey: QUERY_KEY_SUMMARY,
@@ -149,6 +162,51 @@ export default function FundUtilization() {
   });
 
   // ── Handlers ──────────────────────────────────────────────────────────────
+  const onReviewSuccess = (title) => () => {
+    queryClient.invalidateQueries({ queryKey: ["fund-utilizations"] });
+    emitNotificationsChanged('updated');
+    toast({ title });
+    setReasonAction(null);
+    setReason("");
+  };
+  const onReviewError = (fallback) => (err) => {
+    toast({ title: "Error", description: err?.message || fallback, variant: "destructive" });
+  };
+
+  const approveMutation = useMutation({
+    mutationFn: (id) => charityClient.fundUtilizations.approve(id),
+    onSuccess: onReviewSuccess("Fund utilization approved."),
+    onError: onReviewError("Failed to approve."),
+  });
+
+  const reasonMutation = useMutation({
+    mutationFn: ({ type, id, reason: text }) =>
+      type === "reject"
+        ? charityClient.fundUtilizations.reject(id, text)
+        : charityClient.fundUtilizations.revert(id, text),
+    onSuccess: (_d, vars) =>
+      onReviewSuccess(vars.type === "reject" ? "Fund utilization rejected." : "Approval reverted to pending.")(),
+    onError: onReviewError("Action failed."),
+  });
+
+  const MIN_REASON_LENGTH = 10;
+  const reasonValid = reason.trim().length >= MIN_REASON_LENGTH;
+
+  const statusBadge = (record) => {
+    const cls =
+      record.status === "approved"
+        ? "bg-emerald-100 text-emerald-700"
+        : record.status === "rejected"
+          ? "bg-rose-100 text-rose-700"
+          : "bg-amber-100 text-amber-700";
+    return <Badge className={`${cls} border-0 capitalize`}>{record.status || "pending"}</Badge>;
+  };
+
+  const visibleRecords =
+    tab === "needs"
+      ? records.filter((r) => r.status === "pending" && !isMine(r))
+      : records;
+  const needsCount = records.filter((r) => r.status === "pending" && !isMine(r)).length;
   function openCreate() {
     setEditingRecord(null);
     setForm(emptyForm);
@@ -232,7 +290,7 @@ export default function FundUtilization() {
           Loading summary…
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <SummaryCard
             icon={TrendingUp}
             label="Total Collected"
@@ -241,9 +299,15 @@ export default function FundUtilization() {
           />
           <SummaryCard
             icon={TrendingDown}
-            label="Total Utilized"
+            label="Approved Total"
             value={summary?.total_utilized}
             colorClass="bg-red-500"
+          />
+          <SummaryCard
+            icon={Wallet}
+            label={`Pending Total${summary?.pending_count ? ` (${summary.pending_count})` : ""}`}
+            value={summary?.pending_utilized_total}
+            colorClass="bg-amber-500"
           />
           <SummaryCard
             icon={PiggyBank}
@@ -269,6 +333,14 @@ export default function FundUtilization() {
       <Card>
         <CardHeader>
           <CardTitle>Utilization Records</CardTitle>
+          <div className="mt-3 flex gap-2">
+            <Button size="sm" variant={tab === "all" ? "default" : "outline"} onClick={() => setTab("all")}>
+              All
+            </Button>
+            <Button size="sm" variant={tab === "needs" ? "default" : "outline"} onClick={() => setTab("needs")}>
+              Needs your approval ({needsCount})
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {listLoading ? (
@@ -276,7 +348,7 @@ export default function FundUtilization() {
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading records…
             </div>
-          ) : records.length === 0 ? (
+          ) : visibleRecords.length === 0 ? (
             <p className="py-8 text-center text-muted-foreground">No fund utilization records found.</p>
           ) : (
             <div className="overflow-x-auto">
@@ -289,11 +361,12 @@ export default function FundUtilization() {
                     <TableHead>Recipient</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Registered By</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {records.map((record) => (
+                  {visibleRecords.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell className="font-medium">
                         <div>{record.title}</div>
@@ -323,13 +396,64 @@ export default function FundUtilization() {
                           : "—"}
                       </TableCell>
                       <TableCell>{record.registered_by_name || `Admin #${record.registered_by_admin_id}`}</TableCell>
+                      <TableCell>
+                        {statusBadge(record)}
+                        {record.status === "approved" && record.approved_by_name && (
+                          <div className="text-xs text-muted-foreground">by {record.approved_by_name}</div>
+                        )}
+                        {record.status === "rejected" && record.rejection_reason && (
+                          <div className="max-w-xs text-xs text-rose-600">Reason: {record.rejection_reason}</div>
+                        )}
+                        {record.status === "pending" && record.reversal_reason && (
+                          <div className="max-w-xs text-xs text-amber-700">
+                            Reverted{record.reversed_by_name ? ` by ${record.reversed_by_name}` : ""}: {record.reversal_reason}
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          {record.status === "pending" && !isMine(record) && (
+                            <>
+                              <Button
+                                size="sm"
+                                className="bg-emerald-600 hover:bg-emerald-700"
+                                disabled={approveMutation.isPending}
+                                onClick={() => approveMutation.mutate(record.id)}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => { setReasonAction({ type: "reject", record }); setReason(""); }}
+                              >
+                                Reject
+                              </Button>
+                            </>
+                          )}
+                          {record.status === "pending" && isMine(record) && (
+                            <span className="self-center text-xs italic text-muted-foreground">
+                              Awaiting another admin
+                            </span>
+                          )}
+                          {record.status === "approved" && (
+                            <span title={approvedByMe(record) ? "A different admin must reverse your approval" : undefined}>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={approvedByMe(record)}
+                                onClick={() => { setReasonAction({ type: "revert", record }); setReason(""); }}
+                              >
+                                Revert
+                              </Button>
+                            </span>
+                          )}
                           <Button
                             size="sm"
                             variant="ghost"
+                            disabled={record.status === "approved" || !isMine(record)}
                             onClick={() => openEdit(record)}
-                            title="Edit"
+                            title={record.status === "approved" ? "Approved entries cannot be edited" : "Edit"}
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -337,8 +461,9 @@ export default function FundUtilization() {
                             size="sm"
                             variant="ghost"
                             className="text-destructive hover:text-destructive"
+                            disabled={record.status === "approved" || !isMine(record)}
                             onClick={() => setDeleteTarget(record)}
-                            title="Delete"
+                            title={record.status === "approved" ? "Approved entries cannot be deleted" : "Delete"}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -352,6 +477,47 @@ export default function FundUtilization() {
           )}
         </CardContent>
       </Card>
+
+      {/* Reject / Revert reason dialog */}
+      <Dialog open={!!reasonAction} onOpenChange={(open) => { if (!open) { setReasonAction(null); setReason(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {reasonAction?.type === "reject" ? "Reject Fund Utilization" : "Revert Approval"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={3}
+              placeholder="Enter reason (min 10 characters)..."
+            />
+            <p className={`text-xs ${reasonValid ? "text-muted-foreground" : "text-rose-600"}`}>
+              {reason.trim().length}/{MIN_REASON_LENGTH} characters minimum
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setReasonAction(null); setReason(""); }}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={!reasonValid || reasonMutation.isPending}
+                onClick={() =>
+                  reasonMutation.mutate({
+                    type: reasonAction.type,
+                    id: reasonAction.record.id,
+                    reason: reason.trim(),
+                  })
+                }
+              >
+                {reasonMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {reasonAction?.type === "reject" ? "Reject" : "Revert"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); }}>
