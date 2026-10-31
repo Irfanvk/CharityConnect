@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useDeepLink } from "@/lib/useDeepLink";
 import { formatMemberId, sanitizeShareUrl } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { charityClient } from "@/api/charityClient";
@@ -36,8 +38,11 @@ const getRequestLabel = (request) => {
   return typeLabel[request.request_type] || request.request_type;
 };
 
+const REQUEST_DEEP_LINK_PARAMS = ["request"];
+
 export default function AdminRequests() {
-  const [activeTab, setActiveTab] = useState("member"); // "member" | "password" | "challans"
+  const [linkParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => (linkParams.get("tab") === "password" ? "password" : "member")); // "member" | "password" | "challans"
   const [status, setStatus] = useState("all");
   const [requestType, setRequestType] = useState("all");
   const [search, setSearch] = useState("");
@@ -302,6 +307,8 @@ export default function AdminRequests() {
     },
   });
 
+  useDeepLink({ params: REQUEST_DEEP_LINK_PARAMS, ready: !isLoading && !prLoading });
+
   if (!isAdmin) {
     return (
       <Card className="border-0 shadow-sm">
@@ -430,7 +437,7 @@ export default function AdminRequests() {
               )}
 
               {filteredItems.map((request) => (
-                <Card key={request.id} className="border-0 shadow-sm">
+                <Card key={request.id} data-deeplink={`request-${request.id}`} className="border-0 shadow-sm transition-colors">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3 min-w-0">
@@ -507,7 +514,7 @@ export default function AdminRequests() {
           ) : (
             <div className="space-y-3">
               {prRequests.map((req) => (
-                <Card key={req.id} className="border-0 shadow-sm">
+                <Card key={req.id} data-deeplink={`request-${req.id}`} className="border-0 shadow-sm transition-colors">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 space-y-0.5">

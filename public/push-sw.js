@@ -11,30 +11,56 @@ self.addEventListener('push', (event) => {
   }
 
   const title = payload.title || 'New Notification';
+  const data = payload.data || { url: '/Notifications' };
   const options = {
     body: payload.body || '',
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
     tag: payload.tag || 'charityhub-notification',
-    data: payload.data || { url: '/notifications' },
+    data,
     renotify: false,
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  const unread = Number(payload.unread_count ?? data.unread_count);
+
+  event.waitUntil((async () => {
+    await self.registration.showNotification(title, options);
+
+    if (Number.isFinite(unread) && self.navigator && 'setAppBadge' in self.navigator) {
+      try {
+        await (unread > 0 ? self.navigator.setAppBadge(unread) : self.navigator.clearAppBadge());
+      } catch {
+        // Badging is optional.
+      }
+    }
+
+    // Tell open windows to refresh the bell and list immediately.
+    const windows = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    windows.forEach((client) => client.postMessage({ type: 'notification-received', unread_count: unread }));
+  })());
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const relativeUrl = event.notification?.data?.url || '/notifications';
+  const relativeUrl = event.notification?.data?.link_url || event.notification?.data?.url || '/Notifications';
   // openWindow requires an absolute URL; self.location.origin covers any domain (dev, Netlify, custom)
   const absoluteUrl = relativeUrl.startsWith('http') ? relativeUrl : self.location.origin + relativeUrl;
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clientList) => {
       for (const client of clientList) {
         if ('focus' in client) {
+          // The app listens for this message and routes in-app; navigate() is the fallback.
           client.postMessage({ type: 'notification-click', url: absoluteUrl });
-          return client.focus();
+          const focused = await client.focus();
+          if (focused && 'navigate' in focused) {
+            try {
+              await focused.navigate(absoluteUrl);
+            } catch {
+              // Message-based routing already handled it.
+            }
+          }
+          return focused;
         }
       }
 

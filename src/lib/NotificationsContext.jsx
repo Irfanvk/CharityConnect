@@ -73,6 +73,14 @@ export function NotificationsProvider({ children }) {
     return snapshot;
   }, []);
 
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('setAppBadge' in navigator)) return;
+    const apply = isAuthenticated && unreadCount > 0
+      ? navigator.setAppBadge(unreadCount)
+      : navigator.clearAppBadge();
+    Promise.resolve(apply).catch(() => {});
+  }, [isAuthenticated, unreadCount]);
+
   // ─── Core fetch ────────────────────────────────────────────────────────────
 
   /**
@@ -229,6 +237,15 @@ export function NotificationsProvider({ children }) {
 
     schedulePoll();
 
+    const onServiceWorkerMessage = (event) => {
+      if (event?.data?.type === 'notification-received') {
+        refresh(undefined, { force: true });
+      }
+    };
+    if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
+      navigator.serviceWorker.addEventListener('message', onServiceWorkerMessage);
+    }
+
     window.addEventListener('focus', onVisibilityOrFocus);
     window.addEventListener('online', onOnline);
     document.addEventListener('visibilitychange', onVisibilityOrFocus);
@@ -240,6 +257,9 @@ export function NotificationsProvider({ children }) {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       unsubscribeRealtime();
       if (channel) channel.close();
+      if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
+        navigator.serviceWorker.removeEventListener('message', onServiceWorkerMessage);
+      }
       window.removeEventListener('focus', onVisibilityOrFocus);
       window.removeEventListener('online', onOnline);
       document.removeEventListener('visibilitychange', onVisibilityOrFocus);

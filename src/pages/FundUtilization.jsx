@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useDeepLink } from "@/lib/useDeepLink";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { emitNotificationsChanged } from "@/lib/notificationState";
 import { charityClient } from "@/api/charityClient";
@@ -88,6 +90,8 @@ const emptyForm = {
   date: format(new Date(), "yyyy-MM-dd"),
 };
 
+const ENTRY_DEEP_LINK_PARAMS = ["entry"];
+
 export default function FundUtilization() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -96,7 +100,8 @@ export default function FundUtilization() {
   const [editingRecord, setEditingRecord] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [tab, setTab] = useState("all");
+  const [linkParams] = useSearchParams();
+  const [tab, setTab] = useState(() => (linkParams.get("tab") === "approval" ? "needs" : "all"));
   const [reasonAction, setReasonAction] = useState(null); // { type: "reject" | "revert", record }
   const [reason, setReason] = useState("");
 
@@ -268,6 +273,8 @@ export default function FundUtilization() {
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
+  useDeepLink({ params: ENTRY_DEEP_LINK_PARAMS, ready: !listLoading });
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -367,7 +374,7 @@ export default function FundUtilization() {
                 </TableHeader>
                 <TableBody>
                   {visibleRecords.map((record) => (
-                    <TableRow key={record.id}>
+                    <TableRow key={record.id} data-deeplink={`entry-${record.id}`} className="transition-colors">
                       <TableCell className="font-medium">
                         <div>{record.title}</div>
                         {record.description && (

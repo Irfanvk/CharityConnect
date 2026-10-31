@@ -67,6 +67,7 @@ export const API_PATHS = {
     approvePasswordReset: (id) => `/admin/password-reset-requests/${id}/approve`,
     rejectPasswordReset: (id) => `/admin/password-reset-requests/${id}/reject`,
     notificationDeliveryPreview: '/admin/notifications/delivery-preview',
+    notificationDeliveryOverview: '/admin/notifications/delivery-overview',
   },
   campaigns: {
     list: '/campaigns/',
@@ -90,6 +91,8 @@ export const API_PATHS = {
     markAllRead: '/notifications/mark-all-read',
     unreadCount: '/notifications/unread/count',
     adminSent: '/notifications/admin/sent',
+    preferences: '/notifications/preferences',
+    testPush: '/notifications/test-push',
   },
   requests: {
     list: '/requests/',

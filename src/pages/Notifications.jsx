@@ -44,6 +44,9 @@ import {
   isNotificationDismissed,
 } from "@/lib/notificationState";
 import { useNotifications } from "@/context/NotificationContext";
+import { useNavigate } from "react-router-dom";
+import NotificationSettingsCard from "@/components/NotificationSettingsCard";
+import { getNotificationLink } from "@/lib/notificationLinks";
 
 const TYPE_CONFIG = {
   info: { label: "General", color: "bg-blue-100 text-blue-700", icon: Info },
@@ -60,6 +63,8 @@ function resolveAudience(label) {
 
 export default function Notifications() {
   const [formOpen, setFormOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);      // individual notification
@@ -107,6 +112,8 @@ export default function Notifications() {
       await markReadByIds([n.id]);
       emitNotificationsChanged("read");
     }
+    const link = getNotificationLink(n);
+    if (link) navigate(link);
   };
 
   const handleMarkAllAsRead = async () => {
@@ -191,6 +198,11 @@ export default function Notifications() {
               : "Your latest updates and announcements"}
           </p>
         </div>
+        <div className="flex items-center gap-2 shrink-0">
+        <Button variant="outline" onClick={() => setSettingsOpen(true)}>
+          <Bell className="w-4 h-4 mr-2" />
+          Settings
+        </Button>
         {isAdmin && (
           <Button
             onClick={() => setFormOpen(true)}
@@ -200,7 +212,18 @@ export default function Notifications() {
             Send Announcement
           </Button>
         )}
+        </div>
       </div>
+
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Notification settings</DialogTitle>
+            <DialogDescription>Choose what reaches this device and when.</DialogDescription>
+          </DialogHeader>
+          <NotificationSettingsCard />
+        </DialogContent>
+      </Dialog>
 
       {/* ── Send History (admin only) ────────────────────────────────── */}
       {isAdmin && (
@@ -309,6 +332,7 @@ export default function Notifications() {
                 <div
                   key={notification.id}
                   onClick={() => markAsRead(notification)}
+                  role={getNotificationLink(notification) ? "link" : undefined}
                   className={`relative flex items-start gap-3 rounded-xl border p-4 cursor-pointer transition-all group
                     ${read
                       ? "border-slate-200 bg-white hover:bg-slate-50"

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Share } from 'lucide-react';
 import { isIOSDevice, isStandalone, safeLocalStorage } from '@/lib/device';
+import { isIOSBelow164 } from '@/lib/pushSetup';
+import { IOSInstallSteps } from '@/components/IOSInstallSteps';
 
 const DISMISS_KEY = 'ios_install_dismissed';
 
@@ -26,10 +28,8 @@ export function IOSInstallPrompt() {
           <Share className="w-5 h-5 text-white" />
         </div>
         <div className="flex-1">
-          <p className="font-semibold text-slate-800 text-sm">Add PMB GCC PORTAL to your home screen</p>
-          <p className="text-slate-500 text-xs mt-1">
-            Open in Safari → tap <strong>Share</strong> <span aria-label="share icon">↑</span> → tap <strong>"Add to Home Screen"</strong>
-          </p>
+          <p className="font-semibold text-slate-800 text-sm mb-1">Install PMB GCC PORTAL on your iPhone</p>
+          <IOSInstallSteps unsupported={isIOSBelow164()} />
         </div>
       </div>
       <button

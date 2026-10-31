@@ -207,6 +207,11 @@ function normalizeNotification(notification) {
     target_type: normalized.target_type || 'all',
     read_by: Array.isArray(normalized.read_by) ? normalized.read_by : [],
     is_read: Boolean(normalized.is_read),
+    category: normalized.category || null,
+    link_url: normalized.link_url || null,
+    entity_type: normalized.entity_type || null,
+    entity_id: normalized.entity_id ?? null,
+    is_urgent: Boolean(normalized.is_urgent),
   };
 }
 
@@ -981,6 +986,9 @@ const charityClient = {
       return apiFetch(API_PATHS.admin.dashboardCharts, { method: 'GET' }, params);
     },
 
+    notificationDeliveryOverview: async (query = {}) =>
+      apiFetch(API_PATHS.admin.notificationDeliveryOverview, { method: 'GET' }, query),
+
     userMonitoring: async () => {
       return apiFetch(API_PATHS.admin.userMonitoring, { method: 'GET' });
     },
@@ -1259,6 +1267,21 @@ const charityClient = {
         body: JSON.stringify(subscription),
       }),
 
+    getPreferences: () =>
+      apiFetch(API_PATHS.notifications.preferences, { method: 'GET' }),
+
+    savePreferences: (payload) =>
+      apiFetch(API_PATHS.notifications.preferences, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      }),
+
+    sendTestPush: (userId) =>
+      apiFetch(API_PATHS.notifications.testPush, {
+        method: 'POST',
+        body: JSON.stringify(userId ? { user_id: userId } : {}),
+      }),
+
     pushUnsubscribe: (endpoint) =>
       apiFetch(API_PATHS.notifications.pushUnsubscribe, {
         method: 'POST',
@@ -1286,6 +1309,13 @@ const charityClient = {
       }
 
       const eventSource = new EventSource(streamUrl.toString());
+
+      let opened = false;
+      eventSource.onopen = () => {
+        // A reopened stream may have missed events; ask for a refresh.
+        if (opened) callback({ type: 'reconnected' });
+        opened = true;
+      };
 
       eventSource.onmessage = (event) => {
         if (!event?.data) return;
