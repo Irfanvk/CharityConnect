@@ -23,6 +23,7 @@ import {
 import { format, parseISO } from "@/lib/dateTime";
 import { addBusinessMonths, currentBusinessMonth } from "@/lib/businessTime";
 import { usePublicSettings } from "@/lib/usePublicSettings";
+import PaymentInstructions from "@/components/branding/PaymentInstructions";
 import { Loader2, CheckSquare, Square, Upload, FileText, Image as ImageIcon, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -306,6 +307,7 @@ export default function ChallanForm({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          <PaymentInstructions />
           {/* Challan number */}
           <div className="space-y-1.5">
             <Label>Challan Number</Label>

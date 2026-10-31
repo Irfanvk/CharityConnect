@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { charityClient } from '@/api/charityClient';
 import { useAuth } from '@/lib/AuthContext';
-import { APP_BRAND, APP_IMAGES, APP_PATHS } from '@/config/appPaths';
+import { APP_IMAGES, APP_PATHS } from '@/config/appPaths';
+import { useOrgBrand } from '@/lib/branding';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export default function Login() {
+  const orgBrand = useOrgBrand();
   const [credentials, setCredentials] = useState({
     username: '',  // Accepts both username and email
     password: ''
@@ -117,16 +119,16 @@ export default function Login() {
         <CardHeader className="space-y-1">
           <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-xl bg-white/80 p-2 shadow-md dark:bg-slate-800/80">
             <img
-              src={APP_IMAGES.LOGOS.PRIMARY}
-              alt={`${APP_BRAND.NAME} logo`}
+              src={orgBrand.logoUrl || APP_IMAGES.LOGOS.PRIMARY}
+              alt={`${orgBrand.name} logo`}
               className="h-full w-full object-contain"
             />
           </div>
           <CardTitle className="text-2xl font-bold text-center text-emerald-900 dark:text-emerald-200">
-            {`Welcome to ${APP_BRAND.NAME}`}
+            {`Welcome to ${orgBrand.name}`}
           </CardTitle>
           <CardDescription className="text-center text-emerald-800/80 dark:text-emerald-100/80">
-            Sign in to manage your charity contributions
+            {orgBrand.loginWelcomeText || 'Sign in to manage your charity contributions'}
           </CardDescription>
         </CardHeader>
         

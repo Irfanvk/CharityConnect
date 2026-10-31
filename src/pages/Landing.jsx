@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { APP_BRAND, APP_IMAGES } from '@/config/appPaths';
+import { useOrgBrand } from '@/lib/branding';
 import {
   Heart, Users, BarChart3, Shield, ArrowRight, ChevronDown,
   Wallet, Bell, Globe, Sparkles, CheckCircle2, Menu, X,
@@ -65,6 +66,7 @@ const stats = [
 ];
 
 function Navbar() {
+  const orgBrand = useOrgBrand();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   useEffect(() => {
@@ -85,10 +87,10 @@ function Navbar() {
         <div className="flex h-16 sm:h-20 items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-white/90 dark:bg-slate-800 p-1.5 shadow-md">
-              <img src={APP_IMAGES.LOGOS.PRIMARY} alt={APP_BRAND.NAME} className="h-full w-full object-contain" />
+              <img src={orgBrand.logoUrl || APP_IMAGES.LOGOS.PRIMARY} alt={orgBrand.name} className="h-full w-full object-contain" />
             </div>
             <span className="text-lg sm:text-xl font-bold bg-gradient-to-r from-emerald-700 to-teal-600 dark:from-emerald-400 dark:to-teal-300 bg-clip-text text-transparent">
-              {APP_BRAND.NAME}
+              {orgBrand.name}
             </span>
           </div>
           {/* Desktop */}
@@ -113,6 +115,7 @@ function Navbar() {
 }
 
 function HeroSection() {
+  const orgBrand = useOrgBrand();
   const { scrollY } = useScroll();
   const bgY = useTransform(scrollY, [0, 500], [0, 150]);
 
@@ -155,7 +158,7 @@ function HeroSection() {
             <div className="relative">
               <div className="absolute inset-0 rounded-[2rem] bg-emerald-400/25 blur-3xl scale-125 animate-pulse" />
               <div className="relative h-28 w-28 sm:h-40 sm:w-40 rounded-[2rem] bg-white/95 dark:bg-slate-800 shadow-2xl shadow-emerald-500/25 p-4 sm:p-6 ring-1 ring-emerald-200 dark:ring-emerald-800">
-                <img src={APP_IMAGES.LOGOS.PRIMARY} alt={APP_BRAND.NAME} className="h-full w-full object-contain" />
+                <img src={orgBrand.heroImageUrl || orgBrand.logoUrl || APP_IMAGES.LOGOS.PRIMARY} alt={orgBrand.name} className="h-full w-full object-contain" />
               </div>
             </div>
           </motion.div>
@@ -169,19 +172,25 @@ function HeroSection() {
           <motion.h1 variants={fadeUp} transition={{ duration: 0.7 }}
             className="text-3xl sm:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight"
           >
-            <span className="text-slate-900 dark:text-white">Poyyathabail Jama'ath</span>
-            <br />
-            <span className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 bg-clip-text text-transparent">
-              GCC Welfare Committee
-            </span>
+            {orgBrand.landingHeadline ? (
+              <span className="text-slate-900 dark:text-white">{orgBrand.landingHeadline}</span>
+            ) : (
+              <>
+                <span className="text-slate-900 dark:text-white">Poyyathabail Jama'ath</span>
+                <br />
+                <span className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 bg-clip-text text-transparent">
+                  GCC Welfare Committee
+                </span>
+              </>
+            )}
           </motion.h1>
 
           <motion.p variants={fadeUp} transition={{ duration: 0.7 }}
             className="mx-auto mt-6 max-w-2xl text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed"
           >
-            Rooted in Kasaragod — where Kerala meets Karnataka — the Poyyathabail Jama'ath GCC Welfare
+            {orgBrand.landingSubtext || `Rooted in Kasaragod — where Kerala meets Karnataka — the Poyyathabail Jama'ath GCC Welfare
             Committee carries forward a tradition of community, compassion, and collective responsibility.
-            Serving our members and their families through welfare support, mutual aid, and transparent fund management.
+            Serving our members and their families through welfare support, mutual aid, and transparent fund management.`}
           </motion.p>
 
           <motion.div variants={fadeUp} transition={{ duration: 0.7 }}

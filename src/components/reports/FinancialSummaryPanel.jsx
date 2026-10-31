@@ -104,6 +104,7 @@ const PDF_ALT = [245, 250, 247];
  *   isLoading      — whether either query is still loading
  *   isAdmin        — must be true (admin or superadmin) to render this panel
  */
+import { getOrgName } from "@/lib/branding";
 export default function FinancialSummaryPanel({
     challanStats,
     fundSummary,
@@ -182,7 +183,7 @@ export default function FinancialSummaryPanel({
             Number(exportData.total_amount).toLocaleString("en-IN", { maximumFractionDigits: 2 }),
             "", ""];
         const rows = [
-            [`PMB GCC PORTAL – Outstanding Receivables as of ${asOfDate}`],
+            [`${getOrgName()} – Outstanding Receivables as of ${asOfDate}`],
             [`Generated (IST): ${generatedAt}`],
             [],
             headerRow,
@@ -215,7 +216,7 @@ export default function FinancialSummaryPanel({
         doc.setTextColor(255, 255, 255);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(18);
-        doc.text("PMB GCC PORTAL", 28, 22);
+        doc.text(getOrgName(), 28, 22);
         doc.setFontSize(9);
         doc.text(`As of: ${asOfDate}`, pageW - 28, 26, { align: "right" });
         doc.text(`Generated (IST): ${generatedAt}`, pageW - 28, 40, { align: "right" });
@@ -296,7 +297,7 @@ export default function FinancialSummaryPanel({
             doc.setFont("helvetica", "normal");
             doc.setFontSize(7.5);
             doc.setTextColor(150, 150, 150);
-            doc.text(`PMB GCC PORTAL • Outstanding Receivables • Confidential`, 28, pageH - 14);
+            doc.text(`${getOrgName()} • Outstanding Receivables • Confidential`, 28, pageH - 14);
             doc.text(`Page ${i} of ${totalPages}`, pageW - 28, pageH - 14, { align: "right" });
         }
 
@@ -307,7 +308,7 @@ export default function FinancialSummaryPanel({
     function handleDownloadCSV() {
         const generatedAt = generatedAtIST();
         const rows = [
-            ["PMB GCC PORTAL – Financial Position Statement"],
+            [`${getOrgName()} – Financial Position Statement`],
             [`Generated (IST): ${generatedAt}`],
             [],
             ["Metric", "Amount (INR)", "Notes"],
@@ -341,7 +342,7 @@ export default function FinancialSummaryPanel({
         doc.setTextColor(255, 255, 255);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(20);
-        doc.text("PMB GCC PORTAL", 36, 26);
+        doc.text(getOrgName(), 36, 26);
         doc.setFont("helvetica", "normal");
         doc.setFontSize(12);
         doc.text("Financial Position Statement", 36, 44);
@@ -399,7 +400,7 @@ export default function FinancialSummaryPanel({
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
         doc.setTextColor(160, 160, 160);
-        doc.text("PMB GCC PORTAL • Financial Position Statement • Confidential", 36, pageH - 20);
+        doc.text(`${getOrgName()} • Financial Position Statement • Confidential`, 36, pageH - 20);
         doc.text("Page 1 of 1", pageW - 36, pageH - 20, { align: "right" });
 
         doc.save(`financial-position-${format(new Date(), "yyyy-MM-dd")}.pdf`);

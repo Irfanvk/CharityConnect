@@ -981,6 +981,10 @@ const charityClient = {
       return apiFetch(API_PATHS.publicSettings, { method: 'GET' });
     },
 
+    getBranding: async () => {
+      return apiFetch(API_PATHS.branding, { method: 'GET' });
+    },
+
     listPasswordResetRequests: async (query = {}) => {
       const data = await apiFetch(API_PATHS.admin.passwordResetRequests, { method: 'GET' }, query);
       return Array.isArray(data) ? data : [];
@@ -1404,6 +1408,17 @@ const charityClient = {
       return await apiFetch(API_PATHS.files.uploadAvatar, {
         method: 'POST',
         headers: {}, // Let browser set Content-Type for FormData
+        body: formData,
+      });
+    },
+
+    uploadBranding: async (file) => {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      return await apiFetch(API_PATHS.files.uploadBranding, {
+        method: 'POST',
+        headers: {},
         body: formData,
       });
     },

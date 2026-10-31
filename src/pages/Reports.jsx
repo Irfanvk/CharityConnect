@@ -25,6 +25,7 @@ const CHALLANS_REPORT_BATCH_SIZE = 200;
 const CAMPAIGNS_REPORT_BATCH_SIZE = 200;
 const OUTSTANDING_RECEIVABLES_PAGE_SIZE = 100;
 
+import { getOrgName } from "@/lib/branding";
 function downloadCSV({ headers, rows, filename }) {
   const csvContent = [
     headers.join(","),
@@ -58,7 +59,7 @@ function downloadPDF({ headers, rows, filename, reportName, periodLabel }) {
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
-  doc.text("PMB GCC PORTAL", 28, 22);
+  doc.text(getOrgName(), 28, 22);
 
   // Period / generated-at — right-aligned
   doc.setFontSize(9);
@@ -102,7 +103,7 @@ function downloadPDF({ headers, rows, filename, reportName, periodLabel }) {
     doc.setFontSize(7.5);
     doc.setTextColor(150, 150, 150);
     const pageH = doc.internal.pageSize.getHeight();
-    doc.text(`PMB GCC PORTAL • ${reportName}`, 28, pageH - 14);
+    doc.text(`${getOrgName()} • ${reportName}`, 28, pageH - 14);
     doc.text(`Page ${i} of ${totalPages}`, pageW - 28, pageH - 14, { align: "right" });
   }
 
@@ -225,7 +226,7 @@ function downloadPivotPDF({ headers, tableBody, statusMatrix, filename, reportNa
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
-  doc.text("PMB GCC PORTAL", 28, 22);
+  doc.text(getOrgName(), 28, 22);
   doc.text(`Generated (IST): ${generatedAt}`, pageW - 28, 36, { align: "right" });
 
   // ── Minimal legend strip ──────────────────────────────────────────────────
@@ -334,7 +335,7 @@ function downloadPivotPDF({ headers, tableBody, statusMatrix, filename, reportNa
     doc.setFontSize(7.5);
     doc.setTextColor(150, 150, 150);
     const pageH = doc.internal.pageSize.getHeight();
-    doc.text(`PMB GCC PORTAL • ${reportName}`, 28, pageH - 14);
+    doc.text(`${getOrgName()} • ${reportName}`, 28, pageH - 14);
     doc.text(`Page ${i} of ${totalPages}`, pageW - 28, pageH - 14, { align: "right" });
   }
 

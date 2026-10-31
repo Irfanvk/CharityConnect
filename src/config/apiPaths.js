@@ -1,6 +1,7 @@
 export const API_PATHS = {
   health: '/health',
   publicSettings: '/settings/public',
+  branding: '/settings/branding',
   appPublic: {
     base: '/api/apps/public',
     publicSettingsById: (appId) => `/prod/public-settings/by-id/${appId}`,
@@ -104,6 +105,7 @@ export const API_PATHS = {
   files: {
     upload: '/files/upload',
     uploadAvatar: '/files/upload/avatar',
+    uploadBranding: '/files/upload/branding',
     deleteFile: '/files/delete',
   },
   auditLogs: {

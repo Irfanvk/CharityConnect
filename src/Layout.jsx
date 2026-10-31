@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { charityClient } from "@/api/charityClient";
 import { useAuth } from "@/lib/AuthContext";
-import { APP_BRAND, APP_IMAGES, PAGE_PATHS, ROUTE_KEYS } from "@/config/appPaths";
+import { APP_IMAGES, PAGE_PATHS, ROUTE_KEYS } from "@/config/appPaths";
 import { pagesConfig } from "@/pages.config";
 import {
   LayoutDashboard,
@@ -44,6 +44,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNotifications } from "@/context/NotificationContext";
 import { dismissWayfinding, recordWayfindingVisit, shouldShowWayfinding, WAYFINDING_STATE_EVENT } from "@/lib/wayfinding";
 import MemberWatermark from "@/components/MemberWatermark";
+import AnnouncementBanner from "@/components/branding/AnnouncementBanner";
+import ThemeDecoration from "@/components/branding/ThemeDecoration";
+import { useOrgBrand, usePreviewTheme } from "@/lib/branding";
 
 export default function Layout({ children, currentPageName }) {
   const { user: authUser, isAuthenticated, logout } = useAuth();
@@ -55,6 +58,9 @@ export default function Layout({ children, currentPageName }) {
   const touchStartY = useRef(0);
   const sidebarNavRef = useRef(null);
   const currentUser = authUser;
+  const orgBrand = useOrgBrand();
+  const previewTheme = usePreviewTheme();
+  const activeThemeId = previewTheme || orgBrand.theme;
   const currentUserId = currentUser?.id ?? null;
   const currentUserRole = currentUser?.role ?? null;
   const wayfindingUserKey = currentUser?.id || currentUser?.email || null;
@@ -278,15 +284,15 @@ export default function Layout({ children, currentPageName }) {
                 </div>
               ) : (
                 <img
-                  src={APP_IMAGES.LOGOS.PRIMARY}
-                  alt={`${APP_BRAND.NAME} logo`}
+                  src={orgBrand.logoUrl || APP_IMAGES.LOGOS.PRIMARY}
+                  alt={`${orgBrand.name} logo`}
                   className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-emerald-500/30"
                   onError={() => setLogoLoadError(true)}
                 />
               )}
               <div>
-                <h1 className="font-bold text-slate-800 dark:text-white text-lg tracking-tight">{APP_BRAND.NAME}</h1>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{APP_BRAND.TAGLINE}</p>
+                <h1 className="font-bold text-slate-800 dark:text-white text-lg tracking-tight">                {orgBrand.name}</h1>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">{orgBrand.tagline}</p>
               </div>
             </div>
           </div>
@@ -403,8 +409,9 @@ export default function Layout({ children, currentPageName }) {
         {/* Top bar */}
         <header
           className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800"
-          style={{ paddingTop: 'env(safe-area-inset-top)' }}
+          style={{ paddingTop: 'env(safe-area-inset-top)', backgroundImage: 'var(--theme-header-gradient, none)' }}
         >
+          <ThemeDecoration themeId={activeThemeId} />
           <div className="flex items-center justify-between px-4 lg:px-8 h-16">
             {!isMainPage ? (
               <BackButton />
@@ -449,6 +456,8 @@ export default function Layout({ children, currentPageName }) {
             </div>
           </div>
         </header>
+
+        <AnnouncementBanner userId={currentUser?.id ?? currentUser?.user_id} />
 
         {/* CORS diagnostic banner — auto-detects misconfigured backend origin */}
         <CorsWarningBanner />

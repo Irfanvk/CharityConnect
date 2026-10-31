@@ -1,9 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { charityClient } from "@/api/charityClient";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -19,11 +17,36 @@ import { Loader2, RotateCcw } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { formatISTDateTime } from "@/lib/dateTime";
 import { PUBLIC_SETTINGS_QUERY_KEY } from "@/lib/usePublicSettings";
+import { BRANDING_QUERY_KEY, setPreviewTheme } from "@/lib/branding";
+import {
+  AnnouncementPreview,
+  PlaceholderChips,
+  SettingControl,
+  ThemePicker,
+  renderSample,
+  validateSetting,
+} from "@/components/settings/SettingControls";
 
-const CATEGORY_ORDER = ["Security", "Payments", "Members & invites", "Reminders & messaging", "Visibility"];
+const CATEGORY_ORDER = [
+  "Security",
+  "Payments",
+  "Members & invites",
+  "Reminders & messaging",
+  "Visibility",
+  "Theme & season",
+  "Announcement",
+  "Organisation & payment details",
+  "Messages",
+  "Landing & login",
+];
 
 const formatValue = (setting, value) => {
   if (setting.type === "bool") return value ? "On" : "Off";
+  if (setting.type !== "int") {
+    const text = String(value ?? "");
+    if (!text) return "(empty)";
+    return text.length > 60 ? `${text.slice(0, 57)}...` : text;
+  }
   return `${value}${setting.unit ? ` ${setting.unit}` : ""}`;
 };
 
@@ -32,6 +55,7 @@ export default function PlatformSettingsPanel({ readOnly = false }) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState({});
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "settings"],
@@ -51,23 +75,19 @@ export default function PlatformSettingsPanel({ readOnly = false }) {
     return [...known, ...extra].map((c) => [c, map[c]]);
   }, [settings]);
 
-  const errorFor = (setting, value) => {
-    if (setting.type === "bool") return "";
-    if (value === "" || value === null || Number.isNaN(Number(value))) return "Enter a number";
-    const n = Number(value);
-    if (!Number.isInteger(n)) return "Must be a whole number";
-    if (n < setting.min || n > setting.max) return `Must be between ${setting.min} and ${setting.max} ${setting.unit}`.trim();
-    return "";
-  };
+  const errorFor = validateSetting;
 
   const changes = settings.filter((s) => s.key in draft && draft[s.key] !== s.value);
   const hasErrors = changes.some((s) => errorFor(s, draft[s.key]));
-  const typed = (s) => (s.type === "bool" ? draft[s.key] : Number(draft[s.key]));
+  const typed = (s) => (s.type === "int" ? Number(draft[s.key]) : draft[s.key]);
+  const valueOf = (key) => (key in draft ? draft[key] : settings.find((s) => s.key === key)?.value);
 
   const refresh = () => {
     setDraft({});
     queryClient.invalidateQueries({ queryKey: ["admin", "settings"] });
     queryClient.invalidateQueries({ queryKey: PUBLIC_SETTINGS_QUERY_KEY });
+    queryClient.invalidateQueries({ queryKey: BRANDING_QUERY_KEY });
+    setPreviewing(false);
   };
 
   const onError = (error) =>
@@ -104,6 +124,11 @@ export default function PlatformSettingsPanel({ readOnly = false }) {
     saveMutation.mutate(payload);
   };
 
+  const previewThemeId = valueOf("active_theme");
+  useEffect(() => {
+    setPreviewTheme(previewing ? previewThemeId : null);
+  }, [previewing, previewThemeId]);
+  useEffect(() => () => setPreviewTheme(null), []);
   if (isLoading) {
     return <div className="flex justify-center p-8"><Loader2 className="w-5 h-5 animate-spin text-slate-400" /></div>;
   }
@@ -117,7 +142,21 @@ export default function PlatformSettingsPanel({ readOnly = false }) {
       {grouped.map(([category, items]) => (
         <section key={category} className="space-y-3">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{category}</h3>
+          {category === "Messages" && (
+            <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              These wordings apply to in-app notifications and share links only. WhatsApp sending uses approved templates and is not affected.
+            </p>
+          )}
           <div className="divide-y divide-slate-100 rounded-md border border-slate-200 bg-white">
+            {category === "Theme & season" && (
+              <ThemePicker
+                value={valueOf("active_theme")}
+                disabled={!canEdit}
+                onChange={(id) => setDraft((d) => ({ ...d, active_theme: id }))}
+                previewing={previewing}
+                onPreviewChange={setPreviewing}
+              />
+            )}
             {items.map((s) => {
               const current = s.key in draft ? draft[s.key] : s.value;
               const error = s.key in draft ? errorFor(s, current) : "";
@@ -128,8 +167,28 @@ export default function PlatformSettingsPanel({ readOnly = false }) {
                     <p className="text-sm text-slate-500">{s.description}</p>
                     <p className="mt-1 text-xs text-slate-400">
                       Default: {formatValue(s, s.default)}
-                      {s.type !== "bool" && ` · Allowed: ${s.min}–${s.max} ${s.unit}`}
+                      {s.type === "int" && ` · Allowed: ${s.min}–${s.max} ${s.unit}`}
                     </p>
+                    {s.type === "template" && (
+                      <>
+                        <PlaceholderChips placeholders={s.placeholders} />
+                        <p className="mt-2 rounded bg-slate-50 p-2 text-sm text-slate-700">
+                          <span className="text-xs font-medium text-slate-500">Preview: </span>
+                          {renderSample(current || s.default)}
+                        </p>
+                      </>
+                    )}
+                    {s.key === "announcement_text" && (
+                      <div className="mt-2">
+                        <AnnouncementPreview text={current} style={valueOf("announcement_style")} />
+                      </div>
+                    )}
+                    {s.key === "org_display_name" && (
+                      <p className="mt-2 text-sm font-semibold text-slate-800">
+                        {current || s.default}
+                        <span className="ml-2 text-xs font-normal text-slate-500">{valueOf("org_tagline")}</span>
+                      </p>
+                    )}
                     {s.updated_at && (
                       <p className="text-xs text-slate-400">
                         Last changed {formatISTDateTime(s.updated_at)}{s.updated_by ? ` by ${s.updated_by}` : ""}
@@ -137,26 +196,13 @@ export default function PlatformSettingsPanel({ readOnly = false }) {
                     )}
                     {error && <p className="mt-1 text-xs text-red-600" role="alert">{error}</p>}
                   </div>
-                  <div className="flex items-center gap-2">
-                    {s.type === "bool" ? (
-                      <Switch
-                        checked={Boolean(current)}
-                        disabled={!canEdit}
-                        onCheckedChange={(checked) => setDraft((d) => ({ ...d, [s.key]: checked }))}
-                        aria-label={s.label}
-                      />
-                    ) : (
-                      <Input
-                        type="number"
-                        className="w-28"
-                        value={current}
-                        min={s.min}
-                        max={s.max}
-                        disabled={!canEdit}
-                        onChange={(e) => setDraft((d) => ({ ...d, [s.key]: e.target.value }))}
-                        aria-label={s.label}
-                      />
-                    )}
+                  <div className="flex items-start gap-2">
+                    <SettingControl
+                      setting={s}
+                      value={current}
+                      disabled={!canEdit}
+                      onChange={(v) => setDraft((d) => ({ ...d, [s.key]: v }))}
+                    />
                     {canEdit && (
                       <Button
                         type="button"
@@ -176,7 +222,6 @@ export default function PlatformSettingsPanel({ readOnly = false }) {
           </div>
         </section>
       ))}
-
       {canEdit && (
         <div className="flex items-center gap-3">
           <Button type="button" disabled={changes.length === 0 || hasErrors || saveMutation.isPending} onClick={() => setConfirmOpen(true)}>
