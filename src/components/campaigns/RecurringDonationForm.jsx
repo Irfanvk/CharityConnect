@@ -18,12 +18,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { currentBusinessDate } from "@/lib/businessTime";
 
 export default function RecurringDonationForm({ open, onOpenChange, campaign, onSubmit }) {
   const [formData, setFormData] = useState({
     amount: '',
     frequency: 'monthly',
-    start_date: new Date().toISOString().split('T')[0]
+    start_date: currentBusinessDate()
   });
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState(null);
@@ -94,7 +95,7 @@ export default function RecurringDonationForm({ open, onOpenChange, campaign, on
     });
 
     setLoading(false);
-    setFormData({ amount: '', frequency: 'monthly', start_date: new Date().toISOString().split('T')[0] });
+    setFormData({ amount: '', frequency: 'monthly', start_date: currentBusinessDate() });
   };
 
   return (
@@ -154,7 +155,7 @@ export default function RecurringDonationForm({ open, onOpenChange, campaign, on
               id="start_date"
               value={formData.start_date}
               onChange={(next) => setFormData({ ...formData, start_date: next })}
-              minDate={new Date().toISOString().split('T')[0]}
+              minDate={currentBusinessDate()}
               size="large"
               placeholder="Pick date"
             />

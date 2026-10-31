@@ -546,7 +546,7 @@ export default function AdminRequests() {
                             className="inline-flex items-center gap-1.5 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-3 py-1.5 transition-colors"
                           >
                             <MessageCircle className="w-3.5 h-3.5" />
-                            Send Link
+                            Open Chat
                           </a>
                         )}
                       </div>

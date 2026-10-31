@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery } from "@tanstack/react-query";
 import { format, formatISTDateTime } from "@/lib/dateTime";
+import { currentBusinessMonth } from "@/lib/businessTime";
 import { useSearchParams } from "react-router-dom";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -141,7 +142,7 @@ function buildChallanPivotData(challans, members, period, value, extraFilters = 
   };
 
   // Always use the 12 fixed months of the selected year so columns are predictable
-  const year = value && value.length >= 4 ? value.slice(0, 4) : String(new Date().getFullYear());
+  const year = value && value.length >= 4 ? value.slice(0, 4) : currentBusinessMonth().slice(0, 4);
   const months = Array.from({ length: 12 }, (_, i) => {
     const m = String(i + 1).padStart(2, "0");
     return `${year}-${m}`;
@@ -344,12 +345,12 @@ export default function Reports() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("members");
   const [memberPeriod, setMemberPeriod] = useState("monthly");
-  const [memberValue, setMemberValue] = useState(format(new Date(), "yyyy-MM"));
+  const [memberValue, setMemberValue] = useState(currentBusinessMonth());
   const [donationPeriod, setDonationPeriod] = useState("monthly");
-  const [donationValue, setDonationValue] = useState(format(new Date(), "yyyy-MM"));
+  const [donationValue, setDonationValue] = useState(currentBusinessMonth());
   const [donationCampaign, setDonationCampaign] = useState("all");
   const [challanPeriod, setChallanPeriod] = useState("monthly");
-  const [challanValue, setChallanValue] = useState(format(new Date(), "yyyy-MM"));
+  const [challanValue, setChallanValue] = useState(currentBusinessMonth());
   const [exportScope, setExportScope] = useState("filtered");
 
   // Extra filters — members tab
@@ -366,7 +367,7 @@ export default function Reports() {
 
   // Pivot PDF year picker
   const [pivotYearDialog, setPivotYearDialog] = useState(false);
-  const [pivotYear, setPivotYear] = useState(String(new Date().getFullYear()));
+  const [pivotYear, setPivotYear] = useState(currentBusinessMonth().slice(0, 4));
   const [receivablesPage, setReceivablesPage] = useState(0);
 
   const { data: user } = useQuery({
@@ -561,7 +562,7 @@ export default function Reports() {
   );
 
   const availableYears = useMemo(() => {
-    const currentYear = new Date().getFullYear();
+    const currentYear = Number(currentBusinessMonth().slice(0, 4));
     const years = [];
     for (let y = currentYear; y >= 2024; y--) {
       years.push(String(y));

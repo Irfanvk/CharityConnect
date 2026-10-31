@@ -1,18 +1,15 @@
 import React from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format, subMonths } from "@/lib/dateTime";
+import { format } from "@/lib/dateTime";
+import { currentBusinessMonth, addBusinessMonths } from "@/lib/businessTime";
 
 export function getMonthOptions(count = 24) {
-  const months = [];
-  for (let i = 0; i < count; i++) {
-    const date = subMonths(new Date(), i);
-    months.push(format(date, "yyyy-MM"));
-  }
-  return months;
+  const current = currentBusinessMonth();
+  return Array.from({ length: count }, (_, i) => addBusinessMonths(current, -i));
 }
 
 export function getYearOptions(count = 5) {
-  const currentYear = new Date().getFullYear();
+  const currentYear = Number(currentBusinessMonth().slice(0, 4));
   return Array.from({ length: count }, (_, i) => String(currentYear - i));
 }
 
