@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { format, parseISO } from "@/lib/dateTime";
 import { addBusinessMonths, currentBusinessMonth } from "@/lib/businessTime";
+import { usePublicSettings } from "@/lib/usePublicSettings";
 import { Loader2, CheckSquare, Square, Upload, FileText, Image as ImageIcon, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -79,6 +80,11 @@ export default function ChallanForm({
   const myMember = members.find((m) => m.email === currentUser?.email)
     || (members.length === 1 ? members[0] : null);
   const defaultMemberId = !isAdmin && myMember ? normalizeId(myMember.id) : "";
+
+  const publicSettings = usePublicSettings();
+  const maxUploadMb = publicSettings.proof_max_upload_mb;
+  const upcomingLimit = publicSettings.upcoming_months_payable;
+  const maxMonthsPerPayment = publicSettings.max_months_per_payment;
 
   const [formData, setFormData] = useState({
     member_id: defaultMemberId,
@@ -160,7 +166,6 @@ export default function ChallanForm({
       charityClient.challans.payableMonths({
         ...(isAdmin ? { member_id: Number(formData.member_id) } : {}),
         include_upcoming: includeUpcomingMonths,
-        upcoming_count: 3,
         ...(effectiveFromMonth ? { from_month: effectiveFromMonth } : {}),
       }),
     keepPreviousData: true,
@@ -176,7 +181,7 @@ export default function ChallanForm({
     // available even if backend returns a narrower set.
     const serverMonth = payableMonthsData?.current_month || currentBusinessMonth();
     if (fromMonth) {
-      const localMonths = buildLocalMonths(fromMonth, includeUpcomingMonths, 3, paidSet, serverMonth);
+      const localMonths = buildLocalMonths(fromMonth, includeUpcomingMonths, upcomingLimit, paidSet, serverMonth);
       return Array.from(new Set([...backendMonths, ...localMonths])).sort();
     }
 
@@ -186,8 +191,8 @@ export default function ChallanForm({
 
     // Local fallback (when backend returns empty due to join_date/new-member edge cases)
     const start = addBusinessMonths(serverMonth, -12);
-    return buildLocalMonths(start, includeUpcomingMonths, 3, paidSet, serverMonth);
-  }, [payableMonthsData, fromMonth, includeUpcomingMonths, paidSet]);
+    return buildLocalMonths(start, includeUpcomingMonths, upcomingLimit, paidSet, serverMonth);
+  }, [payableMonthsData, fromMonth, includeUpcomingMonths, paidSet, upcomingLimit]);
 
   // Keep selection valid when selectable months change
   useEffect(() => {
@@ -202,12 +207,14 @@ export default function ChallanForm({
   }, [selectedMonths.length]);
 
   const toggleMonth = (month) => {
-    setSelectedMonths((prev) =>
-      prev.includes(month) ? prev.filter((m) => m !== month) : [...prev, month].sort()
-    );
+    setSelectedMonths((prev) => {
+      if (prev.includes(month)) return prev.filter((m) => m !== month);
+      if (prev.length >= maxMonthsPerPayment) return prev;
+      return [...prev, month].sort();
+    });
   };
 
-  const selectAll = () => setSelectedMonths([...selectableMonths]);
+  const selectAll = () => setSelectedMonths(selectableMonths.slice(0, maxMonthsPerPayment));
   const clearAll = () => setSelectedMonths([]);
   const usesSharedBulkProof = formData.type === "monthly" && selectedMonths.length > 1 && proofMode === "shared";
 
@@ -218,7 +225,7 @@ export default function ChallanForm({
       return;
     }
 
-    if (nextFile.size > 3 * 1024 * 1024) {
+    if (nextFile.size > maxUploadMb * 1024 * 1024) {
       setSharedProofFile(null);
       return;
     }
@@ -487,7 +494,7 @@ export default function ChallanForm({
                         <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white px-4 py-6 text-center hover:border-emerald-400 hover:bg-emerald-50/30 transition-colors">
                           <Upload className="w-8 h-8 text-slate-400 mb-2" />
                           <span className="text-sm text-slate-700 font-medium">Upload one proof for all selected months</span>
-                          <span className="text-xs text-slate-400 mt-1">JPG, PNG, PDF up to 3MB</span>
+                          <span className="text-xs text-slate-400 mt-1">JPG, PNG, PDF up to {maxUploadMb}MB</span>
                           <input
                             type="file"
                             accept="image/jpeg,image/jpg,image/png,application/pdf"

@@ -10,11 +10,9 @@ import {
 } from "@/components/ui/dialog";
 import { Upload, Loader2, X, CheckCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { usePublicSettings } from "@/lib/usePublicSettings";
 
-const MAX_PROOF_UPLOAD_MB = Number(import.meta.env.VITE_MAX_PROOF_UPLOAD_MB || 3);
-const MAX_PROOF_UPLOAD_BYTES = MAX_PROOF_UPLOAD_MB * 1024 * 1024;
-
-function resolveUploadErrorMessage(error) {
+function resolveUploadErrorMessage(error, maxMb) {
   const rawMessage = String(error?.message || "").toLowerCase();
   const looksLikeCorsOrNetwork =
     rawMessage.includes("failed to fetch") ||
@@ -22,11 +20,11 @@ function resolveUploadErrorMessage(error) {
     rawMessage.includes("network request failed");
 
   if (looksLikeCorsOrNetwork) {
-    return `Upload was blocked by the server response. This is usually a CORS/header issue on error responses (often triggered by file-size limits). Try a smaller file (under ${MAX_PROOF_UPLOAD_MB}MB) and ask admin to allow CORS on 413 responses.`;
+    return `Upload was blocked by the server response. This is usually a CORS/header issue on error responses (often triggered by file-size limits). Try a smaller file (under ${maxMb}MB) and ask admin to allow CORS on 413 responses.`;
   }
 
   if (error?.status === 413) {
-    return `File is too large for the server. Please upload a file under ${MAX_PROOF_UPLOAD_MB}MB.`;
+    return `File is too large for the server. Please upload a file under ${maxMb}MB.`;
   }
 
   return error?.message || "Failed to upload file. Please try again.";
@@ -37,6 +35,8 @@ export default function ProofUpload({ open, onOpenChange, challan, onSubmit }) {
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const MAX_PROOF_UPLOAD_MB = usePublicSettings().proof_max_upload_mb;
+  const MAX_PROOF_UPLOAD_BYTES = MAX_PROOF_UPLOAD_MB * 1024 * 1024;
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -97,7 +97,7 @@ export default function ProofUpload({ open, onOpenChange, challan, onSubmit }) {
     } catch (error) {
       toast({
         title: "Upload failed",
-        description: resolveUploadErrorMessage(error),
+        description: resolveUploadErrorMessage(error, MAX_PROOF_UPLOAD_MB),
         variant: "destructive",
       });
     } finally {

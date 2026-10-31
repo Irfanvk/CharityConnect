@@ -22,6 +22,7 @@ import { getCampaignEndDateMode, getCampaignTargetMode } from "@/lib/campaigns";
 import { format } from "@/lib/dateTime";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { charityClient } from "@/api/charityClient";
+import { usePublicSettings } from "@/lib/usePublicSettings";
 
 const toDateInputValue = (value) => {
   if (!value) return '';
@@ -30,14 +31,14 @@ const toDateInputValue = (value) => {
   return format(asDate, 'yyyy-MM-dd');
 };
 
-const getInitialFormData = (campaign) => {
+const getInitialFormData = (campaign, defaultMinAmount = 100) => {
   if (!campaign) {
     return {
       title: '',
       description: '',
       target_mode: 'targeted',
       target_amount: '',
-      min_amount: 100,
+      min_amount: defaultMinAmount,
       start_date: format(new Date(), 'yyyy-MM-dd'),
       end_date_mode: 'fixed',
       end_date: '',
@@ -61,7 +62,8 @@ const getInitialFormData = (campaign) => {
 };
 
 export default function CampaignForm({ open, onOpenChange, campaign, onSubmit }) {
-  const [formData, setFormData] = useState(getInitialFormData(campaign));
+  const defaultMinAmount = usePublicSettings().default_campaign_min_amount;
+  const [formData, setFormData] = useState(getInitialFormData(campaign, defaultMinAmount));
   const [loading, setLoading] = useState(false);
   const [dateError, setDateError] = useState("");
   const [imageUploading, setImageUploading] = useState(false);
@@ -71,7 +73,7 @@ export default function CampaignForm({ open, onOpenChange, campaign, onSubmit })
 
   useEffect(() => {
     if (!open) return;
-    setFormData(getInitialFormData(campaign));
+    setFormData(getInitialFormData(campaign, defaultMinAmount));
     setDateError("");
     setImagePreview(campaign?.image_url || null);
     setUploadedCampaignId(campaign?.id || null);

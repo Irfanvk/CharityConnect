@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { formatMemberId } from "@/lib/utils";
 import { charityClient } from "@/api/charityClient";
+import PlatformSettingsPanel from "@/components/settings/PlatformSettingsPanel";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { emitNotificationsChanged } from "@/lib/notificationState";
 import { Button } from "@/components/ui/button";
@@ -492,6 +493,7 @@ export default function Settings() {
                 </div>
                 <Switch
                   checked={memberStatsEnabled}
+                  disabled={!isSuperadmin || updateSettingsMutation.isPending}
                   onCheckedChange={(checked) => {
                     updateSettingsMutation.mutate({ member_stats_visible: checked });
                   }}
@@ -506,6 +508,16 @@ export default function Settings() {
                   </p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800">Platform Settings</h2>
+            <p className="text-sm text-slate-500">Read-only for admins; superadmins edit these from the Superadmin Panel.</p>
+          </div>
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-6">
+              <PlatformSettingsPanel readOnly />
             </CardContent>
           </Card>
         </TabsContent>

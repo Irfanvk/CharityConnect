@@ -973,6 +973,14 @@ const charityClient = {
       });
     },
 
+    resetSetting: async (key) => {
+      return apiFetch(API_PATHS.admin.resetSetting(key), { method: 'POST' });
+    },
+
+    getPublicSettings: async () => {
+      return apiFetch(API_PATHS.publicSettings, { method: 'GET' });
+    },
+
     listPasswordResetRequests: async (query = {}) => {
       const data = await apiFetch(API_PATHS.admin.passwordResetRequests, { method: 'GET' }, query);
       return Array.isArray(data) ? data : [];

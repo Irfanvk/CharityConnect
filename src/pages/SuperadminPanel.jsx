@@ -25,7 +25,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Shield, UserCog, Loader2, Crown, Check, Search, Bell, Smartphone, Clock3, ChevronRight } from "lucide-react";
+import { Shield, UserCog, Loader2, Crown, Check, Search, Bell, Smartphone, Clock3, ChevronRight, Settings2 } from "lucide-react";
+import PlatformSettingsPanel from "@/components/settings/PlatformSettingsPanel";
 import { format, formatISTDateTime } from "@/lib/dateTime";
 
 const SUPERADMIN_USERS_BATCH_LIMIT = 200;
@@ -249,6 +250,18 @@ export default function SuperadminPanel() {
             </span>
             <ChevronRight className="w-5 h-5 shrink-0 text-slate-400" />
           </button>
+          <button
+            type="button"
+            onClick={() => openSection('platform')}
+            className="flex w-full items-center gap-4 border-t border-slate-200 px-4 py-4 text-left transition-colors hover:bg-slate-50"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-amber-100 text-amber-700"><Settings2 className="w-5 h-5" /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold text-slate-900">Platform Settings</span>
+              <span className="block text-sm text-slate-500">Adjust security limits, payment rules, invites and reminders.</span>
+            </span>
+            <ChevronRight className="w-5 h-5 shrink-0 text-slate-400" />
+          </button>
         </div>
       )}
 
@@ -257,6 +270,16 @@ export default function SuperadminPanel() {
           Back to administration options
         </Button>
       )}
+
+      {activeSection === 'platform' && <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Settings2 className="w-5 h-5 text-slate-600" />
+            <h2 className="text-lg font-semibold text-slate-800">Platform Settings</h2>
+          </div>
+          <PlatformSettingsPanel />
+        </CardContent>
+      </Card>}
 
       {activeSection === 'roles' && <Card>
         <CardContent className="p-6">

@@ -1,5 +1,6 @@
 export const API_PATHS = {
   health: '/health',
+  publicSettings: '/settings/public',
   appPublic: {
     base: '/api/apps/public',
     publicSettingsById: (appId) => `/prod/public-settings/by-id/${appId}`,
@@ -58,6 +59,7 @@ export const API_PATHS = {
     dashboardCharts: '/admin/dashboard/charts',
     userMonitoring: '/admin/user-monitoring',
     settings: '/admin/settings',
+    resetSetting: (key) => `/admin/settings/${key}/reset`,
     passwordResetRequests: '/admin/password-reset-requests',
     approvePasswordReset: (id) => `/admin/password-reset-requests/${id}/approve`,
     rejectPasswordReset: (id) => `/admin/password-reset-requests/${id}/reject`,
