@@ -220,7 +220,7 @@ export default function MemberForm({ open, onOpenChange, member, onSubmit, sugge
           {!member && (
             <div className="flex items-start gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
               <Info className="mt-0.5 w-3.5 h-3.5 flex-shrink-0" />
-              <span>After adding, create an invite code so this member can set their own password.</span>
+              <span><strong>Offline member (no app login).</strong> No email or password is needed. Create an invite later so this member can set their own password.</span>
             </div>
           )}
 

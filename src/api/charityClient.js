@@ -766,8 +766,31 @@ const charityClient = {
         current_month_payable: Boolean(data?.current_month_payable),
         upcoming_months: Array.isArray(data?.upcoming_months) ? data.upcoming_months : [],
         all_months: Array.isArray(data?.all_months) ? data.all_months : [],
+        business_timezone: data?.business_timezone || 'Asia/Kolkata',
       };
     },
+
+    adminRecord: async (data, proofFile) => {
+      const formData = new FormData();
+      Object.entries(data || {}).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === '') return;
+        if (Array.isArray(value)) {
+          value.forEach((item) => formData.append(key, item));
+        } else {
+          formData.append(key, value);
+        }
+      });
+      if (proofFile) formData.append('proof_file', proofFile);
+      const result = await apiFetch(API_PATHS.challans.adminRecord, {
+        method: 'POST',
+        headers: {},
+        body: formData,
+      });
+      return extractArray(result).map(normalizeChallan);
+    },
+
+    cashCollected: (month) =>
+      apiFetch(API_PATHS.challans.cashCollected, { method: 'GET' }, { month }),
 
     get: async (id) => normalizeChallan(await apiFetch(API_PATHS.challans.byId(id), { method: 'GET' })),
 

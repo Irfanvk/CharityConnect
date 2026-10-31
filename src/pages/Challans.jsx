@@ -57,10 +57,12 @@ import {
   Pencil,
   Trash2,
   Layers,
+  HandCoins,
 } from "lucide-react";
 import { format } from "@/lib/dateTime";
 import { currentBusinessMonth, formatBusinessDate } from "@/lib/businessTime";
 import ChallanForm from "@/components/challans/ChallanForm";
+import AdminRecordPaymentForm from "@/components/challans/AdminRecordPaymentForm";
 import ProofUpload from "@/components/challans/ProofUpload";
 import PullToRefresh from "@/components/mobile/PullToRefresh";
 import UserProfilePopover from "@/components/UserProfilePopover";
@@ -165,6 +167,8 @@ export default function Challans() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [entryFilter, setEntryFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [recordOpen, setRecordOpen] = useState(false);
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
@@ -505,6 +509,11 @@ export default function Challans() {
     if (isAdmin && statusFilter === "pending") {
       entries = entries.filter((entry) => !isOwnRecord(entry));
     }
+    if (sourceFilter === "admin") {
+      entries = entries.filter((entry) => entry.entry_source === "admin");
+    } else if (sourceFilter === "member") {
+      entries = entries.filter((entry) => entry.entry_source !== "admin");
+    }
     if (entryFilter === "bulk") {
       return entries.filter((entry) => entry.is_bulk_group);
     }
@@ -512,7 +521,7 @@ export default function Challans() {
       return entries.filter((entry) => !entry.is_bulk_group);
     }
     return entries;
-  }, [groupedChallans, entryFilter, isAdmin, statusFilter, isOwnRecord]);
+  }, [groupedChallans, entryFilter, sourceFilter, isAdmin, statusFilter, isOwnRecord]);
 
   const normalisedChallans = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -526,7 +535,7 @@ export default function Challans() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, debouncedSearch, pageSize, entryFilter]);
+  }, [statusFilter, debouncedSearch, pageSize, entryFilter, sourceFilter]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -898,6 +907,18 @@ export default function Challans() {
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="space-y-6">
+        {isAdmin && (
+          <AdminRecordPaymentForm
+            open={recordOpen}
+            onOpenChange={setRecordOpen}
+            members={members}
+            currentUser={user}
+            onRecorded={() => {
+              refreshChallanData();
+              emitNotificationsChanged("updated");
+            }}
+          />
+        )}
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
@@ -909,13 +930,21 @@ export default function Challans() {
               Manage payment challans and approvals
             </p>
           </div>
-          <Button
-            onClick={() => setFormOpen(true)}
-            className="bg-emerald-600 hover:bg-emerald-700 select-none"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Generate Challan
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {isAdmin && (
+              <Button variant="outline" onClick={() => setRecordOpen(true)} className="select-none">
+                <HandCoins className="w-4 h-4 mr-2" />
+                Record payment
+              </Button>
+            )}
+            <Button
+              onClick={() => setFormOpen(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 select-none"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Generate Challan
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -950,6 +979,17 @@ export default function Challans() {
               </TabsList>
             </Tabs>
           </div>
+          {isAdmin && (
+            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <Tabs value={sourceFilter} onValueChange={setSourceFilter}>
+                <TabsList className="flex w-max sm:w-auto">
+                  <TabsTrigger value="all" className="text-xs sm:text-sm whitespace-nowrap">All Sources</TabsTrigger>
+                  <TabsTrigger value="member" className="text-xs sm:text-sm whitespace-nowrap">Member</TabsTrigger>
+                  <TabsTrigger value="admin" className="text-xs sm:text-sm whitespace-nowrap">Admin-entered</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+          )}
         </div>
 
         {/* Challans Table */}
@@ -1001,6 +1041,15 @@ export default function Challans() {
                       challan.status === "approved" &&
                       challan.approved_by_admin_id != null &&
                       Number(challan.approved_by_admin_id) === Number(user?.id);
+                    const isAdminEntered = challan.entry_source === "admin";
+                    const verifyBlockedReason =
+                      isAdminEntered && Number(challan.created_by_user_id) === Number(user?.id)
+                        ? "You entered this payment — another admin must verify it"
+                        : isAdminEntered &&
+                            String(challan.payment_method || "").toLowerCase() === "cash" &&
+                            Number(challan.collected_by_user_id) === Number(user?.id)
+                          ? "You collected this cash — another admin must verify it"
+                          : null;
                     const canMutateBeforeApproval =
                       !challan.is_bulk_group && challan.status !== "approved" && (isAdmin || isOwner) && !isOwnPayment;
                     const linkedMember = members.find(
@@ -1128,6 +1177,22 @@ export default function Challans() {
                             {isOwnPayment && (
                               <p className="text-xs text-slate-500 italic">{OWN_PAYMENT_LABEL}</p>
                             )}
+                            {isAdminEntered && (
+                              <div className="mt-1 space-y-0.5">
+                                <Badge variant="outline" className="text-[11px]">
+                                  Admin-entered by {challan.created_by_name || "admin"}
+                                </Badge>
+                                <p className="text-xs text-slate-500">
+                                  {String(challan.payment_method || "").replace("_", " ")}
+                                  {challan.transaction_ref ? ` · Ref ${challan.transaction_ref}` : ""}
+                                  {challan.collected_by_name ? ` · Collected by ${challan.collected_by_name}` : ""}
+                                  {challan.received_on ? ` · Received ${formatBusinessDate(challan.received_on)}` : ""}
+                                </p>
+                                {challan.entry_notes && (
+                                  <p className="text-xs text-slate-500 italic">Note: {challan.entry_notes}</p>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </TableCell>
 
@@ -1207,7 +1272,8 @@ export default function Challans() {
                                     <DropdownMenuItem
                                       onClick={() => handleApprove(challan)}
                                       className="text-emerald-600"
-                                      disabled={!!approvingId}
+                                      disabled={!!approvingId || !!verifyBlockedReason}
+                                      title={verifyBlockedReason || undefined}
                                     >
                                       {isApprovingThis ? (
                                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />

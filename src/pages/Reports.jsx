@@ -19,6 +19,7 @@ import MemberActivityReport, { exportMemberCSV } from "@/components/reports/Memb
 import DonationSummaryReport, { exportDonationCSV } from "@/components/reports/DonationSummaryReport";
 import ChallanStatusReport, { exportChallanCSV } from "@/components/reports/ChallanStatusReport";
 import FinancialSummaryPanel from "@/components/reports/FinancialSummaryPanel";
+import CashCollectedReport from "@/components/reports/CashCollectedReport";
 
 const MEMBERS_REPORT_BATCH_SIZE = 200;
 const CHALLANS_REPORT_BATCH_SIZE = 200;
@@ -841,6 +842,8 @@ export default function Reports() {
         isLoading={challanStatsLoading || fundSummaryLoading || outstandingReceivablesLoading}
         isAdmin={isAdmin}
       />
+
+      <CashCollectedReport />
 
       {isAdmin && outstandingReceivablesError && (
         <div className="flex flex-col gap-3 border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950 sm:flex-row sm:items-center sm:justify-between">

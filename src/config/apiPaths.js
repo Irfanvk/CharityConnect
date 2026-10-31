@@ -37,6 +37,8 @@ export const API_PATHS = {
     outstanding: '/challans/outstanding',
     communityStats: '/challans/community-stats',
     payableMonths: '/challans/payable-months',
+    adminRecord: '/challans/admin-record',
+    cashCollected: '/admin/reports/cash-collected',
     importHistory: '/challans/import/history',
     importHistoryJob: '/challans/import/history/jobs',
     importHistoryJobStatus: (jobId) => `/challans/import/history/jobs/${jobId}`,

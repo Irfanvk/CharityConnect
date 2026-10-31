@@ -41,9 +41,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2, X, Download, ChevronDown, ChevronUp, AlertTriangle, UserPlus, MessageCircle, Copy, CheckCircle2 } from "lucide-react";
+import { Plus, Search, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2, X, Download, ChevronDown, ChevronUp, AlertTriangle, UserPlus, MessageCircle, Copy, CheckCircle2, HandCoins } from "lucide-react";
 import { format } from "date-fns";
 import MemberForm from "@/components/members/MemberForm";
+import AdminRecordPaymentForm from "@/components/challans/AdminRecordPaymentForm";
 import MemberTimelineDialog from "@/components/members/MemberTimelineDialog";
 import UserProfilePopover, { AvatarCircle } from "@/components/UserProfilePopover";
 
@@ -89,6 +90,7 @@ export default function Members() {
   const campaignImportFileInputRef = useRef(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [recordMember, setRecordMember] = useState(null);
   const isSuperAdmin = user?.role === 'superadmin';
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
 
@@ -843,6 +845,20 @@ export default function Members() {
         )}
       </div>
 
+      {isAdmin && (
+        <AdminRecordPaymentForm
+          open={!!recordMember}
+          onOpenChange={(next) => { if (!next) setRecordMember(null); }}
+          members={members}
+          currentUser={user}
+          presetMember={recordMember}
+          onRecorded={() => {
+            queryClient.invalidateQueries({ queryKey: ["challans"] });
+            toast({ title: "Payment recorded", description: "Another admin must verify this payment." });
+          }}
+        />
+      )}
+
       {wipeNotice && (
         <div
           className={`rounded-lg border px-4 py-3 pr-12 relative ${wipeNotice.type === "error"
@@ -1107,6 +1123,13 @@ export default function Members() {
                             >
                               <UserCheck className="w-4 h-4 mr-2" />
                               Mark Active
+                            </DropdownMenuItem>
+                          )}
+
+                          {isAdmin && Number(member.user_id) !== Number(user?.id) && (
+                            <DropdownMenuItem onClick={() => setRecordMember(member)} className="text-emerald-600">
+                              <HandCoins className="w-4 h-4 mr-2" />
+                              Record payment
                             </DropdownMenuItem>
                           )}
 
