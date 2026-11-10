@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import PhoneInput from "@/components/ui/phone-input";
-import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { 
   User, Bell, Receipt, CheckCircle, 
   ArrowRight, ArrowLeft 
 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import PaymentReminderSetting, { ordinal } from "@/components/PaymentReminderSetting";
+import { holdAutoInstall } from "@/lib/installPrompt";
 import { APP_BRAND } from "@/config/appPaths";
 import { useToast } from "@/components/ui/use-toast";
 import { isValidInternationalPhone } from "@/lib/phone-utils";
@@ -26,15 +27,37 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
   useEffect(() => {
     setInternalOpen(open);
   }, [open]);
+
+  // The install popup waits until this setup form is closed.
+  useEffect(() => {
+    if (!internalOpen) return undefined;
+    return holdAutoInstall();
+  }, [internalOpen]);
   
   const [formData, setFormData] = useState({
     phone: user?.phone || memberProfile?.phone || '',
     email: user?.email || memberProfile?.email || '',
     address: memberProfile?.address || '',
     city: memberProfile?.city || '',
-    reminderEnabled: false,
-    reminderDay: 5,
+    reminderEnabled: true,
+    reminderDay: null, // filled from the server (member's day or the organisation's day)
   });
+
+  const { data: prefs } = useQuery({
+    queryKey: ['notification-preferences'],
+    queryFn: () => charityClient.notifications.getPreferences(),
+    enabled: Boolean(open && user?.id),
+  });
+  const reminder = prefs?.payment_reminder;
+
+  useEffect(() => {
+    if (!reminder) return;
+    setFormData((prev) => (prev.reminderDay != null ? prev : {
+      ...prev,
+      reminderEnabled: Boolean(reminder.enabled),
+      reminderDay: reminder.day,
+    }));
+  }, [reminder]);
 
   useEffect(() => {
     setFormData((prev) => ({
@@ -100,18 +123,38 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
         });
       }
 
+      // Saved on the server, so the setup is done on every device.
+      const address = [formData.address, formData.city].map((v) => String(v || '').trim()).filter(Boolean).join(', ');
+      const reminderDay = Number(formData.reminderDay || reminder?.day || 1);
+      const saved = await charityClient.auth.completeOnboarding({
+        address: address || null,
+        payment_reminder_enabled: Boolean(formData.reminderEnabled),
+        payment_reminder_day: reminderDay,
+      });
+      if (saved?.address_needs_approval) {
+        // Changing an address that is already on record goes through the admins.
+        await charityClient.requests.create({
+          request_type: 'profile_update',
+          subject: 'Address update request',
+          message: `Please update my address to: ${address}`,
+          requested_changes: { address },
+        });
+        toast({ title: 'Address sent for approval', description: 'An admin will update it shortly.' });
+      }
+
       queryClient.invalidateQueries({ queryKey: ['members'] });
+      queryClient.invalidateQueries({ queryKey: ['notification-preferences'] });
       setStep(1);
       setInternalOpen(false);
 
       onComplete?.({
         phone: normalizedPhone,
         email: normalizedEmail,
-        address: String(formData.address || '').trim(),
-        city: String(formData.city || '').trim(),
+        address,
+        onboarding_completed_at: saved?.onboarding_completed_at,
         reminder_settings: {
           enabled: Boolean(formData.reminderEnabled),
-          day: Number(formData.reminderDay),
+          day: reminderDay,
         },
       });
     } catch (error) {
@@ -228,40 +271,25 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
                 Set Up Payment Reminders
               </h2>
               <p className="text-slate-500">
-                Never miss a monthly payment with email reminders
+                Never miss a monthly payment. We'll send you a notification on the day you choose.
               </p>
             </div>
 
-            <div className="space-y-4 bg-slate-50 p-6 rounded-lg">
-              <div className="flex items-center justify-between p-4 bg-white rounded-lg">
-                <div>
-                  <p className="font-medium text-slate-900">Enable Monthly Reminders</p>
-                  <p className="text-sm text-slate-500">Get notified before your payment is due</p>
-                </div>
-                <Switch
-                  checked={formData.reminderEnabled}
-                  onCheckedChange={(checked) => setFormData({...formData, reminderEnabled: checked})}
-                />
-              </div>
-
+            <div className="space-y-3 bg-slate-50 p-4 sm:p-6 rounded-lg">
+              <PaymentReminderSetting
+                enabled={formData.reminderEnabled}
+                day={formData.reminderDay || reminder?.day || 1}
+                onChange={({ enabled, day }) => setFormData((prev) => ({
+                  ...prev,
+                  ...(enabled !== undefined ? { reminderEnabled: enabled } : {}),
+                  ...(day !== undefined ? { reminderDay: day } : {}),
+                }))}
+              />
               {formData.reminderEnabled && (
-                <div className="p-4 bg-white rounded-lg space-y-3">
-                  <Label>Reminder Day</Label>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="number"
-                      min="1"
-                      max="28"
-                      value={formData.reminderDay}
-                      onChange={(e) => setFormData({...formData, reminderDay: e.target.value})}
-                      className="w-24"
-                    />
-                    <span className="text-sm text-slate-500">of each month</span>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    You'll receive an email on day {formData.reminderDay} of every month
-                  </p>
-                </div>
+                <p className="text-xs text-slate-500">
+                  You'll be reminded on the {ordinal(formData.reminderDay || reminder?.day || 1)} of every month, in the app and on your phone if notifications are on.
+                  You can change this any time in Notifications → Settings.
+                </p>
               )}
             </div>
           </div>

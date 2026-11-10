@@ -18,6 +18,7 @@ const DISMISSED_LOGIN_KEY = 'install_prompt_dismissed_login_id';
 
 let deferredPrompt = null;
 let dialogOpen = false;
+let autoHolds = 0; // other first-run dialogs (e.g. the setup form) that the auto popup must wait for
 let captureStarted = false;
 const listeners = new Set();
 let snapshot = null;
@@ -121,6 +122,7 @@ function buildSnapshot() {
     installed: standalone || (safeLocalStorage(INSTALLED_KEY) === '1' && !deferredPrompt),
     canPrompt: Boolean(deferredPrompt),
     dialogOpen,
+    autoHeld: autoHolds > 0,
   };
 }
 
@@ -164,6 +166,23 @@ export function markInstalled() {
   safeLocalStorage(INSTALLED_KEY, '1');
   dialogOpen = false;
   emit();
+}
+
+/** While held, the install popup does not open by itself (it opens after release). */
+export function holdAutoInstall() {
+  autoHolds += 1;
+  emit();
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    autoHolds = Math.max(0, autoHolds - 1);
+    emit();
+  };
+}
+
+export function isAutoInstallHeld() {
+  return autoHolds > 0;
 }
 
 export function openInstallDialog() {

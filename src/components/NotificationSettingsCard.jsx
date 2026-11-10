@@ -5,6 +5,7 @@ import { charityClient } from '@/api/charityClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import PaymentReminderSetting from '@/components/PaymentReminderSetting';
 import { useToast } from '@/components/ui/use-toast';
 import { IOSInstallSteps } from '@/components/IOSInstallSteps';
 import { enableNotificationsFromTap, getPushEnvironment } from '@/lib/pushSetup';
@@ -130,6 +131,21 @@ export default function NotificationSettingsCard() {
           </div>
         )}
       </div>
+
+      {data?.payment_reminder?.applies && (
+        <PaymentReminderSetting
+          enabled={data.payment_reminder.enabled}
+          day={data.payment_reminder.day}
+          disabled={!data.payment_reminder.organisation_enabled}
+          onChange={({ enabled, day }) => save({
+            ...(enabled !== undefined ? { payment_reminder_enabled: enabled } : {}),
+            ...(day !== undefined ? { payment_reminder_day: day } : {}),
+          })}
+        />
+      )}
+      {data?.payment_reminder?.applies && !data.payment_reminder.organisation_enabled && (
+        <p className="-mt-3 text-xs text-slate-500">Reminders are currently paused by the admins.</p>
+      )}
 
       <div className="space-y-2">
         <p className="text-sm font-medium text-slate-800">What to notify me about</p>

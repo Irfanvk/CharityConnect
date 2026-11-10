@@ -20,6 +20,7 @@ export const API_PATHS = {
     resetPassword: '/auth/reset-password',
     welcome: '/auth/me/welcome',
     welcomeSeen: '/auth/me/welcome/seen',
+    onboarding: '/auth/me/onboarding',
   },
   members: {
     list: '/members/',

@@ -16,10 +16,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import {
-  AtSign, Camera, CheckCircle, ChevronRight, Inbox, Loader2, LogOut, Mail, MapPin,
+  AtSign, BellRing, Camera, CheckCircle, ChevronRight, Inbox, Loader2, LogOut, Mail, MapPin,
   MessageSquare, Phone, UserCircle, X, XCircle,
 } from "lucide-react";
 import AvatarCropUpload from "@/components/profile/AvatarCropUpload";
+import PaymentReminderSetting, { ordinal } from "@/components/PaymentReminderSetting";
 import AvatarLightbox from "@/components/profile/AvatarLightbox";
 
 const FIELD_LABELS = {
@@ -110,6 +111,7 @@ export default function Profile() {
   const [savingAmount, setSavingAmount] = useState(false);
 
   const [helpOpen, setHelpOpen] = useState(false);
+  const [reminderOpen, setReminderOpen] = useState(false);
   const [helpType, setHelpType] = useState("general");
   const [helpSubject, setHelpSubject] = useState("");
   const [helpMessage, setHelpMessage] = useState("");
@@ -154,6 +156,24 @@ export default function Profile() {
   });
 
   const refreshMyRequests = () => queryClient.invalidateQueries({ queryKey: ["requests", "mine"] });
+
+  const { data: notificationPrefs } = useQuery({
+    queryKey: ["notification-preferences"],
+    queryFn: () => charityClient.notifications.getPreferences(),
+    enabled: Boolean(user),
+  });
+  const reminder = notificationPrefs?.payment_reminder;
+  const saveReminder = async ({ enabled, day }) => {
+    try {
+      const next = await charityClient.notifications.savePreferences({
+        ...(enabled !== undefined ? { payment_reminder_enabled: enabled } : {}),
+        ...(day !== undefined ? { payment_reminder_day: day } : {}),
+      });
+      queryClient.setQueryData(["notification-preferences"], next);
+    } catch (error) {
+      toast({ title: "Could not save", description: error?.message || "Please try again.", variant: "destructive" });
+    }
+  };
 
   const pendingRequests = myRequests.filter((request) => request.status === "pending");
   const pendingFields = new Set(
@@ -558,6 +578,14 @@ export default function Profile() {
             {isMember && (
               <ActionRow icon={MessageSquare} label="Ask the admins" hint="Questions, suggestions or complaints" onClick={() => setHelpOpen(true)} />
             )}
+            {reminder?.applies && (
+              <ActionRow
+                icon={BellRing}
+                label="Payment reminder"
+                hint={!reminder.organisation_enabled ? "Paused by the admins" : reminder.enabled ? `${ordinal(reminder.day)} of every month` : "Off"}
+                onClick={() => setReminderOpen(true)}
+              />
+            )}
             <ActionRow
               icon={Inbox}
               label="My requests"
@@ -662,6 +690,24 @@ export default function Profile() {
       </Dialog>
 
       {/* ── Ask the admins ── */}
+      <Dialog open={reminderOpen} onOpenChange={setReminderOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Payment reminder</DialogTitle>
+            <DialogDescription>Choose the day you'd like to be reminded about your monthly contribution.</DialogDescription>
+          </DialogHeader>
+          {reminder && (
+            <PaymentReminderSetting
+              enabled={reminder.enabled}
+              day={reminder.day}
+              disabled={!reminder.organisation_enabled}
+              onChange={saveReminder}
+            />
+          )}
+          <Button className="w-full" onClick={() => setReminderOpen(false)}>Done</Button>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>

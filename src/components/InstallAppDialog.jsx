@@ -11,8 +11,8 @@ import { useOrgBrand } from '@/lib/branding';
 import { useAuth } from '@/lib/AuthContext';
 import { APP_IMAGES } from '@/config/appPaths';
 import {
-  closeInstallDialog, dismissInstallForThisLogin, markInstalled, openInstallDialog, promptInstall,
-  shouldAutoShowInstall, useInstallState,
+  closeInstallDialog, dismissInstallForThisLogin, isAutoInstallHeld, markInstalled, openInstallDialog,
+  promptInstall, shouldAutoShowInstall, useInstallState,
 } from '@/lib/installPrompt';
 
 const AUTO_SHOW_DELAY_MS = 2500;
@@ -174,17 +174,17 @@ export default function InstallAppDialog() {
   useEffect(() => {
     if (!isAuthenticated) return undefined;
     if (NO_AUTO_SHOW_PATHS.includes(location.pathname.toLowerCase())) return undefined;
-    if (!shouldAutoShowInstall(state) || state.dialogOpen) return undefined;
+    if (!shouldAutoShowInstall(state) || state.dialogOpen || state.autoHeld) return undefined;
     const timer = setTimeout(() => {
       // Re-check: something else (e.g. the activation welcome) may have
       // dismissed the popup for this sign-in during the delay.
-      if (!shouldAutoShowInstall(state)) return;
+      if (!shouldAutoShowInstall(state) || isAutoInstallHeld()) return;
       autoOpenedRef.current = true;
       openInstallDialog();
     }, AUTO_SHOW_DELAY_MS);
     return () => clearTimeout(timer);
     // Re-evaluated only when install status changes, not on every navigation.
-  }, [isAuthenticated, state.installed, state.installSupported]);
+  }, [isAuthenticated, state.installed, state.installSupported, state.autoHeld]);
 
   // Close automatically once the app gets installed.
   useEffect(() => {

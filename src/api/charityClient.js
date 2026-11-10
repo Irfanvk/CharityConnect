@@ -588,6 +588,11 @@ const charityClient = {
 
     welcomeSeen: async () => apiFetch(API_PATHS.auth.welcomeSeen, { method: 'POST' }),
 
+    completeOnboarding: async (payload) => apiFetch(API_PATHS.auth.onboarding, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
     logout: async () => {
       try {
         await apiFetch(API_PATHS.auth.logout, { method: 'POST' });
