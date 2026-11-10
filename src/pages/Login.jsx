@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Clock, XCircle, BadgeCheck } from 'lucide-react';
 import { REMEMBERED_LOGIN_KEY } from '@/config/constants';
 import { markNewLogin } from '@/lib/installPrompt';
 
@@ -23,6 +23,66 @@ function readRememberedUsername() {
   } catch {
     return '';
   }
+}
+
+const ACTIVATION_STATUS_TYPES = new Set(['activation_pending', 'activation_rejected']);
+
+// Credentials that belong to a self-activation request (no account yet) come
+// back as 403 with detail[0].type = activation_pending | activation_rejected.
+function readActivationStatus(err) {
+  const first = Array.isArray(err?.data?.detail) ? err.data.detail[0] : null;
+  if (first && ACTIVATION_STATUS_TYPES.has(first.type)) {
+    return { type: first.type, ...(first.input || {}) };
+  }
+  return null;
+}
+
+function formatDay(iso) {
+  if (!iso) return '';
+  const d = new Date(iso.endsWith('Z') || iso.includes('+') ? iso : `${iso}Z`);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function ActivationStatus({ status, onBack }) {
+  const pending = status.type === 'activation_pending';
+  const firstName = String(status.full_name || '').trim().split(/\s+/)[0];
+  return (
+    <CardContent className="space-y-4 text-center">
+      {pending
+        ? <Clock className="mx-auto h-12 w-12 text-amber-500" />
+        : <XCircle className="mx-auto h-12 w-12 text-rose-500" />}
+      <div className="space-y-1">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          {pending ? `Thanks${firstName ? `, ${firstName}` : ''}. Your request is with the admins.` : 'Your request was not approved'}
+        </h2>
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          Member ID <strong>{status.member_code}</strong>
+          {pending && status.submitted_at && <> · sent {formatDay(status.submitted_at)}</>}
+        </p>
+      </div>
+      {pending ? (
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          Once an admin confirms your details, sign in again with the same username and password to get full access.
+        </p>
+      ) : (
+        <>
+          {status.reason && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-left text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200">
+              <p className="text-xs font-medium uppercase tracking-wide">Reason</p>
+              <p className="mt-1 whitespace-pre-wrap break-words">{status.reason}</p>
+            </div>
+          )}
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            Please check your Member ID and details and apply again, or contact an admin.
+          </p>
+          <Button asChild className="w-full bg-emerald-600 hover:bg-emerald-700">
+            <Link to="/activate">Apply again</Link>
+          </Button>
+        </>
+      )}
+      <Button variant="outline" className="w-full" onClick={onBack}>Back to sign in</Button>
+    </CardContent>
+  );
 }
 
 function saveRememberedUsername(username) {
@@ -42,16 +102,26 @@ export default function Login() {
   const location = useLocation();
   // Arriving from a successful registration pre-fills the new username.
   const registeredUsername = location.state?.registeredUsername || '';
+  // Arriving from a sent activation request.
+  const activationUsername = location.state?.activationUsername || '';
   const [rememberedUsername] = useState(readRememberedUsername);
   const [credentials, setCredentials] = useState({
-    username: registeredUsername || rememberedUsername,  // Accepts both username and email
+    username: registeredUsername || activationUsername || rememberedUsername,  // Accepts both username and email
     password: ''
   });
   const [rememberMe, setRememberMe] = useState(Boolean(rememberedUsername));
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [activationStatus, setActivationStatus] = useState(null);
+  const [activationEnabled, setActivationEnabled] = useState(false);
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    let alive = true;
+    charityClient.memberActivations.availability().then((r) => alive && setActivationEnabled(Boolean(r?.enabled)));
+    return () => { alive = false; };
+  }, []);
   const { setAuthenticatedUser, isAuthenticated } = useAuth();
 
   const returnToParam = new URLSearchParams(location.search).get('returnTo');
@@ -102,6 +172,12 @@ export default function Login() {
       // Redirect to dashboard
       navigate(redirectTarget, { replace: true });
     } catch (err) {
+      const activation = readActivationStatus(err);
+      if (activation) {
+        setActivationStatus(activation);
+        setCredentials((prev) => ({ ...prev, password: '' }));
+        return;
+      }
       console.error('Login error:', err);
       const status = err?.status ?? err?.response?.status;
       let msg;
@@ -166,8 +242,18 @@ export default function Login() {
           </CardDescription>
         </CardHeader>
         
+        {activationStatus ? (
+          <ActivationStatus status={activationStatus} onBack={() => setActivationStatus(null)} />
+        ) : (
+        <>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            {activationUsername && !error && (
+              <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+                <AlertDescription>Request sent. Sign in with your new username and password to check its status.</AlertDescription>
+              </Alert>
+            )}
+
             {registeredUsername && !error && (
               <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
                 <AlertDescription>Registration successful. Sign in with your new password.</AlertDescription>
@@ -259,7 +345,15 @@ export default function Login() {
           </CardContent>
         </form>
 
-        <CardFooter className="flex flex-col space-y-2">
+        <CardFooter className="flex flex-col space-y-3">
+          {activationEnabled && (
+            <Button asChild variant="outline" className="h-auto w-full whitespace-normal border-emerald-300 py-2.5 text-emerald-800 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-200 dark:hover:bg-emerald-950/40">
+              <Link to="/activate">
+                <BadgeCheck className="mr-2 h-4 w-4 shrink-0" />
+                I'm already a member – activate my account
+              </Link>
+            </Button>
+          )}
           <div className="text-sm text-center text-slate-600 dark:text-slate-300">
             <Link
               to="/forgotpassword"
@@ -278,6 +372,8 @@ export default function Login() {
             </Link>
           </div>
         </CardFooter>
+        </>
+        )}
       </Card>
       </div>
     </div>

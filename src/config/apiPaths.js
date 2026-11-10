@@ -18,6 +18,8 @@ export const API_PATHS = {
     forgotPassword: '/auth/forgot-password',
     verifyResetToken: '/auth/reset-password/verify',
     resetPassword: '/auth/reset-password',
+    welcome: '/auth/me/welcome',
+    welcomeSeen: '/auth/me/welcome/seen',
   },
   members: {
     list: '/members/',
@@ -93,6 +95,13 @@ export const API_PATHS = {
     adminSent: '/notifications/admin/sent',
     preferences: '/notifications/preferences',
     testPush: '/notifications/test-push',
+  },
+  memberActivations: {
+    base: '/member-activations',
+    availability: '/member-activations/availability',
+    byId: (id) => `/member-activations/${id}`,
+    approve: (id) => `/member-activations/${id}/approve`,
+    reject: (id) => `/member-activations/${id}/reject`,
   },
   requests: {
     list: '/requests/',

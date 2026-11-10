@@ -16,7 +16,7 @@ import {
 } from '@/lib/installPrompt';
 
 const AUTO_SHOW_DELAY_MS = 2500;
-const NO_AUTO_SHOW_PATHS = ['/login', '/register', '/forgotpassword', '/resetpassword'];
+const NO_AUTO_SHOW_PATHS = ['/login', '/register', '/activate', '/forgotpassword', '/resetpassword'];
 
 const B = ({ children }) => <strong className="font-semibold text-slate-900 dark:text-slate-100">{children}</strong>;
 
@@ -176,6 +176,9 @@ export default function InstallAppDialog() {
     if (NO_AUTO_SHOW_PATHS.includes(location.pathname.toLowerCase())) return undefined;
     if (!shouldAutoShowInstall(state) || state.dialogOpen) return undefined;
     const timer = setTimeout(() => {
+      // Re-check: something else (e.g. the activation welcome) may have
+      // dismissed the popup for this sign-in during the delay.
+      if (!shouldAutoShowInstall(state)) return;
       autoOpenedRef.current = true;
       openInstallDialog();
     }, AUTO_SHOW_DELAY_MS);

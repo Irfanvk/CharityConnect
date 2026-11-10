@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useDeepLink } from "@/lib/useDeepLink";
 import { formatMemberId, sanitizeShareUrl } from "@/lib/utils";
@@ -13,7 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, Inbox, KeyRound, MessageCircle, CheckCircle2, Receipt } from "lucide-react";
+import { Loader2, Inbox, KeyRound, MessageCircle, CheckCircle2, Receipt, UserCheck } from "lucide-react";
+import MemberActivationsPanel, { ACTIVATIONS_QUERY_KEY } from "@/components/admin/MemberActivationsPanel";
 import { format } from "@/lib/dateTime";
 import { useMemo } from "react";
 import { emitNotificationsChanged } from "@/lib/notificationState";
@@ -107,7 +108,10 @@ const REQUEST_DEEP_LINK_PARAMS = ["request"];
 
 export default function AdminRequests() {
   const [linkParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(() => (linkParams.get("tab") === "password" ? "password" : "member")); // "member" | "password" | "challans"
+  const [activeTab, setActiveTab] = useState(() => {
+    const tab = linkParams.get("tab");
+    return ["password", "challans", "activations"].includes(tab) ? tab : "member";
+  }); // "member" | "password" | "challans" | "activations"
   const [status, setStatus] = useState("all");
   const [requestType, setRequestType] = useState("all");
   const [search, setSearch] = useState("");
@@ -143,12 +147,20 @@ export default function AdminRequests() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+
   const { data: user } = useQuery({
     queryKey: ["auth", "me", "admin-requests"],
     queryFn: () => charityClient.auth.me(),
   });
 
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+
+  // On phones the tab bar scrolls sideways; keep the selected tab in view.
+  const tabBarRef = useRef(null);
+  useEffect(() => {
+    const el = tabBarRef.current?.querySelector(`[data-tab="${activeTab}"]`);
+    el?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [activeTab, isAdmin]);
   const OWN_REQUEST_LABEL = "Your request — another admin will review";
   const OWN_PAYMENT_LABEL = "Your payment — another admin will review";
   const MIN_REASON_LENGTH = 10;
@@ -173,6 +185,14 @@ export default function AdminRequests() {
     ),
     enabled: isAdmin && activeTab === "password",
   });
+
+  // Pending member activations, for the tab badge (the panel loads its own list).
+  const { data: activationCounts } = useQuery({
+    queryKey: [...ACTIVATIONS_QUERY_KEY, "pending-count"],
+    queryFn: () => charityClient.memberActivations.list({ status: "pending", limit: 1 }),
+    enabled: isAdmin,
+  });
+  const pendingActivationCount = Number(activationCounts?.pending_total || 0);
 
   // Pending challans queries (individual + bulk groups awaiting review)
   const { data: pendingChallanPage = { items: [], total: 0 }, isLoading: pendingChallansLoading } = useQuery({
@@ -372,7 +392,8 @@ export default function AdminRequests() {
     },
   });
 
-  useDeepLink({ params: REQUEST_DEEP_LINK_PARAMS, ready: !isLoading && !prLoading });
+  // The activations tab handles its own ?request= deep links.
+  useDeepLink({ params: REQUEST_DEEP_LINK_PARAMS, ready: activeTab !== "activations" && !isLoading && !prLoading });
 
   if (!isAdmin) {
     return (
@@ -391,19 +412,25 @@ export default function AdminRequests() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Admin Requests</h1>
-        <p className="text-slate-500">Review and action member requests and password resets.</p>
+        <p className="text-slate-500">Review member requests, password resets, payments and account activations.</p>
       </div>
 
       {/* Tab switcher */}
-      <div className="flex gap-2 border-b border-slate-200">
+      <div
+        ref={tabBarRef}
+        className="-mx-4 flex gap-1 overflow-x-auto border-b border-slate-200 px-4 sm:mx-0 sm:gap-2 sm:px-0 [&>button]:shrink-0 [&>button]:whitespace-nowrap [&::-webkit-scrollbar]:hidden"
+        style={{ scrollbarWidth: "none" }}
+      >
         <button
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "member" ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          data-tab="member"
           onClick={() => setActiveTab("member")}
         >
           Member Requests
         </button>
         <button
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "password" ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          data-tab="password"
           onClick={() => setActiveTab("password")}
         >
           <KeyRound className="w-3.5 h-3.5" />
@@ -416,6 +443,7 @@ export default function AdminRequests() {
         </button>
         <button
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "challans" ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          data-tab="challans"
           onClick={() => setActiveTab("challans")}
         >
           <Receipt className="w-3.5 h-3.5" />
@@ -426,7 +454,22 @@ export default function AdminRequests() {
             </span>
           )}
         </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "activations" ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          data-tab="activations"
+          onClick={() => setActiveTab("activations")}
+        >
+          <UserCheck className="w-3.5 h-3.5" />
+          Member Activations
+          {pendingActivationCount > 0 && (
+            <span className="ml-1 inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-xs min-w-5 h-5 px-1">
+              {pendingActivationCount}
+            </span>
+          )}
+        </button>
       </div>
+
+      {activeTab === "activations" && <MemberActivationsPanel enabled={isAdmin} />}
 
       {/* ── Member Requests tab ── */}
       {activeTab === "member" && (

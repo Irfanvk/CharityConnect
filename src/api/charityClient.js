@@ -584,6 +584,10 @@ const charityClient = {
       return await apiFetch(API_PATHS.auth.checkUsername, { method: 'GET' }, { username });
     },
 
+    welcome: async () => apiFetch(API_PATHS.auth.welcome),
+
+    welcomeSeen: async () => apiFetch(API_PATHS.auth.welcomeSeen, { method: 'POST' }),
+
     logout: async () => {
       try {
         await apiFetch(API_PATHS.auth.logout, { method: 'POST' });
@@ -1329,6 +1333,31 @@ const charityClient = {
         eventSource.close();
       };
     },
+  },
+
+  // Existing members activating their own account (admin approves).
+  memberActivations: {
+    availability: async () => {
+      try {
+        return await apiFetch(API_PATHS.memberActivations.availability);
+      } catch {
+        return { enabled: false };
+      }
+    },
+    submit: async (payload) => apiFetch(API_PATHS.memberActivations.base, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+    list: async (query = {}) => apiFetch(API_PATHS.memberActivations.base, { method: 'GET' }, query),
+    get: async (id) => apiFetch(API_PATHS.memberActivations.byId(id)),
+    approve: async (id, admin_notes) => apiFetch(API_PATHS.memberActivations.approve(id), {
+      method: 'POST',
+      body: JSON.stringify({ admin_notes: admin_notes || null }),
+    }),
+    reject: async (id, rejection_reason, admin_notes) => apiFetch(API_PATHS.memberActivations.reject(id), {
+      method: 'POST',
+      body: JSON.stringify({ rejection_reason, admin_notes: admin_notes || null }),
+    }),
   },
 
   requests: {
