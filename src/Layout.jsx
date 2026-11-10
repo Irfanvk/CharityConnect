@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import NotificationManager from "@/components/NotificationManager";
-import NotificationExplainer from "@/components/NotificationExplainer";
+import NotificationGate, { NotificationsOffBar } from "@/components/NotificationGate";
 import ActivationWelcome from "@/components/ActivationWelcome";
 import CorsWarningBanner from "@/components/CorsWarningBanner";
 import PWAInstallButton from "@/components/PWAInstallButton";
@@ -222,7 +222,7 @@ export default function Layout({ children, currentPageName }) {
     <MemberWatermark>
     <div className="h-[100dvh] overflow-hidden bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900">
       <NotificationManager user={currentUser} />
-      <NotificationExplainer />
+      <NotificationGate />
       <ActivationWelcome />
       <style>{`
         :root {
@@ -469,6 +469,7 @@ export default function Layout({ children, currentPageName }) {
 
         {/* Page content */}
         <main className="p-4 lg:p-8 pb-20 lg:pb-8" style={{ paddingBottom: 'max(5rem, calc(5rem + env(safe-area-inset-bottom)))' }}>
+          {currentPageName === "Dashboard" && <NotificationsOffBar />}
           <AnimatePresence mode="wait">
             <motion.div
               key={currentPageName}

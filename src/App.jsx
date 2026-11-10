@@ -39,14 +39,22 @@ class AppErrorBoundary extends Component {
         <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-8 text-center">
           <h1 className="text-2xl font-bold text-slate-800">Something went wrong</h1>
           <p className="text-slate-500 max-w-md">
-            An unexpected error occurred. Please refresh the page. If the problem persists, contact support.
+            This page could not be shown. Go back to the Dashboard and try again. If it keeps happening, tell the admins which page it was.
           </p>
-          <button
-            className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
-            onClick={() => window.location.reload()}
-          >
-            Reload page
-          </button>
+          <div className="flex flex-wrap justify-center gap-3">
+            <button
+              className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
+              onClick={() => window.location.assign('/dashboard')}
+            >
+              Go to Dashboard
+            </button>
+            <button
+              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50"
+              onClick={() => window.location.reload()}
+            >
+              Reload page
+            </button>
+          </div>
         </div>
       );
     }

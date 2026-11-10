@@ -19,7 +19,7 @@ const CATEGORY_LABELS = {
   admin_fund_approvals: ['Fund approvals', 'Fund utilization waiting for approval'],
 };
 
-function DeniedHelp({ platform }) {
+export function DeniedHelp({ platform }) {
   const steps = {
     ios: 'Open iPhone Settings → Notifications → this app, then switch Allow Notifications on.',
     android: 'Tap the lock icon in the address bar (or long-press the app icon) → Permissions → Notifications → Allow.',

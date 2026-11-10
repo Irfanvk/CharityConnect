@@ -202,7 +202,8 @@ export function markNewLogin() {
   safeLocalStorage(LOGIN_ID_KEY, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
 }
 
-function currentLoginId() {
+/** Id of the current sign-in (changes at every login). */
+export function currentLoginId() {
   let id = safeLocalStorage(LOGIN_ID_KEY);
   if (!id) {
     // Sessions that started before this feature existed.

@@ -8,7 +8,7 @@ import { formatMemberId } from "@/lib/utils";
 import { PAGE_PATHS } from "@/config/appPaths";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { dismissInstallForThisLogin, openInstallDialog, useInstallState } from "@/lib/installPrompt";
+import { dismissInstallForThisLogin, holdAutoInstall, openInstallDialog, useInstallState } from "@/lib/installPrompt";
 import { enableNotificationsFromTap, getPushEnvironment } from "@/lib/pushSetup";
 
 function monthLabel(value) {
@@ -52,6 +52,12 @@ export default function ActivationWelcome() {
       .catch(() => {});
     return () => { alive = false; };
   }, [pending]);
+
+  // Other first-run dialogs (install popup, notifications step) wait while this is open.
+  useEffect(() => {
+    if (!open) return undefined;
+    return holdAutoInstall();
+  }, [open]);
 
   const finish = () => {
     if (user?.id != null) closedForUsers.add(user.id);
