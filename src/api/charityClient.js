@@ -572,18 +572,12 @@ const charityClient = {
     },
 
     register: async (registrationData) => {
-      const data = await apiFetch(API_PATHS.auth.register, {
+      // The response still carries a token, but registration deliberately does
+      // not sign the user in: they are redirected to the login page instead.
+      return await apiFetch(API_PATHS.auth.register, {
         method: 'POST',
         body: JSON.stringify(registrationData),
       });
-
-      const token = extractAuthToken(data);
-      if (token) {
-        tokenManager.set(token);
-        localStorage.setItem(AUTH_TOKEN_KEY, token);
-      }
-
-      return data;
     },
 
     checkUsername: async (username) => {

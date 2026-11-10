@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 import { charityClient } from "@/api/charityClient";
-import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,10 +10,12 @@ import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { APP_BRAND, APP_IMAGES, APP_PATHS } from "@/config/appPaths";
 
+// Seconds the success screen is shown before going to the login page.
+const REDIRECT_SECONDS = 3;
+
 export default function Register() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { setAuthenticatedUser } = useAuth();
   const [step, setStep] = useState(1); // 1: enter code, 2: registration form + backend validation
   const [inviteCode, setInviteCode] = useState('');
   const [formData, setFormData] = useState({
@@ -31,6 +32,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [redirectIn, setRedirectIn] = useState(REDIRECT_SECONDS);
   const [usernameError, setUsernameError] = useState('');
   const [inviteValidationMeta, setInviteValidationMeta] = useState({
     allowMonthlyAmount: true,
@@ -239,17 +241,9 @@ export default function Register() {
         monthly_amount: allowMonthlyAmount ? (parseInt(formData.monthly_amount, 10) || 100) : 0
       });
 
-      // Backend automatically:
-      // - Creates User account
-      // - Creates Member profile with auto-generated code (MEM-001, etc.)
-      // - Marks invite as used
-      // - Returns auth token
-
-      // Set authenticated user in auth context so they're logged in immediately
-      if (response?.user) {
-        setAuthenticatedUser(response.user);
-      }
-
+      // Backend creates the User and Member profile and marks the invite used.
+      // The user is NOT signed in here: they are sent to the login page.
+      setFormData((prev) => ({ ...prev, username: response?.user?.username || prev.username }));
       setSuccess(true);
     } catch (err) {
       console.error('Registration error:', err);
@@ -258,6 +252,21 @@ export default function Register() {
       setLoading(false);
     }
   };
+
+  const goToLogin = () => navigate(APP_PATHS.LOGIN, {
+    replace: true,
+    state: { registeredUsername: formData.username },
+  });
+
+  useEffect(() => {
+    if (!success) return undefined;
+    if (redirectIn <= 0) {
+      goToLogin();
+      return undefined;
+    }
+    const timer = setTimeout(() => setRedirectIn((n) => n - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [success, redirectIn]);
 
   if (success) {
     return (
@@ -281,17 +290,14 @@ export default function Register() {
               </div>
               <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Registration Successful!</h2>
               <p className="text-slate-600 dark:text-slate-300 mb-6">
-                Your account has been created successfully! You can now access your dashboard.
+                Your account has been created. Taking you to the login page in {redirectIn} second{redirectIn === 1 ? '' : 's'}…
               </p>
               <div className="flex flex-col gap-3">
                 <Button
-                  onClick={() => navigate('/dashboard')}
+                  onClick={goToLogin}
                   className="bg-emerald-600 hover:bg-emerald-700"
                 >
-                  Go to Dashboard
-                </Button>
-                <Button asChild variant="outline">
-                  <Link to={APP_PATHS.LOGIN}>Back to Login</Link>
+                  Go to Login now
                 </Button>
               </div>
             </CardContent>

@@ -8,6 +8,7 @@ export const PUBLIC_SETTINGS_DEFAULTS = {
   max_months_per_payment: 12,
   default_campaign_min_amount: 100,
   member_stats_visible: false,
+  remember_me_days: 30,
 };
 
 export const PUBLIC_SETTINGS_QUERY_KEY = ["settings", "public"];

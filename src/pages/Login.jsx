@@ -9,19 +9,50 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { REMEMBERED_LOGIN_KEY } from '@/config/constants';
+import { usePublicSettings } from '@/lib/usePublicSettings';
+
+// Only the username is remembered. The password is never stored by the app;
+// the browser's password manager can offer to save it (autocomplete attributes below).
+function readRememberedUsername() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(REMEMBERED_LOGIN_KEY) || 'null');
+    return typeof saved?.username === 'string' ? saved.username : '';
+  } catch {
+    return '';
+  }
+}
+
+function saveRememberedUsername(username) {
+  try {
+    if (username) {
+      localStorage.setItem(REMEMBERED_LOGIN_KEY, JSON.stringify({ username }));
+    } else {
+      localStorage.removeItem(REMEMBERED_LOGIN_KEY);
+    }
+  } catch {
+    // Storage blocked (private mode) — remember-me simply has no prefill.
+  }
+}
 
 export default function Login() {
   const orgBrand = useOrgBrand();
+  const { remember_me_days: rememberMeDays } = usePublicSettings();
+  const location = useLocation();
+  // Arriving from a successful registration pre-fills the new username.
+  const registeredUsername = location.state?.registeredUsername || '';
+  const [rememberedUsername] = useState(readRememberedUsername);
   const [credentials, setCredentials] = useState({
-    username: '',  // Accepts both username and email
+    username: registeredUsername || rememberedUsername,  // Accepts both username and email
     password: ''
   });
+  const [rememberMe, setRememberMe] = useState(Boolean(rememberedUsername));
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
   const { setAuthenticatedUser, isAuthenticated } = useAuth();
 
   const returnToParam = new URLSearchParams(location.search).get('returnTo');
@@ -53,10 +84,13 @@ export default function Login() {
 
     try {
       // Trim username (not password) to avoid accidental whitespace rejections
+      const username = credentials.username.trim();
       const response = await charityClient.auth.login({
         ...credentials,
-        username: credentials.username.trim(),
+        username,
+        remember_me: rememberMe,
       });
+      saveRememberedUsername(rememberMe ? username : '');
       
       const currentUser = response?.user || await charityClient.auth.me();
       if (!currentUser) {
@@ -134,6 +168,12 @@ export default function Login() {
         
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            {registeredUsername && !error && (
+              <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+                <AlertDescription>Registration successful. Sign in with your new password.</AlertDescription>
+              </Alert>
+            )}
+
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
@@ -152,7 +192,7 @@ export default function Login() {
                 required
                 disabled={isLoading}
                 autoComplete="username"
-                autoFocus
+                autoFocus={!credentials.username}
               />
             </div>
 
@@ -169,6 +209,7 @@ export default function Login() {
                   required
                   disabled={isLoading}
                   autoComplete="current-password"
+                  autoFocus={Boolean(credentials.username)}
                   className="pr-10"
                 />
                 <button
@@ -180,6 +221,24 @@ export default function Login() {
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="remember-me"
+                checked={rememberMe}
+                onCheckedChange={(value) => setRememberMe(value === true)}
+                disabled={isLoading}
+                className="mt-0.5"
+              />
+              <div className="grid gap-0.5 leading-none">
+                <Label htmlFor="remember-me" className="cursor-pointer text-slate-800 dark:text-slate-100">
+                  Remember me
+                </Label>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Stay signed in on this device for {rememberMeDays} day{rememberMeDays === 1 ? '' : 's'}. Don't use on shared devices.
+                </p>
               </div>
             </div>
 
