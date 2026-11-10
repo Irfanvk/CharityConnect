@@ -38,6 +38,71 @@ const getRequestLabel = (request) => {
   return typeLabel[request.request_type] || request.request_type;
 };
 
+const CHANGE_FIELD_LABELS = {
+  full_name: "Full name",
+  username: "Username",
+  email: "Email",
+  phone: "Phone",
+  address: "Address",
+  monthly_amount: "Monthly amount",
+};
+
+const parseChanges = (raw) => {
+  try {
+    const value = typeof raw === "string" ? JSON.parse(raw || "{}") : raw;
+    return value && typeof value === "object" ? value : {};
+  } catch {
+    return {};
+  }
+};
+
+const fieldLabel = (key) =>
+  CHANGE_FIELD_LABELS[key] || key.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+
+function RequestedChanges({ raw }) {
+  const changes = parseChanges(raw);
+  const hasAvatar = Object.prototype.hasOwnProperty.call(changes, "avatar_url");
+  const otherEntries = Object.entries(changes).filter(([key]) => key !== "avatar_url");
+
+  if (!hasAvatar && otherEntries.length === 0) {
+    return <p className="text-sm text-slate-500">No changes listed.</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {hasAvatar && (
+        <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 p-3">
+          <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">New profile photo</p>
+          {changes.avatar_url ? (
+            <a href={changes.avatar_url} target="_blank" rel="noopener noreferrer" className="block w-fit mx-auto sm:mx-0">
+              <img
+                src={changes.avatar_url}
+                alt="Requested profile photo"
+                className="w-32 h-32 sm:w-28 sm:h-28 rounded-full object-cover border border-slate-200"
+              />
+              <span className="mt-1 block text-center text-xs text-emerald-700">Tap to view full size</span>
+            </a>
+          ) : (
+            <p className="text-sm text-slate-600 dark:text-slate-300">Remove the current profile photo.</p>
+          )}
+        </div>
+      )}
+      {otherEntries.length > 0 && (
+        <dl className="divide-y rounded-lg border">
+          {otherEntries.map(([key, value]) => (
+            <div key={key} className="px-3 py-2">
+              <dt className="text-xs text-slate-500">{fieldLabel(key)}</dt>
+              <dd className="text-sm font-medium text-slate-800 dark:text-slate-100 break-words">
+                {value === null || value === "" ? <span className="italic text-slate-500">(remove)</span> : String(value)}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
+  );
+}
+
 const REQUEST_DEEP_LINK_PARAMS = ["request"];
 
 export default function AdminRequests() {
@@ -643,9 +708,9 @@ export default function AdminRequests() {
 
           {selectedRequest && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><p className="text-slate-500">Member</p><p className="font-medium">{selectedRequest.member_name} ({formatMemberId(selectedRequest.member_code)})</p></div>
-                <div><p className="text-slate-500">Type</p><p className="font-medium">{typeLabel[selectedRequest.request_type] || selectedRequest.request_type}</p></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div className="min-w-0"><p className="text-slate-500">Member</p><p className="font-medium break-words">{selectedRequest.member_name} ({formatMemberId(selectedRequest.member_code)})</p></div>
+                <div className="min-w-0"><p className="text-slate-500">Type</p><p className="font-medium">{getRequestLabel(selectedRequest)}</p></div>
               </div>
 
               {selectedRequest.request_type === "monthly_amount_change" && (
@@ -658,38 +723,13 @@ export default function AdminRequests() {
               {selectedRequest.request_type === "profile_update" && (
                 <div className="rounded-md border p-3 text-sm">
                   <p className="font-medium text-slate-800 mb-2">Requested changes</p>
-                  {(() => {
-                    try {
-                      const changes = JSON.parse(selectedRequest.requested_changes || '{}');
-                      const avatarUrl = changes?.avatar_url;
-                      if (Object.prototype.hasOwnProperty.call(changes || {}, 'avatar_url')) {
-                        return (
-                          <div className="mb-3 rounded-md bg-slate-50 p-3">
-                            <p className="text-xs font-medium text-slate-600 mb-2">Profile photo request</p>
-                            {avatarUrl ? (
-                              <img
-                                src={avatarUrl}
-                                alt="Requested avatar"
-                                className="w-24 h-24 rounded-full object-cover border border-slate-200"
-                              />
-                            ) : (
-                              <p className="text-sm text-slate-600">Member requested removal of current profile photo.</p>
-                            )}
-                          </div>
-                        );
-                      }
-                    } catch {
-                      return null;
-                    }
-                    return null;
-                  })()}
-                  <pre className="text-xs bg-slate-50 rounded p-2 overflow-auto">{selectedRequest.requested_changes || "{}"}</pre>
+                  <RequestedChanges raw={selectedRequest.requested_changes} />
                 </div>
               )}
 
               <div className="rounded-md border p-3 text-sm">
                 <p className="font-medium text-slate-800 mb-1">Member message</p>
-                <p className="text-slate-700">{selectedRequest.message}</p>
+                <p className="text-slate-700 whitespace-pre-wrap break-words">{selectedRequest.message}</p>
               </div>
 
               {selectedRequest.status === "pending" && !isOwnUser(selectedRequest.user_id) ? (
@@ -702,7 +742,7 @@ export default function AdminRequests() {
                     <label className="text-sm font-medium text-slate-700">Rejection reason (required for reject)</label>
                     <Textarea value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} rows={3} />
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 sticky bottom-0 -mx-6 -mb-6 px-6 py-3 bg-background border-t">
                     <Button
                       variant="destructive"
                       className="flex-1"
