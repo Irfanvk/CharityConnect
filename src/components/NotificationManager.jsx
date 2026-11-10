@@ -1,3 +1,4 @@
+import { APP_VERSION } from "@/lib/appVersion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { APP_BRAND, APP_IMAGES } from "@/config/appPaths";
 import { useNotifications } from "@/context/NotificationContext";
@@ -70,6 +71,7 @@ export default function NotificationManager({ user }) {
     charityClient.users.reportDeviceStatus({
       notification_permission: hasNotificationApi ? permission : "unsupported",
       device_display_mode: deviceDisplayMode,
+      app_version: APP_VERSION,
     }).catch(() => {
       // Status reporting must not affect normal notification use.
     });

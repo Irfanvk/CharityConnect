@@ -1,3 +1,4 @@
+import { APP_VERSION } from '@/lib/appVersion';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Search, Send } from 'lucide-react';
@@ -90,6 +91,33 @@ export default function NotificationDeliveryPanel() {
         </p>
       )}
 
+      {data?.latest_app_version && (
+        <div className="rounded-lg border border-slate-200 p-3 space-y-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-sm font-medium text-slate-800">App version in use</p>
+            <p className="text-xs text-slate-500">
+              This device: <span className="font-mono">{APP_VERSION}</span>
+              {APP_VERSION === data.latest_app_version ? ' (newest)' : ''}
+            </p>
+          </div>
+          <p className="text-sm text-slate-600">
+            <strong>{data.users_on_latest_version}</strong> user(s) have opened the newest version{' '}
+            <span className="font-mono text-xs">{data.latest_app_version}</span>.
+            Others update when they open the app and tap <em>Update now</em>.
+          </p>
+          <div className="space-y-1">
+            {Object.entries(data.by_app_version || {})
+              .sort(([a], [b]) => (a === 'not reported' ? 1 : b === 'not reported' ? -1 : b.localeCompare(a)))
+              .map(([version, count]) => (
+                <p key={version} className="flex justify-between text-xs text-slate-600">
+                  <span className="font-mono">{version}{version === data.latest_app_version ? ' · newest' : ''}</span>
+                  <span className="font-semibold">{count}</span>
+                </p>
+              ))}
+          </div>
+        </div>
+      )}
+
       <div className="relative max-w-sm">
         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <Input
@@ -113,6 +141,10 @@ export default function NotificationDeliveryPanel() {
                   <p className="text-sm font-medium text-slate-800">{row.full_name || row.username}</p>
                   <p className="text-xs text-slate-500 capitalize">
                     {row.role} · permission: {row.notification_permission || 'unknown'} · {row.device_display_mode || 'unknown'}
+                    {' · '}
+                    <span className={row.on_latest_version ? 'text-emerald-700' : 'text-amber-700'}>
+                      {row.app_version ? (row.on_latest_version ? 'newest version' : `old version ${row.app_version}`) : 'version not reported'}
+                    </span>
                   </p>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => sendTest(row.user_id)} disabled={sendingId === row.user_id}>

@@ -54,6 +54,17 @@ async function cleanupIOSServiceWorkers() {
 function registerServiceWorker() {
   const updateSW = registerSW({
     immediate: true,
+    // An installed app can stay open for days: look for a new version every
+    // 30 minutes and whenever it comes back to the screen (PWAUpdatePrompt then
+    // offers "Update now").
+    onRegisteredSW(_swUrl, registration) {
+      if (!registration) return;
+      const check = () => { registration.update().catch(() => {}); };
+      setInterval(check, 30 * 60 * 1000);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') check();
+      });
+    },
   });
 
   window.addEventListener('online', () => {

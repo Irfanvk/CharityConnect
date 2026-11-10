@@ -20,6 +20,7 @@ import {
   MessageSquare, Phone, UserCircle, X, XCircle,
 } from "lucide-react";
 import AvatarCropUpload from "@/components/profile/AvatarCropUpload";
+import { APP_VERSION } from "@/lib/appVersion";
 import PaymentReminderSetting, { ordinal } from "@/components/PaymentReminderSetting";
 import AvatarLightbox from "@/components/profile/AvatarLightbox";
 
@@ -613,6 +614,10 @@ export default function Profile() {
           </button>
         </div>
       )}
+
+      <p className="pb-2 text-center text-[11px] text-slate-400" aria-label="App version">
+        App version {APP_VERSION}
+      </p>
 
       {/* ── Edit a detail ── */}
       <Dialog open={Boolean(editField)} onOpenChange={(open) => { if (!open) setEditField(null); }}>
