@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { charityClient } from "@/api/charityClient";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,7 +71,10 @@ export default function Profile() {
   const [cropOpen, setCropOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const isMember = user?.role === 'member';
+  // Re-fetch the member's requests so the "photo request pending" guard applies immediately.
+  const refreshMyRequests = () => queryClient.invalidateQueries({ queryKey: ['requests', 'mine'] });
 
   useEffect(() => {
     loadUser();
@@ -100,6 +103,7 @@ export default function Profile() {
             avatar_url: nextAvatarUrl,
           },
         });
+        refreshMyRequests();
 
         toast({
           title: 'Request submitted',
@@ -130,6 +134,7 @@ export default function Profile() {
             avatar_url: null,
           },
         });
+        refreshMyRequests();
 
         toast({
           title: 'Request submitted',
