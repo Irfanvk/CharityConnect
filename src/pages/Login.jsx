@@ -12,7 +12,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { REMEMBERED_LOGIN_KEY } from '@/config/constants';
-import { usePublicSettings } from '@/lib/usePublicSettings';
 import { markNewLogin } from '@/lib/installPrompt';
 
 // Only the username is remembered. The password is never stored by the app;
@@ -40,7 +39,6 @@ function saveRememberedUsername(username) {
 
 export default function Login() {
   const orgBrand = useOrgBrand();
-  const { remember_me_days: rememberMeDays } = usePublicSettings();
   const location = useLocation();
   // Arriving from a successful registration pre-fills the new username.
   const registeredUsername = location.state?.registeredUsername || '';
@@ -239,7 +237,7 @@ export default function Login() {
                   Remember me
                 </Label>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Stay signed in on this device for {rememberMeDays} day{rememberMeDays === 1 ? '' : 's'}. Don't use on shared devices.
+                  Don't use on shared devices.
                 </p>
               </div>
             </div>
