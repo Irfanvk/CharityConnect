@@ -5,6 +5,10 @@ import { APP_BRAND } from '@/config/appPaths'
 import '@/index.css'
 import { registerSW } from 'virtual:pwa-register'
 import { isIOSDevice } from '@/lib/device'
+import { initInstallCapture } from '@/lib/installPrompt'
+
+// Capture the browser's install event before React mounts so it is never missed.
+initInstallCapture();
 
 const IOS_SW_RESET_KEY = 'ios_sw_reset_v2';
 let hasMountedReactApp = false;

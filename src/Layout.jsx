@@ -352,6 +352,7 @@ export default function Layout({ children, currentPageName }) {
                 </Link>
               );
             })}
+            <PWAInstallButton variant="menu" className="mt-3" onOpen={() => setSidebarOpen(false)} />
           </nav>
 
           {/* User section */}

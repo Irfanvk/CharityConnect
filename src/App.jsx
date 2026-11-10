@@ -19,8 +19,7 @@ import { APP_PATHS } from '@/config/appPaths';
 import { SESSION_EXPIRED_TOAST_KEY } from '@/config/constants';
 import { BackendHealthBanner } from '@/components/BackendHealthBanner';
 import { OfflineBanner } from '@/components/OfflineBanner';
-import { IOSInstallPrompt } from '@/components/IOSInstallPrompt';
-import { AndroidInstallPrompt } from '@/components/AndroidInstallPrompt';
+import InstallAppDialog from '@/components/InstallAppDialog';
 import { NotificationsProvider } from '@/context/NotificationContext';
 import { LaunchSplash } from '@/components/LaunchSplash';
 
@@ -283,8 +282,7 @@ function App() {
               <NavigationTracker />
               <LaunchSplash />
               <AuthenticatedApp />
-              <IOSInstallPrompt />
-              <AndroidInstallPrompt />
+              <InstallAppDialog />
             </Router>
           </NotificationsProvider>
           <Toaster />

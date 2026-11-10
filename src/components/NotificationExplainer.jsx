@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
 import { safeLocalStorage } from '@/lib/device';
 import { enableNotificationsFromTap, getPushEnvironment } from '@/lib/pushSetup';
+import { useInstallState } from '@/lib/installPrompt';
 
 const DISMISS_KEY = 'notification_explainer_dismissed';
 
@@ -15,8 +16,10 @@ export default function NotificationExplainer() {
   const { isAuthenticated } = useAuth();
   const [hidden, setHidden] = useState(() => safeLocalStorage(DISMISS_KEY) === '1');
   const [busy, setBusy] = useState(false);
+  const { dialogOpen: installDialogOpen } = useInstallState();
 
-  if (!isAuthenticated || hidden) return null;
+  // Never stack on top of the install dialog; it shows again once that closes.
+  if (!isAuthenticated || hidden || installDialogOpen) return null;
   const env = getPushEnvironment();
   if (env.state !== 'ready' || env.permission !== 'default') return null;
 

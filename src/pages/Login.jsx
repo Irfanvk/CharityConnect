@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { REMEMBERED_LOGIN_KEY } from '@/config/constants';
 import { usePublicSettings } from '@/lib/usePublicSettings';
+import { markNewLogin } from '@/lib/installPrompt';
 
 // Only the username is remembered. The password is never stored by the app;
 // the browser's password manager can offer to save it (autocomplete attributes below).
@@ -91,6 +92,7 @@ export default function Login() {
         remember_me: rememberMe,
       });
       saveRememberedUsername(rememberMe ? username : '');
+      markNewLogin(); // install popup may show once for this sign-in
       
       const currentUser = response?.user || await charityClient.auth.me();
       if (!currentUser) {
