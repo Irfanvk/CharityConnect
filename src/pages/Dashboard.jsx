@@ -72,14 +72,24 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user?.id) return;
     if (user.role === 'member') {
-      const completed = isMemberSetupCompleted(user.id);
-      setShowOnboarding(!completed);
-      setMemberSetupData(getMemberSetup(user.id));
+      const local = getMemberSetup(user.id);
+      const doneOnServer = Boolean(user.onboarding_completed_at);
+      const doneHere = isMemberSetupCompleted(user.id);
+      // A just-approved member sees the welcome first; the setup form follows.
+      setShowOnboarding(!doneOnServer && !doneHere && !user.welcome_pending);
+      setMemberSetupData(local);
+      // Setup finished before it was saved on the server: carry the address over
+      // once. Reminders keep the default (on, organisation's day); the old
+      // reminder switch never did anything.
+      if (doneHere && !doneOnServer) {
+        const address = [local?.address, local?.city].map((v) => String(v || '').trim()).filter(Boolean).join(', ');
+        charityClient.auth.completeOnboarding({ address: address || null }).catch(() => {});
+      }
     } else {
       setShowOnboarding(false);
       setMemberSetupData(null);
     }
-  }, [user?.id, user?.role]);
+  }, [user?.id, user?.role, user?.onboarding_completed_at, user?.welcome_pending]);
 
   useEffect(() => {
     setShowWayfinding(recordWayfindingVisit(wayfindingUserKey));

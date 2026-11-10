@@ -3,7 +3,8 @@ import { formatMemberId } from "@/lib/utils";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { emitNotificationsChanged } from "@/lib/notificationState";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useDeepLink } from "@/lib/useDeepLink";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -162,10 +163,13 @@ function useDebounce(value, delay = 400) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Challans page
 // ─────────────────────────────────────────────────────────────────────────────
+const CHALLAN_DEEP_LINK_PARAMS = ["challan", "bulk"];
+
 export default function Challans() {
   // ── UI state ──────────────────────────────────────────────────────────────
+  const [linkParams] = useSearchParams();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(() => (linkParams.get("status") === "pending" ? "pending" : "all"));
   const [entryFilter, setEntryFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [recordOpen, setRecordOpen] = useState(false);
@@ -904,6 +908,16 @@ export default function Challans() {
   );
 
   // ── Render ────────────────────────────────────────────────────────────────
+  useDeepLink({
+    params: CHALLAN_DEEP_LINK_PARAMS,
+    ready: !isLoading,
+    onFound: (param, value) => {
+      if (param !== "challan") return;
+      const match = challanItems.find((item) => String(item.id) === value);
+      if (match) setSelectedChallan(match);
+    },
+  });
+
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="space-y-6">
@@ -1065,7 +1079,8 @@ export default function Challans() {
                     return (
                       <TableRow
                         key={challan.id}
-                        className="hover:bg-slate-50/50"
+                        data-deeplink={challan.is_bulk_group ? `bulk-${challan.bulk_group_id}` : `challan-${challan.id}`}
+                        className="hover:bg-slate-50/50 transition-colors"
                       >
                         {/* Challan # */}
                         <TableCell>

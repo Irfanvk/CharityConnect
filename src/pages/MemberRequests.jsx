@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { format } from "@/lib/dateTime";
+import { useDeepLink } from "@/lib/useDeepLink";
 import { Loader2, Trash2 } from "lucide-react";
 
 const statusColor = {
@@ -23,6 +24,8 @@ const typeLabel = {
   suggestion: "Suggestion",
   general: "General",
 };
+
+const REQUEST_DEEP_LINK_PARAMS = ["request"];
 
 export default function MemberRequests() {
   const [statusFilter, setStatusFilter] = useState("all");
@@ -61,6 +64,8 @@ export default function MemberRequests() {
     return requests.filter((request) => request.status === statusFilter);
   }, [requests, statusFilter]);
 
+  useDeepLink({ params: REQUEST_DEEP_LINK_PARAMS, ready: !isLoading });
+
   return (
     <div className="space-y-6">
       <div>
@@ -90,7 +95,7 @@ export default function MemberRequests() {
       ) : (
         <div className="space-y-4">
           {filtered.map((request) => (
-            <Card key={request.id} className="border-0 shadow-sm">
+            <Card key={request.id} data-deeplink={`request-${request.id}`} className="border-0 shadow-sm transition-colors">
               <CardContent className="p-5 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>

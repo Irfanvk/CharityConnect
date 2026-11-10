@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useDeepLink } from "@/lib/useDeepLink";
 import { formatMemberId, sanitizeShareUrl } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { charityClient } from "@/api/charityClient";
@@ -11,7 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, Inbox, KeyRound, MessageCircle, CheckCircle2, Receipt } from "lucide-react";
+import { Loader2, Inbox, KeyRound, MessageCircle, CheckCircle2, Receipt, UserCheck } from "lucide-react";
+import MemberActivationsPanel, { ACTIVATIONS_QUERY_KEY } from "@/components/admin/MemberActivationsPanel";
 import { format } from "@/lib/dateTime";
 import { useMemo } from "react";
 import { emitNotificationsChanged } from "@/lib/notificationState";
@@ -36,8 +39,79 @@ const getRequestLabel = (request) => {
   return typeLabel[request.request_type] || request.request_type;
 };
 
+const CHANGE_FIELD_LABELS = {
+  full_name: "Full name",
+  username: "Username",
+  email: "Email",
+  phone: "Phone",
+  address: "Address",
+  monthly_amount: "Monthly amount",
+};
+
+const parseChanges = (raw) => {
+  try {
+    const value = typeof raw === "string" ? JSON.parse(raw || "{}") : raw;
+    return value && typeof value === "object" ? value : {};
+  } catch {
+    return {};
+  }
+};
+
+const fieldLabel = (key) =>
+  CHANGE_FIELD_LABELS[key] || key.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+
+function RequestedChanges({ raw }) {
+  const changes = parseChanges(raw);
+  const hasAvatar = Object.prototype.hasOwnProperty.call(changes, "avatar_url");
+  const otherEntries = Object.entries(changes).filter(([key]) => key !== "avatar_url");
+
+  if (!hasAvatar && otherEntries.length === 0) {
+    return <p className="text-sm text-slate-500">No changes listed.</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {hasAvatar && (
+        <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 p-3">
+          <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">New profile photo</p>
+          {changes.avatar_url ? (
+            <a href={changes.avatar_url} target="_blank" rel="noopener noreferrer" className="block w-fit mx-auto sm:mx-0">
+              <img
+                src={changes.avatar_url}
+                alt="Requested profile photo"
+                className="w-32 h-32 sm:w-28 sm:h-28 rounded-full object-cover border border-slate-200"
+              />
+              <span className="mt-1 block text-center text-xs text-emerald-700">Tap to view full size</span>
+            </a>
+          ) : (
+            <p className="text-sm text-slate-600 dark:text-slate-300">Remove the current profile photo.</p>
+          )}
+        </div>
+      )}
+      {otherEntries.length > 0 && (
+        <dl className="divide-y rounded-lg border">
+          {otherEntries.map(([key, value]) => (
+            <div key={key} className="px-3 py-2">
+              <dt className="text-xs text-slate-500">{fieldLabel(key)}</dt>
+              <dd className="text-sm font-medium text-slate-800 dark:text-slate-100 break-words">
+                {value === null || value === "" ? <span className="italic text-slate-500">(remove)</span> : String(value)}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
+  );
+}
+
+const REQUEST_DEEP_LINK_PARAMS = ["request"];
+
 export default function AdminRequests() {
-  const [activeTab, setActiveTab] = useState("member"); // "member" | "password" | "challans"
+  const [linkParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => {
+    const tab = linkParams.get("tab");
+    return ["password", "challans", "activations"].includes(tab) ? tab : "member";
+  }); // "member" | "password" | "challans" | "activations"
   const [status, setStatus] = useState("all");
   const [requestType, setRequestType] = useState("all");
   const [search, setSearch] = useState("");
@@ -73,12 +147,20 @@ export default function AdminRequests() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+
   const { data: user } = useQuery({
     queryKey: ["auth", "me", "admin-requests"],
     queryFn: () => charityClient.auth.me(),
   });
 
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+
+  // On phones the tab bar scrolls sideways; keep the selected tab in view.
+  const tabBarRef = useRef(null);
+  useEffect(() => {
+    const el = tabBarRef.current?.querySelector(`[data-tab="${activeTab}"]`);
+    el?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [activeTab, isAdmin]);
   const OWN_REQUEST_LABEL = "Your request — another admin will review";
   const OWN_PAYMENT_LABEL = "Your payment — another admin will review";
   const MIN_REASON_LENGTH = 10;
@@ -103,6 +185,14 @@ export default function AdminRequests() {
     ),
     enabled: isAdmin && activeTab === "password",
   });
+
+  // Pending member activations, for the tab badge (the panel loads its own list).
+  const { data: activationCounts } = useQuery({
+    queryKey: [...ACTIVATIONS_QUERY_KEY, "pending-count"],
+    queryFn: () => charityClient.memberActivations.list({ status: "pending", limit: 1 }),
+    enabled: isAdmin,
+  });
+  const pendingActivationCount = Number(activationCounts?.pending_total || 0);
 
   // Pending challans queries (individual + bulk groups awaiting review)
   const { data: pendingChallanPage = { items: [], total: 0 }, isLoading: pendingChallansLoading } = useQuery({
@@ -302,6 +392,9 @@ export default function AdminRequests() {
     },
   });
 
+  // The activations tab handles its own ?request= deep links.
+  useDeepLink({ params: REQUEST_DEEP_LINK_PARAMS, ready: activeTab !== "activations" && !isLoading && !prLoading });
+
   if (!isAdmin) {
     return (
       <Card className="border-0 shadow-sm">
@@ -319,19 +412,25 @@ export default function AdminRequests() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Admin Requests</h1>
-        <p className="text-slate-500">Review and action member requests and password resets.</p>
+        <p className="text-slate-500">Review member requests, password resets, payments and account activations.</p>
       </div>
 
       {/* Tab switcher */}
-      <div className="flex gap-2 border-b border-slate-200">
+      <div
+        ref={tabBarRef}
+        className="-mx-4 flex gap-1 overflow-x-auto border-b border-slate-200 px-4 sm:mx-0 sm:gap-2 sm:px-0 [&>button]:shrink-0 [&>button]:whitespace-nowrap [&::-webkit-scrollbar]:hidden"
+        style={{ scrollbarWidth: "none" }}
+      >
         <button
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "member" ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          data-tab="member"
           onClick={() => setActiveTab("member")}
         >
           Member Requests
         </button>
         <button
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "password" ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          data-tab="password"
           onClick={() => setActiveTab("password")}
         >
           <KeyRound className="w-3.5 h-3.5" />
@@ -344,6 +443,7 @@ export default function AdminRequests() {
         </button>
         <button
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "challans" ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          data-tab="challans"
           onClick={() => setActiveTab("challans")}
         >
           <Receipt className="w-3.5 h-3.5" />
@@ -354,7 +454,22 @@ export default function AdminRequests() {
             </span>
           )}
         </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "activations" ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          data-tab="activations"
+          onClick={() => setActiveTab("activations")}
+        >
+          <UserCheck className="w-3.5 h-3.5" />
+          Member Activations
+          {pendingActivationCount > 0 && (
+            <span className="ml-1 inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-xs min-w-5 h-5 px-1">
+              {pendingActivationCount}
+            </span>
+          )}
+        </button>
       </div>
+
+      {activeTab === "activations" && <MemberActivationsPanel enabled={isAdmin} />}
 
       {/* ── Member Requests tab ── */}
       {activeTab === "member" && (
@@ -430,7 +545,7 @@ export default function AdminRequests() {
               )}
 
               {filteredItems.map((request) => (
-                <Card key={request.id} className="border-0 shadow-sm">
+                <Card key={request.id} data-deeplink={`request-${request.id}`} className="border-0 shadow-sm transition-colors">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3 min-w-0">
@@ -507,7 +622,7 @@ export default function AdminRequests() {
           ) : (
             <div className="space-y-3">
               {prRequests.map((req) => (
-                <Card key={req.id} className="border-0 shadow-sm">
+                <Card key={req.id} data-deeplink={`request-${req.id}`} className="border-0 shadow-sm transition-colors">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 space-y-0.5">
@@ -636,9 +751,9 @@ export default function AdminRequests() {
 
           {selectedRequest && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><p className="text-slate-500">Member</p><p className="font-medium">{selectedRequest.member_name} ({formatMemberId(selectedRequest.member_code)})</p></div>
-                <div><p className="text-slate-500">Type</p><p className="font-medium">{typeLabel[selectedRequest.request_type] || selectedRequest.request_type}</p></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div className="min-w-0"><p className="text-slate-500">Member</p><p className="font-medium break-words">{selectedRequest.member_name} ({formatMemberId(selectedRequest.member_code)})</p></div>
+                <div className="min-w-0"><p className="text-slate-500">Type</p><p className="font-medium">{getRequestLabel(selectedRequest)}</p></div>
               </div>
 
               {selectedRequest.request_type === "monthly_amount_change" && (
@@ -651,38 +766,13 @@ export default function AdminRequests() {
               {selectedRequest.request_type === "profile_update" && (
                 <div className="rounded-md border p-3 text-sm">
                   <p className="font-medium text-slate-800 mb-2">Requested changes</p>
-                  {(() => {
-                    try {
-                      const changes = JSON.parse(selectedRequest.requested_changes || '{}');
-                      const avatarUrl = changes?.avatar_url;
-                      if (Object.prototype.hasOwnProperty.call(changes || {}, 'avatar_url')) {
-                        return (
-                          <div className="mb-3 rounded-md bg-slate-50 p-3">
-                            <p className="text-xs font-medium text-slate-600 mb-2">Profile photo request</p>
-                            {avatarUrl ? (
-                              <img
-                                src={avatarUrl}
-                                alt="Requested avatar"
-                                className="w-24 h-24 rounded-full object-cover border border-slate-200"
-                              />
-                            ) : (
-                              <p className="text-sm text-slate-600">Member requested removal of current profile photo.</p>
-                            )}
-                          </div>
-                        );
-                      }
-                    } catch {
-                      return null;
-                    }
-                    return null;
-                  })()}
-                  <pre className="text-xs bg-slate-50 rounded p-2 overflow-auto">{selectedRequest.requested_changes || "{}"}</pre>
+                  <RequestedChanges raw={selectedRequest.requested_changes} />
                 </div>
               )}
 
               <div className="rounded-md border p-3 text-sm">
                 <p className="font-medium text-slate-800 mb-1">Member message</p>
-                <p className="text-slate-700">{selectedRequest.message}</p>
+                <p className="text-slate-700 whitespace-pre-wrap break-words">{selectedRequest.message}</p>
               </div>
 
               {selectedRequest.status === "pending" && !isOwnUser(selectedRequest.user_id) ? (
@@ -695,7 +785,7 @@ export default function AdminRequests() {
                     <label className="text-sm font-medium text-slate-700">Rejection reason (required for reject)</label>
                     <Textarea value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} rows={3} />
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 sticky bottom-0 -mx-6 -mb-6 px-6 py-3 bg-background border-t">
                     <Button
                       variant="destructive"
                       className="flex-1"

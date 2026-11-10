@@ -207,6 +207,11 @@ function normalizeNotification(notification) {
     target_type: normalized.target_type || 'all',
     read_by: Array.isArray(normalized.read_by) ? normalized.read_by : [],
     is_read: Boolean(normalized.is_read),
+    category: normalized.category || null,
+    link_url: normalized.link_url || null,
+    entity_type: normalized.entity_type || null,
+    entity_id: normalized.entity_id ?? null,
+    is_urgent: Boolean(normalized.is_urgent),
   };
 }
 
@@ -567,23 +572,26 @@ const charityClient = {
     },
 
     register: async (registrationData) => {
-      const data = await apiFetch(API_PATHS.auth.register, {
+      // The response still carries a token, but registration deliberately does
+      // not sign the user in: they are redirected to the login page instead.
+      return await apiFetch(API_PATHS.auth.register, {
         method: 'POST',
         body: JSON.stringify(registrationData),
       });
-
-      const token = extractAuthToken(data);
-      if (token) {
-        tokenManager.set(token);
-        localStorage.setItem(AUTH_TOKEN_KEY, token);
-      }
-
-      return data;
     },
 
     checkUsername: async (username) => {
       return await apiFetch(API_PATHS.auth.checkUsername, { method: 'GET' }, { username });
     },
+
+    welcome: async () => apiFetch(API_PATHS.auth.welcome),
+
+    welcomeSeen: async () => apiFetch(API_PATHS.auth.welcomeSeen, { method: 'POST' }),
+
+    completeOnboarding: async (payload) => apiFetch(API_PATHS.auth.onboarding, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
     logout: async () => {
       try {
@@ -981,6 +989,9 @@ const charityClient = {
       return apiFetch(API_PATHS.admin.dashboardCharts, { method: 'GET' }, params);
     },
 
+    notificationDeliveryOverview: async (query = {}) =>
+      apiFetch(API_PATHS.admin.notificationDeliveryOverview, { method: 'GET' }, query),
+
     userMonitoring: async () => {
       return apiFetch(API_PATHS.admin.userMonitoring, { method: 'GET' });
     },
@@ -1259,6 +1270,21 @@ const charityClient = {
         body: JSON.stringify(subscription),
       }),
 
+    getPreferences: () =>
+      apiFetch(API_PATHS.notifications.preferences, { method: 'GET' }),
+
+    savePreferences: (payload) =>
+      apiFetch(API_PATHS.notifications.preferences, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      }),
+
+    sendTestPush: (userId) =>
+      apiFetch(API_PATHS.notifications.testPush, {
+        method: 'POST',
+        body: JSON.stringify(userId ? { user_id: userId } : {}),
+      }),
+
     pushUnsubscribe: (endpoint) =>
       apiFetch(API_PATHS.notifications.pushUnsubscribe, {
         method: 'POST',
@@ -1287,6 +1313,13 @@ const charityClient = {
 
       const eventSource = new EventSource(streamUrl.toString());
 
+      let opened = false;
+      eventSource.onopen = () => {
+        // A reopened stream may have missed events; ask for a refresh.
+        if (opened) callback({ type: 'reconnected' });
+        opened = true;
+      };
+
       eventSource.onmessage = (event) => {
         if (!event?.data) return;
 
@@ -1305,6 +1338,31 @@ const charityClient = {
         eventSource.close();
       };
     },
+  },
+
+  // Existing members activating their own account (admin approves).
+  memberActivations: {
+    availability: async () => {
+      try {
+        return await apiFetch(API_PATHS.memberActivations.availability);
+      } catch {
+        return { enabled: false };
+      }
+    },
+    submit: async (payload) => apiFetch(API_PATHS.memberActivations.base, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+    list: async (query = {}) => apiFetch(API_PATHS.memberActivations.base, { method: 'GET' }, query),
+    get: async (id) => apiFetch(API_PATHS.memberActivations.byId(id)),
+    approve: async (id, admin_notes) => apiFetch(API_PATHS.memberActivations.approve(id), {
+      method: 'POST',
+      body: JSON.stringify({ admin_notes: admin_notes || null }),
+    }),
+    reject: async (id, rejection_reason, admin_notes) => apiFetch(API_PATHS.memberActivations.reject(id), {
+      method: 'POST',
+      body: JSON.stringify({ rejection_reason, admin_notes: admin_notes || null }),
+    }),
   },
 
   requests: {

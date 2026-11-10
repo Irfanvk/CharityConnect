@@ -50,6 +50,8 @@ export const AuthProvider = ({ children }) => {
     userData?.full_name,
     userData?.username,
     userData?.phone,
+    userData?.welcome_pending,
+    userData?.onboarding_completed_at,
   ]);
 
   // ✅ FIX 3: Stable setter that avoids unnecessary state updates when data
@@ -63,7 +65,9 @@ export const AuthProvider = ({ children }) => {
         prev?.role === nextUser?.role &&
         prev?.is_superadmin === nextUser?.is_superadmin &&
         prev?.email === nextUser?.email &&
-        prev?.full_name === nextUser?.full_name
+        prev?.full_name === nextUser?.full_name &&
+        prev?.welcome_pending === nextUser?.welcome_pending &&
+        prev?.onboarding_completed_at === nextUser?.onboarding_completed_at
       ) {
         return prev; // Return same reference — no re-render triggered
       }

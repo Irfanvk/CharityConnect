@@ -1,115 +1,222 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { charityClient } from "@/api/charityClient";
-import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/lib/AuthContext";
+import { PAGE_PATHS } from "@/config/appPaths";
+import { formatMemberId } from "@/lib/utils";
+import { format } from "@/lib/dateTime";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Mail, Phone, MapPin, Calendar, Receipt,
-  TrendingUp, CheckCircle, Clock, Loader2, UserCircle, Trash2, AlertTriangle, CreditCard, Pencil, Camera, X, AtSign, XCircle
-} from "lucide-react";
-import { format } from "@/lib/dateTime";
-import ContributionHistory from "@/components/profile/ContributionHistory";
-import ReminderSettings from "@/components/profile/ReminderSettings";
-import RecurringDonations from "@/components/profile/RecurringDonations";
-import AvatarCropUpload from "@/components/profile/AvatarCropUpload";
-import AvatarLightbox from "@/components/profile/AvatarLightbox";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  AtSign, BellRing, Camera, CheckCircle, ChevronRight, Inbox, Loader2, LogOut, Mail, MapPin,
+  MessageSquare, Phone, UserCircle, X, XCircle,
+} from "lucide-react";
+import AvatarCropUpload from "@/components/profile/AvatarCropUpload";
+import { APP_VERSION } from "@/lib/appVersion";
+import PaymentReminderSetting, { ordinal } from "@/components/PaymentReminderSetting";
+import AvatarLightbox from "@/components/profile/AvatarLightbox";
 
-const statusConfig = {
-  generated: { label: "Generated", color: "bg-slate-100 text-slate-700" },
-  proof_uploaded: { label: "Uploaded", color: "bg-blue-100 text-blue-700" },
-  pending: { label: "Pending", color: "bg-amber-100 text-amber-700" },
-  approved: { label: "Approved", color: "bg-emerald-100 text-emerald-700" },
-  rejected: { label: "Rejected", color: "bg-rose-100 text-rose-700" },
+const FIELD_LABELS = {
+  full_name: "Full name",
+  phone: "Phone",
+  email: "Email",
+  address: "Address",
+  username: "Username",
 };
 
+const PAYMENT_STATUS = {
+  approved: { label: "Paid", className: "bg-emerald-100 text-emerald-700" },
+  pending: { label: "Checking", className: "bg-amber-100 text-amber-700" },
+  generated: { label: "Not paid", className: "bg-slate-100 text-slate-700" },
+  rejected: { label: "Rejected", className: "bg-rose-100 text-rose-700" },
+};
+
+const validateUsernameFormat = (username) => {
+  if (!username) return "";
+  if (username.length < 3) return "At least 3 characters";
+  if (username.length > 30) return "Max 30 characters";
+  if (!/^[a-zA-Z0-9_-]+$/.test(username)) return "Letters, numbers, underscores, hyphens only";
+  return "";
+};
+
+const formatRupees = (value) => `₹${Number(value || 0).toLocaleString("en-IN")}`;
+
+/** One tappable row in "My details". */
+function DetailRow({ icon: Icon, label, value, pending, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={pending}
+      className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-slate-50 disabled:cursor-not-allowed dark:hover:bg-slate-800/60 select-none"
+    >
+      <Icon className="h-4 w-4 shrink-0 text-slate-400" />
+      <span className="w-24 shrink-0 text-sm text-slate-500 dark:text-slate-400">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+        {value || <span className="font-normal text-slate-400">Not added</span>}
+      </span>
+      {pending ? (
+        <Badge variant="secondary" className="shrink-0 bg-amber-100 text-amber-700">Change requested</Badge>
+      ) : (
+        <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
+      )}
+    </button>
+  );
+}
+
+/** A plain navigation / action row used in the help section. */
+function ActionRow({ icon: Icon, label, hint, to, onClick }) {
+  const content = (
+    <>
+      <Icon className="h-4 w-4 shrink-0 text-emerald-600" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium text-slate-900 dark:text-slate-100">{label}</span>
+        {hint && <span className="block text-xs text-slate-500 dark:text-slate-400">{hint}</span>}
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
+    </>
+  );
+  const className = "flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60 select-none";
+  return to
+    ? <Link to={to} className={className}>{content}</Link>
+    : <button type="button" onClick={onClick} className={className}>{content}</button>;
+}
+
 export default function Profile() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [paymentChangeOpen, setPaymentChangeOpen] = useState(false);
-  const [newMonthlyAmount, setNewMonthlyAmount] = useState("");
-  const [paymentChangeReason, setPaymentChangeReason] = useState("");
-  const [submittingPaymentChange, setSubmittingPaymentChange] = useState(false);
-  const [profileUpdateOpen, setProfileUpdateOpen] = useState(false);
-  const [profileUpdateField, setProfileUpdateField] = useState("");
-  const [profileUpdateCurrentValue, setProfileUpdateCurrentValue] = useState("");
-  const [profileUpdateNewValue, setProfileUpdateNewValue] = useState("");
-  const [profileUpdateReason, setProfileUpdateReason] = useState("");
-  const [submittingProfileUpdate, setSubmittingProfileUpdate] = useState(false);
-  // 'idle' | 'checking' | 'available' | 'taken'
-  const [usernameCheckStatusInDialog, setUsernameCheckStatusInDialog] = useState('idle');
-  const usernameDialogDebounceRef = useRef(null);
-  const [generalRequestOpen, setGeneralRequestOpen] = useState(false);
-  const [generalRequestType, setGeneralRequestType] = useState('general');
-  const [generalRequestSubject, setGeneralRequestSubject] = useState('');
-  const [generalRequestMessage, setGeneralRequestMessage] = useState('');
-  const [submittingGeneralRequest, setSubmittingGeneralRequest] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { logout } = useAuth();
+
   const [cropOpen, setCropOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const { toast } = useToast();
-  const isMember = user?.role === 'member';
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  useEffect(() => {
-    loadUser();
-  }, []);
+  const [editField, setEditField] = useState(null); // key of FIELD_LABELS
+  const [editValue, setEditValue] = useState("");
+  const [editReason, setEditReason] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState("idle"); // idle | checking | available | taken
+  const usernameDebounceRef = useRef(null);
 
-  const loadUser = async () => {
-    const currentUser = await charityClient.auth.me();
-    setUser(currentUser);
+  const [amountOpen, setAmountOpen] = useState(false);
+  const [newAmount, setNewAmount] = useState("");
+  const [amountReason, setAmountReason] = useState("");
+  const [savingAmount, setSavingAmount] = useState(false);
+
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [reminderOpen, setReminderOpen] = useState(false);
+  const [helpType, setHelpType] = useState("general");
+  const [helpSubject, setHelpSubject] = useState("");
+  const [helpMessage, setHelpMessage] = useState("");
+  const [savingHelp, setSavingHelp] = useState(false);
+
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [closeReason, setCloseReason] = useState("");
+  const [savingClose, setSavingClose] = useState(false);
+
+  // ── Data: always the signed-in user's own records ──────────────────────────
+  const { data: user, refetch: refetchUser } = useQuery({
+    queryKey: ["auth", "me", "profile"],
+    queryFn: () => charityClient.auth.me(),
+  });
+  const isMember = user?.role === "member";
+
+  // Admins may have no member record; treat 404 as "none".
+  const { data: memberProfile = null } = useQuery({
+    queryKey: ["members", "me"],
+    queryFn: async () => {
+      try {
+        return await charityClient.members.me();
+      } catch (error) {
+        if ((error?.status ?? error?.response?.status) === 404) return null;
+        throw error;
+      }
+    },
+    enabled: Boolean(user),
+    retry: false,
+  });
+
+  const { data: payments = [] } = useQuery({
+    queryKey: ["challans", "member", memberProfile?.id, "profile"],
+    queryFn: () => charityClient.challans.getByMember(memberProfile.id, { limit: 200 }),
+    enabled: Boolean(memberProfile?.id),
+  });
+
+  const { data: myRequests = [] } = useQuery({
+    queryKey: ["requests", "mine", user?.id],
+    queryFn: () => charityClient.requests.list({ limit: 200 }),
+    enabled: Boolean(user),
+  });
+
+  const refreshMyRequests = () => queryClient.invalidateQueries({ queryKey: ["requests", "mine"] });
+
+  const { data: notificationPrefs } = useQuery({
+    queryKey: ["notification-preferences"],
+    queryFn: () => charityClient.notifications.getPreferences(),
+    enabled: Boolean(user),
+  });
+  const reminder = notificationPrefs?.payment_reminder;
+  const saveReminder = async ({ enabled, day }) => {
+    try {
+      const next = await charityClient.notifications.savePreferences({
+        ...(enabled !== undefined ? { payment_reminder_enabled: enabled } : {}),
+        ...(day !== undefined ? { payment_reminder_day: day } : {}),
+      });
+      queryClient.setQueryData(["notification-preferences"], next);
+    } catch (error) {
+      toast({ title: "Could not save", description: error?.message || "Please try again.", variant: "destructive" });
+    }
   };
 
+  const pendingRequests = myRequests.filter((request) => request.status === "pending");
+  const pendingFields = new Set(
+    pendingRequests
+      .filter((request) => request.request_type === "profile_update")
+      .flatMap((request) => {
+        try {
+          const changes = JSON.parse(request.requested_changes || "{}");
+          return changes && typeof changes === "object" ? Object.keys(changes) : [];
+        } catch {
+          return [];
+        }
+      })
+  );
+  const photoPending = pendingFields.has("avatar_url");
+  const amountPending = pendingRequests.some((request) => request.request_type === "monthly_amount_change");
+
+  const paidPayments = payments.filter((challan) => challan.status === "approved");
+  const totalPaid = paidPayments.reduce((sum, challan) => sum + Number(challan.amount || 0), 0);
+  const monthsPaid = paidPayments.filter((challan) => challan.type === "monthly").length;
+  const recentPayments = payments.slice(0, 3);
+
+  // ── Photo ──────────────────────────────────────────────────────────────────
   const handleAvatarSave = async (file) => {
+    setUploadingAvatar(true);
     try {
       if (isMember) {
         const uploaded = await charityClient.files.uploadAvatar(file);
         const nextAvatarUrl = uploaded?.file_url || uploaded?.url || uploaded?.avatar_url;
-
-        if (!nextAvatarUrl) {
-          throw new Error('Avatar upload did not return a file URL');
-        }
-
+        if (!nextAvatarUrl) throw new Error("Photo upload did not return a file URL");
         await charityClient.requests.create({
-          request_type: 'profile_update',
-          subject: 'Profile photo update request',
-          message: 'Please update my profile photo.',
-          requested_changes: {
-            avatar_url: nextAvatarUrl,
-          },
+          request_type: "profile_update",
+          subject: "Profile photo update request",
+          message: "Please update my profile photo.",
+          requested_changes: { avatar_url: nextAvatarUrl },
         });
-
-        toast({
-          title: 'Request submitted',
-          description: 'Your profile photo update request has been submitted for admin approval.',
-        });
+        refreshMyRequests();
+        toast({ title: "Photo sent for approval", description: "An admin will check it shortly." });
         return;
       }
-
-      const updated = await charityClient.auth.uploadAvatar(file);
-      setUser((prev) => ({ ...prev, avatar_url: updated.avatar_url }));
+      await charityClient.auth.uploadAvatar(file);
+      await refetchUser();
       toast({ title: "Profile photo updated" });
     } catch (error) {
       toast({ title: "Upload failed", description: error?.message || "Please try again.", variant: "destructive" });
@@ -123,23 +230,17 @@ export default function Profile() {
     try {
       if (isMember) {
         await charityClient.requests.create({
-          request_type: 'profile_update',
-          subject: 'Profile photo removal request',
-          message: 'Please remove my current profile photo.',
-          requested_changes: {
-            avatar_url: null,
-          },
+          request_type: "profile_update",
+          subject: "Profile photo removal request",
+          message: "Please remove my current profile photo.",
+          requested_changes: { avatar_url: null },
         });
-
-        toast({
-          title: 'Request submitted',
-          description: 'Your profile photo removal request has been submitted for admin approval.',
-        });
+        refreshMyRequests();
+        toast({ title: "Removal sent for approval", description: "An admin will check it shortly." });
         return;
       }
-
       await charityClient.auth.removeAvatar();
-      setUser((prev) => ({ ...prev, avatar_url: null }));
+      await refetchUser();
       toast({ title: "Profile photo removed" });
     } catch (error) {
       toast({ title: "Remove failed", description: error?.message || "Please try again.", variant: "destructive" });
@@ -148,962 +249,528 @@ export default function Profile() {
     }
   };
 
-  const { data: members = [] } = useQuery({
-    queryKey: ['members'],
-    queryFn: () => charityClient.members.list(),
-  });
-
-  const { data: challans = [] } = useQuery({
-    queryKey: ['challans'],
-    queryFn: () => charityClient.challans.list({ order: '-created_date' }),
-  });
-
-  const { data: invites = [] } = useQuery({
-    queryKey: ['invites'],
-    queryFn: () => charityClient.invites.list(),
-  });
-
-  const { data: myRequests = [] } = useQuery({
-    queryKey: ['requests', 'mine', user?.email],
-    queryFn: () => charityClient.requests.list({ limit: 200 }),
-    enabled: Boolean(user?.email),
-  });
-
-  // Phase 1: RecurringDonations disabled - will implement in Phase 2
-  const { data: recurringDonations = [] } = useQuery({
-    queryKey: ['recurringDonations', user?.email],
-    queryFn: async () => [],
-    enabled: false, // Disabled for Phase 1
-  });
-
-  // Find member profile for current user
-  const memberProfile = members.find(m =>
-    m.email === user?.email || m.phone === user?.phone
-  );
-
-  // User's challans
-  const userChallans = challans.filter(c => c.created_by === user?.email);
-  const approvedUserChallans = userChallans.filter((challan) => challan.status === 'approved');
-  const totalContributed = approvedUserChallans
-    .reduce((sum, c) => sum + (c.amount || 0), 0);
-  const pendingChallans = userChallans.filter(c =>
-    c.status !== 'approved' && c.status !== 'rejected'
-  ).length;
-
-  // Find user's invite
-  const userInvite = invites.find(i =>
-    i.email === user?.email || i.phone === memberProfile?.phone
-  );
-
-  const pendingMonthlyAmountRequest = myRequests.find(
-    (request) => request.status === 'pending' && request.request_type === 'monthly_amount_change'
-  );
-
-  const pendingProfileFieldSet = new Set(
-    myRequests
-      .filter((request) => request.status === 'pending' && request.request_type === 'profile_update')
-      .flatMap((request) => {
-        try {
-          const changes = JSON.parse(request.requested_changes || '{}');
-          return changes && typeof changes === 'object' ? Object.keys(changes) : [];
-        } catch {
-          return [];
-        }
-      })
-  );
-
-  const handleAccountDeletion = () => {
-    toast({
-      title: "Account Deletion Request",
-      description: "Please contact your administrator to delete your account.",
-    });
-    setDeleteDialogOpen(false);
+  // ── Edit a detail ──────────────────────────────────────────────────────────
+  const currentValueOf = (field) => {
+    if (field === "address") return memberProfile?.address || "";
+    if (field === "phone") return user?.phone || memberProfile?.phone || "";
+    return user?.[field] || "";
   };
 
-  const handleSubmitPaymentChange = async () => {
-    const amount = Number(newMonthlyAmount);
-
-    if (!amount || amount < 50 || amount > 10000) {
-      toast({
-        title: "Invalid amount",
-        description: "Monthly payment must be between ₹50 and ₹10,000.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!paymentChangeReason.trim() || paymentChangeReason.trim().length < 10) {
-      toast({
-        title: "Reason required",
-        description: "Please provide at least 10 characters explaining the change.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setSubmittingPaymentChange(true);
-    try {
-      await charityClient.requests.create({
-        request_type: 'monthly_amount_change',
-        subject: 'Monthly amount change request',
-        message: paymentChangeReason.trim(),
-        requested_amount: amount,
-      });
-
-      toast({
-        title: "Request submitted",
-        description: "Your request has been submitted. The admin will review it shortly.",
-      });
-
-      setPaymentChangeOpen(false);
-      setNewMonthlyAmount("");
-      setPaymentChangeReason("");
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error?.message || "Failed to submit payment change request.",
-        variant: "destructive",
-      });
-    } finally {
-      setSubmittingPaymentChange(false);
-    }
+  const openEdit = (field) => {
+    setEditField(field);
+    setEditValue(currentValueOf(field));
+    setEditReason("");
+    setUsernameStatus("idle");
+    if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
   };
 
-  const validateUsernameFormat = (username) => {
-    if (!username) return '';
-    if (username.length < 3) return 'At least 3 characters';
-    if (username.length > 30) return 'Max 30 characters';
-    if (!/^[a-zA-Z0-9_-]+$/.test(username)) return 'Letters, numbers, underscores, hyphens only';
-    return '';
-  };
-
-  const openProfileUpdateDialog = (fieldKey, currentValue) => {
-    setProfileUpdateField(fieldKey);
-    setProfileUpdateCurrentValue(currentValue || '');
-    setProfileUpdateNewValue('');
-    setProfileUpdateReason('');
-    setUsernameCheckStatusInDialog('idle');
-    if (usernameDialogDebounceRef.current) clearTimeout(usernameDialogDebounceRef.current);
-    setProfileUpdateOpen(true);
-  };
-
-  const handleSubmitProfileUpdateRequest = async () => {
-    if (!profileUpdateField || !profileUpdateNewValue.trim()) {
-      toast({
-        title: 'New value required',
-        description: 'Please provide a new value.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (profileUpdateField === 'username') {
-      const fmtErr = validateUsernameFormat(profileUpdateNewValue.trim());
-      if (fmtErr) {
-        toast({ title: 'Invalid username', description: fmtErr, variant: 'destructive' });
-        return;
+  const handleUsernameChange = (value) => {
+    setEditValue(value);
+    setUsernameStatus("idle");
+    if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
+    const trimmed = value.trim();
+    if (validateUsernameFormat(trimmed) || trimmed.length < 3 || trimmed === user?.username) return;
+    usernameDebounceRef.current = setTimeout(async () => {
+      setUsernameStatus("checking");
+      try {
+        const result = await charityClient.auth.checkUsername(trimmed);
+        setUsernameStatus(result?.available ? "available" : "taken");
+      } catch {
+        setUsernameStatus("idle");
       }
-      if (usernameCheckStatusInDialog === 'taken') {
-        toast({ title: 'Username already taken', description: 'Please choose a different username.', variant: 'destructive' });
-        return;
-      }
-    }
+    }, 450);
+  };
 
-    setSubmittingProfileUpdate(true);
+  const editTrimmed = editValue.trim();
+  const editUnchanged = editTrimmed === currentValueOf(editField).trim();
+  const usernameError = editField === "username" ? validateUsernameFormat(editTrimmed) : "";
+  const editBlocked =
+    savingEdit || !editTrimmed || editUnchanged || Boolean(usernameError) ||
+    (editField === "username" && (usernameStatus === "taken" || usernameStatus === "checking"));
+
+  const handleSaveEdit = async () => {
+    if (editBlocked) return;
+    setSavingEdit(true);
     try {
       if (!isMember) {
-        // Admin / superadmin: direct save (no request needed)
-        const userFields = ['full_name', 'email', 'phone', 'username'];
-        if (userFields.includes(profileUpdateField)) {
-          await charityClient.users.update(user.id, {
-            [profileUpdateField]: profileUpdateNewValue.trim(),
-          });
-        } else if (profileUpdateField === 'address' && memberProfile) {
-          await charityClient.members.update(memberProfile.id, {
-            address: profileUpdateNewValue.trim(),
-          });
+        // Admins and superadmins save directly.
+        if (editField === "address") {
+          if (!memberProfile) throw new Error("No member record to store an address on.");
+          await charityClient.members.update(memberProfile.id, { address: editTrimmed });
+          queryClient.invalidateQueries({ queryKey: ["members", "me"] });
+        } else {
+          await charityClient.users.update(user.id, { [editField]: editTrimmed });
+          await refetchUser();
         }
-        await loadUser();
-        toast({
-          title: 'Profile updated',
-          description: `Your ${profileUpdateField.replace(/_/g, ' ')} has been updated.`,
+        toast({ title: `${FIELD_LABELS[editField]} updated` });
+      } else {
+        await charityClient.requests.create({
+          request_type: "profile_update",
+          subject: `${FIELD_LABELS[editField]} change request`,
+          message: editReason.trim() || `Please change my ${FIELD_LABELS[editField].toLowerCase()}.`,
+          requested_changes: { [editField]: editTrimmed },
         });
-        setProfileUpdateOpen(false);
-        return;
+        refreshMyRequests();
+        toast({ title: "Change sent for approval", description: "You'll get a notification once an admin checks it." });
       }
-
-      await charityClient.requests.create({
-        request_type: 'profile_update',
-        subject: 'Profile update request',
-        message: profileUpdateReason.trim() || `Please update my ${profileUpdateField}.`,
-        requested_changes: {
-          [profileUpdateField]: profileUpdateNewValue.trim(),
-        },
-      });
-
-      toast({
-        title: 'Request submitted',
-        description: 'Your profile update request has been submitted for admin approval.',
-      });
-      setProfileUpdateOpen(false);
+      setEditField(null);
     } catch (error) {
-      toast({
-        title: 'Unable to submit request',
-        description: error?.message || 'Please try again.',
-        variant: 'destructive',
-      });
+      toast({ title: "Couldn't save", description: error?.message || "Please try again.", variant: "destructive" });
     } finally {
-      setSubmittingProfileUpdate(false);
+      setSavingEdit(false);
     }
   };
 
-  const handleSubmitGeneralRequest = async () => {
-    if (!generalRequestSubject.trim() || generalRequestSubject.trim().length > 100) {
-      toast({
-        title: 'Valid subject required',
-        description: 'Subject is required and must be up to 100 characters.',
-        variant: 'destructive',
-      });
+  // ── Monthly amount ─────────────────────────────────────────────────────────
+  const handleSubmitAmount = async () => {
+    const amount = Number(newAmount);
+    if (!amount || amount < 50 || amount > 10000) {
+      toast({ title: "Invalid amount", description: "Monthly amount must be between ₹50 and ₹10,000.", variant: "destructive" });
       return;
     }
-
-    if (!generalRequestMessage.trim() || generalRequestMessage.trim().length < 20) {
-      toast({
-        title: 'Message too short',
-        description: 'Message must be at least 20 characters.',
-        variant: 'destructive',
-      });
+    if (amountReason.trim().length < 10) {
+      toast({ title: "Reason required", description: "Please write at least 10 characters.", variant: "destructive" });
       return;
     }
-
-    setSubmittingGeneralRequest(true);
+    setSavingAmount(true);
     try {
       await charityClient.requests.create({
-        request_type: generalRequestType,
-        subject: generalRequestSubject.trim(),
-        message: generalRequestMessage.trim(),
+        request_type: "monthly_amount_change",
+        subject: "Monthly amount change request",
+        message: amountReason.trim(),
+        requested_amount: amount,
       });
-      toast({
-        title: 'Request submitted',
-        description: 'Your request has been sent to admin.',
-      });
-      setGeneralRequestOpen(false);
-      setGeneralRequestType('general');
-      setGeneralRequestSubject('');
-      setGeneralRequestMessage('');
+      refreshMyRequests();
+      toast({ title: "Request sent", description: "An admin will review your new monthly amount." });
+      setAmountOpen(false);
+      setNewAmount("");
+      setAmountReason("");
     } catch (error) {
-      toast({
-        title: 'Unable to submit request',
-        description: error?.message || 'Please try again.',
-        variant: 'destructive',
-      });
+      toast({ title: "Couldn't send request", description: error?.message || "Please try again.", variant: "destructive" });
     } finally {
-      setSubmittingGeneralRequest(false);
+      setSavingAmount(false);
+    }
+  };
+
+  // ── Help request ───────────────────────────────────────────────────────────
+  const handleSubmitHelp = async () => {
+    if (!helpSubject.trim()) {
+      toast({ title: "Subject required", variant: "destructive" });
+      return;
+    }
+    if (helpMessage.trim().length < 20) {
+      toast({ title: "Message too short", description: "Please write at least 20 characters.", variant: "destructive" });
+      return;
+    }
+    setSavingHelp(true);
+    try {
+      await charityClient.requests.create({
+        request_type: helpType,
+        subject: helpSubject.trim(),
+        message: helpMessage.trim(),
+      });
+      refreshMyRequests();
+      toast({ title: "Request sent", description: "An admin will get back to you." });
+      setHelpOpen(false);
+      setHelpType("general");
+      setHelpSubject("");
+      setHelpMessage("");
+    } catch (error) {
+      toast({ title: "Couldn't send request", description: error?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setSavingHelp(false);
+    }
+  };
+
+  // ── Close account (a request; nothing is deleted automatically) ────────────
+  const handleCloseAccount = async () => {
+    setSavingClose(true);
+    try {
+      await charityClient.requests.create({
+        request_type: "general",
+        subject: "Account closure request",
+        message: closeReason.trim() || "Please close my account.",
+      });
+      refreshMyRequests();
+      toast({ title: "Request sent", description: "An admin will contact you about closing your account." });
+      setCloseOpen(false);
+      setCloseReason("");
+    } catch (error) {
+      toast({ title: "Couldn't send request", description: error?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setSavingClose(false);
     }
   };
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+      <div className="flex min-h-[400px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
       </div>
     );
   }
 
+  const displayName = user.full_name || user.username || "Member";
+  const initial = displayName.charAt(0).toUpperCase();
+  const joinDate = memberProfile?.join_date ? new Date(memberProfile.join_date) : null;
+  const closeAlreadyRequested = pendingRequests.some((request) => request.subject === "Account closure request");
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">My Profile</h1>
-        <p className="text-slate-500 dark:text-slate-400">Manage your account and view history</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Profile Card */}
-        <Card className="border-0 shadow-sm lg:col-span-1">
-          <CardContent className="p-6">
-            <div className="text-center">
-              {/* Avatar – always accessible for all users */}
-              <div className="relative w-24 h-24 mx-auto mb-4">
-                {/* Clickable avatar — opens lightbox */}
-                <button
-                  type="button"
-                  className={`w-24 h-24 rounded-full overflow-hidden focus:outline-none ${user.avatar_url ? 'cursor-zoom-in' : 'cursor-default'}`}
-                  onClick={() => { if (user.avatar_url) setLightboxOpen(true); }}
-                  tabIndex={user.avatar_url ? 0 : -1}
-                  aria-label={user.avatar_url ? 'View profile photo' : undefined}
-                >
-                  {user.avatar_url ? (
-                    <img
-                      src={user.avatar_url}
-                      alt={user.full_name || 'Avatar'}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-3xl font-bold">
-                      {user.full_name?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase()}
-                    </div>
-                  )}
-                </button>
-
-                {/* Camera button — bottom-right corner, always accessible */}
-                <button
-                  type="button"
-                  onClick={() => setCropOpen(true)}
-                  disabled={uploadingAvatar || pendingProfileFieldSet.has('avatar_url')}
-                  className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center hover:bg-emerald-700 transition shadow-md disabled:opacity-50"
-                  title={pendingProfileFieldSet.has('avatar_url') ? 'A profile photo request is already pending.' : 'Change photo'}
-                >
-                  {uploadingAvatar
-                    ? <Loader2 className="w-4 h-4 animate-spin" />
-                    : <Camera className="w-4 h-4" />}
-                </button>
-
-                {/* Remove button — top-right corner, only when avatar exists */}
-                {user.avatar_url && (
-                  <button
-                    type="button"
-                    onClick={handleRemoveAvatar}
-                    disabled={uploadingAvatar || pendingProfileFieldSet.has('avatar_url')}
-                    className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center hover:bg-rose-600 transition disabled:opacity-50"
-                    title={pendingProfileFieldSet.has('avatar_url') ? 'A profile photo request is already pending.' : 'Remove photo'}
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {/* Crop-upload dialog */}
-              <AvatarCropUpload
-                open={cropOpen}
-                onOpenChange={setCropOpen}
-                onSave={handleAvatarSave}
-              />
-
-              {/* Lightbox */}
-              <AvatarLightbox
-                open={lightboxOpen}
-                onClose={() => setLightboxOpen(false)}
-                avatarUrl={user.avatar_url}
-                name={user.full_name || user.email}
-              />
-
-              <h2 className="text-xl font-semibold text-slate-900">{user.full_name || 'User'}</h2>
-              <Badge variant="secondary" className="mt-2 capitalize">{user.role}</Badge>
-
-              <div className="mt-6 space-y-3 text-left">
-                {/* Email */}
-                <div className="flex items-center justify-between gap-3 text-slate-600">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Mail className="w-4 h-4 text-slate-400" />
-                    <span className="text-sm truncate">{user.email}</span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 shrink-0"
-                    disabled={pendingProfileFieldSet.has('email')}
-                    onClick={() => openProfileUpdateDialog('email', user.email || '')}
-                    title={pendingProfileFieldSet.has('email') ? 'A change request for this field is already pending.' : 'Edit email'}
-                  >
-                    <Pencil className="w-3.5 h-3.5 mr-1" />
-                    Edit
-                  </Button>
-                </div>
-                {/* Username */}
-                <div className="flex items-center justify-between gap-3 text-slate-600">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <AtSign className="w-4 h-4 text-slate-400" />
-                    <span className="text-sm font-mono">{user.username || '-'}</span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 shrink-0"
-                    disabled={pendingProfileFieldSet.has('username')}
-                    onClick={() => openProfileUpdateDialog('username', user.username || '')}
-                    title={pendingProfileFieldSet.has('username') ? 'A username change request is already pending.' : 'Edit username'}
-                  >
-                    <Pencil className="w-3.5 h-3.5 mr-1" />
-                    Edit
-                  </Button>
-                </div>
-                {/* Full name */}
-                <div className="flex items-center justify-between gap-3 text-slate-600">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <UserCircle className="w-4 h-4 text-slate-400" />
-                    <span className="text-sm">{user.full_name || '-'}</span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 shrink-0"
-                    disabled={pendingProfileFieldSet.has('full_name')}
-                    onClick={() => openProfileUpdateDialog('full_name', user.full_name || '')}
-                    title={pendingProfileFieldSet.has('full_name') ? 'A change request for this field is already pending.' : 'Edit full name'}
-                  >
-                    <Pencil className="w-3.5 h-3.5 mr-1" />
-                    Edit
-                  </Button>
-                </div>
-                {/* Phone */}
-                <div className="flex items-center justify-between gap-3 text-slate-600">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Phone className="w-4 h-4 text-slate-400" />
-                    <span className="text-sm">{user.phone || memberProfile?.phone || '-'}</span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 shrink-0"
-                    disabled={pendingProfileFieldSet.has('phone')}
-                    onClick={() => openProfileUpdateDialog('phone', user.phone || memberProfile?.phone || '')}
-                    title={pendingProfileFieldSet.has('phone') ? 'A change request for this field is already pending.' : 'Edit phone'}
-                  >
-                    <Pencil className="w-3.5 h-3.5 mr-1" />
-                    Edit
-                  </Button>
-                </div>
-                {memberProfile && (
-                  <>
-                    {/* Address */}
-                    <div className="flex items-center justify-between gap-3 text-slate-600">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <MapPin className="w-4 h-4 text-slate-400" />
-                        <span className="text-sm">{memberProfile.address || memberProfile.city || '-'}</span>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 shrink-0"
-                        disabled={pendingProfileFieldSet.has('address')}
-                        onClick={() => openProfileUpdateDialog('address', memberProfile.address || memberProfile.city || '')}
-                        title={pendingProfileFieldSet.has('address') ? 'A change request for this field is already pending.' : 'Edit address'}
-                      >
-                        <Pencil className="w-3.5 h-3.5 mr-1" />
-                        Edit
-                      </Button>
-                    </div>
-                    {memberProfile.join_date && (
-                      <div className="flex items-center gap-3 text-slate-600">
-                        <Calendar className="w-4 h-4 text-slate-400" />
-                        <span className="text-sm">Joined {format(new Date(memberProfile.join_date), "MMM yyyy")}</span>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {pendingProfileFieldSet.has('avatar_url') && (
-                <p className="mt-3 text-xs text-amber-600">
-                  Your profile photo update request is pending admin approval.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Tabs Content */}
-        <div className="lg:col-span-2">
-          <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="flex-wrap h-auto">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="history">Contributions</TabsTrigger>
-              <TabsTrigger value="recurring">Recurring</TabsTrigger>
-              <TabsTrigger value="reminders">Settings</TabsTrigger>
-              <TabsTrigger value="account">Account</TabsTrigger>
-              {userInvite && <TabsTrigger value="invite">Invitation</TabsTrigger>}
-            </TabsList>
-
-            <TabsContent value="overview" className="space-y-6">
-              {/* Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <Card className="border-0 shadow-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                        <TrendingUp className="w-5 h-5 text-emerald-600" />
-                      </div>
-                      <div>
-                        <p className="text-xl font-bold text-slate-900">₹{totalContributed.toLocaleString()}</p>
-                        <p className="text-xs text-slate-500">Total Contributed</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-0 shadow-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                        <CheckCircle className="w-5 h-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="text-xl font-bold text-slate-900">
-                          {approvedUserChallans.length}
-                        </p>
-                        <p className="text-xs text-slate-500">Approved</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-0 shadow-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                        <Clock className="w-5 h-5 text-amber-600" />
-                      </div>
-                      <div>
-                        <p className="text-xl font-bold text-slate-900">{pendingChallans}</p>
-                        <p className="text-xs text-slate-500">Pending</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Monthly Payment Card */}
-              {memberProfile && (
-                <Card className="border-0 shadow-sm">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <CreditCard className="w-5 h-5 text-amber-600" />
-                        <CardTitle className="text-lg">Monthly Fixed Payment</CardTitle>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setPaymentChangeOpen(true)}
-                        disabled={Boolean(pendingMonthlyAmountRequest)}
-                        title={pendingMonthlyAmountRequest ? 'You already have a pending change request.' : 'Request monthly amount change'}
-                        className="text-xs"
-                      >
-                        Request Change
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-baseline gap-2">
-                      <p className="text-3xl font-bold text-slate-900">₹{memberProfile.monthly_amount || 100}</p>
-                      <p className="text-slate-500">per month</p>
-                    </div>
-                    <p className="text-sm text-slate-500 mt-2">
-                      This amount will be deducted monthly. Changes require admin approval.
-                    </p>
-                    {pendingMonthlyAmountRequest && (
-                      <Badge variant="secondary" className="mt-3 bg-amber-100 text-amber-700">
-                        Pending change request in review
-                      </Badge>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {user?.role === 'member' && (
-                <Card className="border-0 shadow-sm">
-                  <CardContent className="p-4 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-slate-900">Need help from admin?</p>
-                      <p className="text-sm text-slate-500">Submit a complaint, suggestion, or general inquiry.</p>
-                    </div>
-                    <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setGeneralRequestOpen(true)}>
-                      Submit a Request
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Recent Payment History */}
-              <Card className="border-0 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-lg">Recent Payments</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {approvedUserChallans.length === 0 ? (
-                    <p className="text-center py-8 text-slate-500">No payment history yet</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {approvedUserChallans.slice(0, 5).map((challan) => (
-                        <div key={challan.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center border">
-                              <Receipt className="w-5 h-5 text-slate-400" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-slate-800">{challan.challan_number}</p>
-                              <p className="text-sm text-slate-500">
-                                {challan.type === 'monthly'
-                                  ? `Monthly - ${challan.month}`
-                                  : challan.campaign_name || 'Donation'}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-slate-800">₹{challan.amount}</p>
-                            <Badge variant="secondary" className={statusConfig[challan.status]?.color || 'bg-slate-100'}>
-                              {statusConfig[challan.status]?.label || challan.status}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="history">
-              <ContributionHistory challans={approvedUserChallans} />
-            </TabsContent>
-
-            <TabsContent value="recurring">
-              <RecurringDonations recurringDonations={recurringDonations} user={user} />
-            </TabsContent>
-
-            <TabsContent value="reminders">
-              <ReminderSettings user={user} />
-            </TabsContent>
-
-            <TabsContent value="account">
-              <Card className="border-0 shadow-sm">
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-rose-600" />
-                    <CardTitle className="text-lg">Account Settings</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="p-4 rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800">
-                    <h3 className="font-semibold text-rose-900 dark:text-rose-200 mb-2">Delete Account</h3>
-                    <p className="text-sm text-rose-700 dark:text-rose-300 mb-4">
-                      Permanently delete your account and all associated data. This action cannot be undone.
-                    </p>
-                    <Button
-                      variant="destructive"
-                      onClick={() => setDeleteDialogOpen(true)}
-                      className="select-none"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete My Account
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {userInvite && (
-              <TabsContent value="invite">
-                <Card className="border-0 shadow-sm">
-                  <CardHeader>
-                    <div className="flex items-center gap-2">
-                      <UserCircle className="w-5 h-5 text-slate-600" />
-                      <CardTitle className="text-lg">Invitation Details</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="p-4 rounded-lg bg-slate-50 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-500">Invite Code</span>
-                        <span className="font-mono font-semibold text-slate-900">{userInvite.invite_code}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-500">Invited By</span>
-                        <span className="font-medium text-slate-900">{userInvite.invited_by || 'Admin'}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-500">Status</span>
-                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">Used</Badge>
-                      </div>
-                      {userInvite.used_at && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-slate-500">Joined On</span>
-                          <span className="text-sm text-slate-900">
-                            {format(new Date(userInvite.used_at), 'MMM d, yyyy')}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            )}
-          </Tabs>
-        </div>
-      </div>
-
-      {/* Account Deletion Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-rose-600" />
-              Delete Account?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This action will permanently delete your account and all associated data including:
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>Profile information</li>
-                <li>Payment history</li>
-                <li>Recurring donations</li>
-                <li>All personal data</li>
-              </ul>
-              <p className="mt-3 font-semibold">This action cannot be undone.</p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="select-none">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleAccountDeletion}
-              className="bg-rose-600 hover:bg-rose-700 select-none"
+    <div className="mx-auto max-w-2xl space-y-5">
+      {/* ── Who I am ── */}
+      <Card className="border-0 shadow-sm">
+        <CardContent className="flex flex-col items-center p-6 text-center">
+          <div className="relative mb-3 h-24 w-24">
+            <button
+              type="button"
+              className={`h-24 w-24 overflow-hidden rounded-full focus:outline-none ${user.avatar_url ? "cursor-zoom-in" : "cursor-default"}`}
+              onClick={() => { if (user.avatar_url) setLightboxOpen(true); }}
+              tabIndex={user.avatar_url ? 0 : -1}
+              aria-label={user.avatar_url ? "View profile photo" : undefined}
             >
-              Request Deletion
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              {user.avatar_url ? (
+                <img src={user.avatar_url} alt={displayName} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-3xl font-bold text-white">
+                  {initial}
+                </div>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setCropOpen(true)}
+              disabled={uploadingAvatar || photoPending}
+              className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md transition hover:bg-emerald-700 disabled:opacity-50"
+              aria-label="Change photo"
+              title={photoPending ? "Your new photo is waiting for approval." : "Change photo"}
+            >
+              {uploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+            </button>
+            {user.avatar_url && !photoPending && (
+              <button
+                type="button"
+                onClick={handleRemoveAvatar}
+                disabled={uploadingAvatar}
+                className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-slate-500 shadow ring-1 ring-slate-200 transition hover:text-rose-600 disabled:opacity-50"
+                aria-label="Remove photo"
+                title="Remove photo"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
 
-      <Dialog open={profileUpdateOpen} onOpenChange={setProfileUpdateOpen}>
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-white">{displayName}</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            {[
+              memberProfile?.member_code && formatMemberId(memberProfile.member_code),
+              joinDate && `Member since ${format(joinDate, "MMM yyyy")}`,
+              !isMember && (user.role === "superadmin" ? "Superadmin" : "Admin"),
+            ].filter(Boolean).join(" · ")}
+          </p>
+          {photoPending && (
+            <p className="mt-3 rounded-full bg-amber-50 px-3 py-1 text-xs text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+              Your new photo is waiting for admin approval.
+            </p>
+          )}
+
+          <AvatarCropUpload open={cropOpen} onOpenChange={setCropOpen} onSave={handleAvatarSave} />
+          <AvatarLightbox
+            open={lightboxOpen}
+            onClose={() => setLightboxOpen(false)}
+            avatarUrl={user.avatar_url}
+            name={displayName}
+          />
+        </CardContent>
+      </Card>
+
+      {/* ── My details ── */}
+      <section>
+        <h2 className="mb-2 px-1 text-sm font-semibold text-slate-700 dark:text-slate-300">My details</h2>
+        <Card className="overflow-hidden border-0 shadow-sm">
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            <DetailRow icon={UserCircle} label="Full name" value={user.full_name} pending={pendingFields.has("full_name")} onClick={() => openEdit("full_name")} />
+            <DetailRow icon={Phone} label="Phone" value={user.phone || memberProfile?.phone} pending={pendingFields.has("phone")} onClick={() => openEdit("phone")} />
+            <DetailRow icon={Mail} label="Email" value={user.email} pending={pendingFields.has("email")} onClick={() => openEdit("email")} />
+            {memberProfile && (
+              <DetailRow icon={MapPin} label="Address" value={memberProfile.address} pending={pendingFields.has("address")} onClick={() => openEdit("address")} />
+            )}
+            <DetailRow icon={AtSign} label="Username" value={user.username} pending={pendingFields.has("username")} onClick={() => openEdit("username")} />
+          </div>
+        </Card>
+        {isMember && (
+          <p className="mt-2 px-1 text-xs text-slate-500 dark:text-slate-400">
+            Tap a detail to change it. An admin checks changes before they appear.
+          </p>
+        )}
+      </section>
+
+      {/* ── My contribution ── */}
+      {memberProfile && (
+        <section>
+          <h2 className="mb-2 px-1 text-sm font-semibold text-slate-700 dark:text-slate-300">My contribution</h2>
+          <Card className="border-0 shadow-sm">
+            <CardContent className="space-y-4 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Monthly amount</p>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                    {formatRupees(memberProfile.monthly_amount)}
+                    <span className="ml-1 text-sm font-normal text-slate-500">/ month</span>
+                  </p>
+                </div>
+                {amountPending ? (
+                  <Badge variant="secondary" className="bg-amber-100 text-amber-700">Change requested</Badge>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => setAmountOpen(true)}>Change</Button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-emerald-50 p-3 dark:bg-emerald-950/30">
+                  <p className="text-lg font-bold text-emerald-800 dark:text-emerald-200">{formatRupees(totalPaid)}</p>
+                  <p className="text-xs text-emerald-700/80 dark:text-emerald-300/80">Total paid</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/60">
+                  <p className="text-lg font-bold text-slate-800 dark:text-slate-100">{monthsPaid}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{monthsPaid === 1 ? "Month paid" : "Months paid"}</p>
+                </div>
+              </div>
+
+              {recentPayments.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Recent payments</p>
+                  {recentPayments.map((challan) => {
+                    const status = PAYMENT_STATUS[challan.status] || { label: challan.status, className: "bg-slate-100 text-slate-700" };
+                    return (
+                      <div key={challan.id} className="flex items-center justify-between gap-3 text-sm">
+                        <span className="min-w-0 truncate text-slate-700 dark:text-slate-300">
+                          {challan.type === "monthly" ? challan.month : challan.campaign_name || "Donation"}
+                        </span>
+                        <span className="flex shrink-0 items-center gap-2">
+                          <span className="font-medium text-slate-900 dark:text-slate-100">{formatRupees(challan.amount)}</span>
+                          <Badge variant="secondary" className={status.className}>{status.label}</Badge>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400">No payments yet.</p>
+              )}
+
+              <Link
+                to={PAGE_PATHS.CHALLANS}
+                className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50 dark:border-slate-700 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
+              >
+                View all payments
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </CardContent>
+          </Card>
+        </section>
+      )}
+
+      {/* ── Help ── */}
+      <section>
+        <h2 className="mb-2 px-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Help</h2>
+        <Card className="overflow-hidden border-0 shadow-sm">
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {isMember && (
+              <ActionRow icon={MessageSquare} label="Ask the admins" hint="Questions, suggestions or complaints" onClick={() => setHelpOpen(true)} />
+            )}
+            {reminder?.applies && (
+              <ActionRow
+                icon={BellRing}
+                label="Payment reminder"
+                hint={!reminder.organisation_enabled ? "Paused by the admins" : reminder.enabled ? `${ordinal(reminder.day)} of every month` : "Off"}
+                onClick={() => setReminderOpen(true)}
+              />
+            )}
+            <ActionRow
+              icon={Inbox}
+              label="My requests"
+              hint={pendingRequests.length ? `${pendingRequests.length} waiting for an admin` : "See the status of your requests"}
+              to={PAGE_PATHS.REQUESTS}
+            />
+          </div>
+        </Card>
+      </section>
+
+      <Button variant="outline" className="w-full" onClick={() => logout()}>
+        <LogOut className="mr-2 h-4 w-4" />
+        Log out
+      </Button>
+
+      {isMember && (
+        <div className="pb-2 text-center">
+          <button
+            type="button"
+            onClick={() => setCloseOpen(true)}
+            disabled={closeAlreadyRequested}
+            className="text-xs text-slate-400 underline-offset-2 hover:text-slate-600 hover:underline disabled:no-underline dark:hover:text-slate-300"
+          >
+            {closeAlreadyRequested ? "Account closure requested" : "Close my account"}
+          </button>
+        </div>
+      )}
+
+      <p className="pb-2 text-center text-[11px] text-slate-400" aria-label="App version">
+        App version {APP_VERSION}
+      </p>
+
+      {/* ── Edit a detail ── */}
+      <Dialog open={Boolean(editField)} onOpenChange={(open) => { if (!open) setEditField(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{isMember ? 'Request Profile Update' : 'Update Profile'}</DialogTitle>
+            <DialogTitle>{editField ? `Change ${FIELD_LABELS[editField].toLowerCase()}` : ""}</DialogTitle>
+            {isMember && <DialogDescription>An admin will check this before it appears on your profile.</DialogDescription>}
           </DialogHeader>
-
           <div className="space-y-4">
-            <div className="text-sm space-y-1">
-              <p className="text-slate-500">Field</p>
-              <p className="font-medium text-slate-900">{profileUpdateField || '-'}</p>
+            <div className="space-y-1.5">
+              <Label htmlFor="profile-edit-value">{editField ? FIELD_LABELS[editField] : ""}</Label>
+              <Input
+                id="profile-edit-value"
+                value={editValue}
+                onChange={(e) => (editField === "username" ? handleUsernameChange(e.target.value) : setEditValue(e.target.value))}
+                type={editField === "email" ? "email" : editField === "phone" ? "tel" : "text"}
+                autoComplete="off"
+                autoFocus
+              />
+              {usernameError && <p className="text-xs text-rose-600">{usernameError}</p>}
+              {!usernameError && usernameStatus === "checking" && (
+                <p className="flex items-center gap-1 text-xs text-slate-500"><Loader2 className="h-3 w-3 animate-spin" /> Checking…</p>
+              )}
+              {!usernameError && usernameStatus === "available" && (
+                <p className="flex items-center gap-1 text-xs text-emerald-600"><CheckCircle className="h-3 w-3" /> Available</p>
+              )}
+              {!usernameError && usernameStatus === "taken" && (
+                <p className="flex items-center gap-1 text-xs text-rose-600"><XCircle className="h-3 w-3" /> Already taken</p>
+              )}
             </div>
-
-            <div className="space-y-1">
-              <Label>Current value</Label>
-              <Input value={profileUpdateCurrentValue} readOnly />
-            </div>
-
-            {profileUpdateField === 'username' ? (
-              <div className="space-y-1">
-                <Label>New username *</Label>
-                <Input
-                  value={profileUpdateNewValue}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setProfileUpdateNewValue(val);
-                    setUsernameCheckStatusInDialog('idle');
-                    if (usernameDialogDebounceRef.current) clearTimeout(usernameDialogDebounceRef.current);
-                    const fmtErr = validateUsernameFormat(val.trim());
-                    if (!fmtErr && val.trim().length >= 3) {
-                      usernameDialogDebounceRef.current = setTimeout(async () => {
-                        setUsernameCheckStatusInDialog('checking');
-                        try {
-                          const result = await charityClient.auth.checkUsername(val.trim());
-                          setUsernameCheckStatusInDialog(result?.available ? 'available' : 'taken');
-                        } catch {
-                          setUsernameCheckStatusInDialog('idle');
-                        }
-                      }, 450);
-                    }
-                  }}
-                  placeholder="Choose a new username (3-30 chars)"
-                  className={
-                    usernameCheckStatusInDialog === 'taken' || validateUsernameFormat(profileUpdateNewValue)
-                      ? 'border-rose-500'
-                      : usernameCheckStatusInDialog === 'available'
-                        ? 'border-emerald-500'
-                        : ''
-                  }
-                />
-                {validateUsernameFormat(profileUpdateNewValue) && (
-                  <p className="text-xs text-rose-600">{validateUsernameFormat(profileUpdateNewValue)}</p>
-                )}
-                {!validateUsernameFormat(profileUpdateNewValue) && usernameCheckStatusInDialog === 'checking' && (
-                  <p className="text-xs text-slate-500 flex items-center gap-1">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Checking availability...
-                  </p>
-                )}
-                {!validateUsernameFormat(profileUpdateNewValue) && usernameCheckStatusInDialog === 'available' && (
-                  <p className="text-xs text-emerald-600 flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" /> Username available
-                  </p>
-                )}
-                {!validateUsernameFormat(profileUpdateNewValue) && usernameCheckStatusInDialog === 'taken' && (
-                  <p className="text-xs text-rose-600 flex items-center gap-1">
-                    <XCircle className="w-3 h-3" /> Username already taken
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <Label>New value *</Label>
-                <Input
-                  value={profileUpdateNewValue}
-                  onChange={(e) => setProfileUpdateNewValue(e.target.value)}
-                  placeholder="Enter new value"
-                />
-              </div>
-            )}
-
             {isMember && (
-              <div className="space-y-1">
-                <Label>Reason (optional)</Label>
-                <Textarea
-                  value={profileUpdateReason}
-                  onChange={(e) => setProfileUpdateReason(e.target.value)}
-                  placeholder="Optional context for admin review"
-                  rows={3}
-                />
+              <div className="space-y-1.5">
+                <Label htmlFor="profile-edit-reason">Note for the admin (optional)</Label>
+                <Textarea id="profile-edit-reason" value={editReason} onChange={(e) => setEditReason(e.target.value)} rows={2} />
               </div>
             )}
-
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setProfileUpdateOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                disabled={
-                  submittingProfileUpdate ||
-                  !profileUpdateNewValue.trim() ||
-                  usernameCheckStatusInDialog === 'taken' ||
-                  usernameCheckStatusInDialog === 'checking' ||
-                  (profileUpdateField === 'username' && !!validateUsernameFormat(profileUpdateNewValue))
-                }
-                onClick={handleSubmitProfileUpdateRequest}
-              >
-                {submittingProfileUpdate && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {isMember ? 'Submit Request' : 'Save Changes'}
+              <Button variant="outline" className="flex-1" onClick={() => setEditField(null)}>Cancel</Button>
+              <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" disabled={editBlocked} onClick={handleSaveEdit}>
+                {savingEdit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isMember ? "Send for approval" : "Save"}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={generalRequestOpen} onOpenChange={setGeneralRequestOpen}>
+      {/* ── Change monthly amount ── */}
+      <Dialog open={amountOpen} onOpenChange={setAmountOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Submit Request</DialogTitle>
+            <DialogTitle>Change monthly amount</DialogTitle>
+            <DialogDescription>
+              Now {formatRupees(memberProfile?.monthly_amount)} a month. An admin will review the new amount.
+            </DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Request type</Label>
-              <Select value={generalRequestType} onValueChange={setGeneralRequestType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select request type" />
-                </SelectTrigger>
+            <div className="space-y-1.5">
+              <Label htmlFor="profile-new-amount">New amount (₹)</Label>
+              <Input id="profile-new-amount" type="number" inputMode="numeric" min="50" max="10000" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="profile-amount-reason">Reason</Label>
+              <Textarea id="profile-amount-reason" value={amountReason} onChange={(e) => setAmountReason(e.target.value)} rows={3} placeholder="Why would you like to change it?" />
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setAmountOpen(false)}>Cancel</Button>
+              <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" disabled={savingAmount || !newAmount || !amountReason.trim()} onClick={handleSubmitAmount}>
+                {savingAmount && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Send request
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Ask the admins ── */}
+      <Dialog open={reminderOpen} onOpenChange={setReminderOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Payment reminder</DialogTitle>
+            <DialogDescription>Choose the day you'd like to be reminded about your monthly contribution.</DialogDescription>
+          </DialogHeader>
+          {reminder && (
+            <PaymentReminderSetting
+              enabled={reminder.enabled}
+              day={reminder.day}
+              disabled={!reminder.organisation_enabled}
+              onChange={saveReminder}
+            />
+          )}
+          <Button className="w-full" onClick={() => setReminderOpen(false)}>Done</Button>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Ask the admins</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Type</Label>
+              <Select value={helpType} onValueChange={setHelpType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="complaint">Complaint</SelectItem>
+                  <SelectItem value="general">Question</SelectItem>
                   <SelectItem value="suggestion">Suggestion</SelectItem>
-                  <SelectItem value="general">General Inquiry</SelectItem>
+                  <SelectItem value="complaint">Complaint</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-2">
-              <Label>Subject</Label>
-              <Input
-                value={generalRequestSubject}
-                onChange={(e) => setGeneralRequestSubject(e.target.value)}
-                maxLength={100}
-                placeholder="Enter subject"
-              />
+            <div className="space-y-1.5">
+              <Label htmlFor="profile-help-subject">Subject</Label>
+              <Input id="profile-help-subject" value={helpSubject} onChange={(e) => setHelpSubject(e.target.value)} maxLength={100} />
             </div>
-
-            <div className="space-y-2">
-              <Label>Message</Label>
-              <Textarea
-                value={generalRequestMessage}
-                onChange={(e) => setGeneralRequestMessage(e.target.value)}
-                rows={4}
-                placeholder="Describe your request in detail"
-              />
+            <div className="space-y-1.5">
+              <Label htmlFor="profile-help-message">Message</Label>
+              <Textarea id="profile-help-message" value={helpMessage} onChange={(e) => setHelpMessage(e.target.value)} rows={4} />
             </div>
-
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setGeneralRequestOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                disabled={submittingGeneralRequest}
-                onClick={handleSubmitGeneralRequest}
-              >
-                {submittingGeneralRequest && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Submit
+              <Button variant="outline" className="flex-1" onClick={() => setHelpOpen(false)}>Cancel</Button>
+              <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" disabled={savingHelp} onClick={handleSubmitHelp}>
+                {savingHelp && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Send
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Payment Change Request Dialog */}
-      <Dialog open={paymentChangeOpen} onOpenChange={setPaymentChangeOpen}>
+      {/* ── Close account ── */}
+      <Dialog open={closeOpen} onOpenChange={setCloseOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-amber-600" />
-              Request Monthly Amount Change
-            </DialogTitle>
+            <DialogTitle>Close your account?</DialogTitle>
+            <DialogDescription>
+              This sends a request to the admins. Nothing is deleted until an admin contacts you.
+            </DialogDescription>
           </DialogHeader>
-
-          {memberProfile && (
-            <div className="space-y-5">
-              <div className="p-3 bg-slate-50 rounded-lg">
-                <p className="text-xs text-slate-500">Current amount</p>
-                <p className="text-2xl font-bold text-slate-900">₹{memberProfile.monthly_amount || 100}/month</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="newAmount">New requested amount *</Label>
-                <Input
-                  id="newAmount"
-                  type="number"
-                  value={newMonthlyAmount}
-                  onChange={(e) => setNewMonthlyAmount(e.target.value)}
-                  placeholder="Enter new amount"
-                  min="0"
-                  step="0.01"
-                />
-                <p className="text-xs text-slate-500">
-                  Your current amount is ₹{memberProfile.monthly_amount || 100}. The new amount requires admin approval.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="reason">Reason / message *</Label>
-                <Textarea
-                  id="reason"
-                  value={paymentChangeReason}
-                  onChange={(e) => setPaymentChangeReason(e.target.value)}
-                  placeholder="Please explain why you need this change..."
-                  rows={3}
-                />
-              </div>
-
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-xs text-amber-700">
-                  Your request will be sent to the administrators for approval. You will receive a notification once it's approved or rejected.
-                </p>
-              </div>
-
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setPaymentChangeOpen(false)}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSubmitPaymentChange}
-                  disabled={submittingPaymentChange || !newMonthlyAmount || !paymentChangeReason}
-                  className="flex-1 bg-amber-600 hover:bg-amber-700"
-                >
-                  {submittingPaymentChange && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Submit Request
-                </Button>
-              </div>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="profile-close-reason">Reason (optional)</Label>
+              <Textarea id="profile-close-reason" value={closeReason} onChange={(e) => setCloseReason(e.target.value)} rows={3} />
             </div>
-          )}
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setCloseOpen(false)}>Keep account</Button>
+              <Button variant="destructive" className="flex-1" disabled={savingClose} onClick={handleCloseAccount}>
+                {savingClose && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Send request
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

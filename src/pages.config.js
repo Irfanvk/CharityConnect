@@ -61,6 +61,7 @@ import Members from './pages/Members';
 import Notifications from './pages/Notifications';
 import Profile from './pages/Profile';
 import Register from './pages/Register';
+import Activate from './pages/Activate';
 import Reports from './pages/Reports';
 import Requests from './pages/Requests';
 import Settings from './pages/Settings';
@@ -97,6 +98,7 @@ export const PUBLIC_PAGES = {
     "Landing": Landing,
     "Login": Login,
     "Register": Register,
+    "Activate": Activate,
     "ForgotPassword": ForgotPassword,
     "ResetPassword": ResetPassword,
 }

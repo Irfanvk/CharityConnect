@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { isIOSDevice } from '@/lib/device';
+import { useOrgBrand } from '@/lib/branding';
 
 export function PWAUpdatePrompt() {
   const [hidden, setHidden] = useState(false);
+  const appName = useOrgBrand().name || 'the app';
 
   const {
     needRefresh: [needRefresh],
@@ -21,7 +23,7 @@ export function PWAUpdatePrompt() {
   return (
     <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] lg:bottom-4 left-4 right-4 z-[10010] bg-white border-l-4 border-emerald-600 rounded-xl shadow-2xl p-4 flex items-center justify-between gap-3 max-w-lg mx-auto">
       <p className="text-sm text-slate-700 font-medium flex-1">
-        A new version of CharityConnect is available.
+        A new version of {appName} is available.
       </p>
       <div className="flex gap-2 shrink-0">
         <button

@@ -1,20 +1,11 @@
+import { APP_VERSION } from "@/lib/appVersion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { APP_BRAND, APP_IMAGES } from "@/config/appPaths";
 import { useNotifications } from "@/context/NotificationContext";
+import { useNavigate } from "react-router-dom";
 import { charityClient } from "@/api/charityClient";
-
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-
-  for (let i = 0; i < rawData.length; i += 1) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-
-  return outputArray;
-}
+import { syncPushSubscription } from "@/lib/pushSetup";
+import { safeInternalLink } from "@/lib/notificationLinks";
 
 export default function NotificationManager({ user }) {
   const hasNotificationApi = typeof window !== "undefined" && "Notification" in window;
@@ -24,6 +15,33 @@ export default function NotificationManager({ user }) {
     hasNotificationApi ? window.Notification.permission : "unsupported"
   );
   const { notifications } = useNotifications();
+  const navigate = useNavigate();
+
+  // Permission is requested only from an explicit tap elsewhere; here we just follow changes.
+  useEffect(() => {
+    const onChange = () => {
+      if (hasNotificationApi) setPermission(window.Notification.permission);
+    };
+    window.addEventListener('charityhub:push-permission-changed', onChange);
+    return () => window.removeEventListener('charityhub:push-permission-changed', onChange);
+  }, [hasNotificationApi]);
+
+  // Route in-app when a push notification is tapped while the app is open.
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return undefined;
+    const onMessage = (event) => {
+      if (event?.data?.type !== 'notification-click') return;
+      try {
+        const url = new URL(event.data.url, window.location.origin);
+        const target = safeInternalLink(url.pathname + url.search);
+        if (url.origin === window.location.origin && target) navigate(target);
+      } catch {
+        // Ignore malformed targets.
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
+  }, [navigate]);
 
   const deviceDisplayMode =
     typeof window !== "undefined" && window.matchMedia?.("(display-mode: standalone)").matches
@@ -48,20 +66,12 @@ export default function NotificationManager({ user }) {
   }, [notifications, user]);
 
   useEffect(() => {
-    if (!hasNotificationApi || !user) return;
-
-    // Request notification permission
-    if (permission === "default") {
-      window.Notification.requestPermission().then(setPermission);
-    }
-  }, [hasNotificationApi, permission, user]);
-
-  useEffect(() => {
     if (!user) return;
 
     charityClient.users.reportDeviceStatus({
       notification_permission: hasNotificationApi ? permission : "unsupported",
       device_display_mode: deviceDisplayMode,
+      app_version: APP_VERSION,
     }).catch(() => {
       // Status reporting must not affect normal notification use.
     });
@@ -72,38 +82,10 @@ export default function NotificationManager({ user }) {
     if (permission !== "granted") return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
-    let cancelled = false;
-
-    const syncPushSubscription = async () => {
-      try {
-        const pushConfig = await charityClient.notifications.getPushPublicKey();
-        const publicKey = String(pushConfig?.public_key || "").trim();
-        const enabled = Boolean(pushConfig?.enabled && publicKey);
-        if (!enabled) return;
-
-        const registration = await navigator.serviceWorker.ready;
-        let subscription = await registration.pushManager.getSubscription();
-
-        if (!subscription) {
-          subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(publicKey),
-          });
-        }
-
-        if (cancelled || !subscription) return;
-
-        await charityClient.notifications.pushSubscribe(subscription.toJSON());
-      } catch {
-        // Keep app usable if push setup fails on unsupported browsers/networks.
-      }
-    };
-
-    syncPushSubscription();
-
-    return () => {
-      cancelled = true;
-    };
+    // Runs at every start: re-registers the subscription and silently re-subscribes after a VAPID key change.
+    syncPushSubscription().catch(() => {
+      // Keep app usable if push setup fails on unsupported browsers/networks.
+    });
   }, [permission, user]);
 
   useEffect(() => {

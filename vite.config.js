@@ -3,6 +3,18 @@ import legacy from '@vitejs/plugin-legacy'
 import { defineConfig, loadEnv } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'url'
+import { execSync } from 'child_process'
+
+// Build id shown in the app and reported by each device: YYYYMMDD.HHMM-<commit> (UTC).
+// Netlify sets COMMIT_REF, Vercel VERCEL_GIT_COMMIT_SHA; locally git is asked.
+function buildVersion() {
+  let sha = process.env.COMMIT_REF || process.env.VERCEL_GIT_COMMIT_SHA || '';
+  if (!sha) {
+    try { sha = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { sha = 'local'; }
+  }
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '.').slice(0, 13);
+  return `${stamp}-${sha.slice(0, 7)}`;
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -23,6 +35,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     logLevel: isProd ? 'error' : 'warn',
+    define: {
+      'import.meta.env.VITE_APP_VERSION': JSON.stringify(buildVersion()),
+    },
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url))

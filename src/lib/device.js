@@ -1,6 +1,6 @@
 /**
  * Shared device detection and safe storage utilities.
- * Used by main.jsx, PWAUpdatePrompt, IOSInstallPrompt, AndroidInstallPrompt.
+ * Used by main.jsx, PWAUpdatePrompt, installPrompt and notification setup.
  */
 
 export function isIOSDevice() {
