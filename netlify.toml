@@ -30,8 +30,26 @@
   to = "/index.html"
   status = 200
 
-# Files that decide which version a phone runs must never be cached, or phones
-# keep the old app after a deploy.
+# ── Caching ──────────────────────────────────────────────────────────────────
+# Netlify applies every matching rule and the LAST one wins for the same header,
+# so each file appears once and no catch-all "*.js" rule is used: a catch-all
+# would also cover sw.js / push-sw.js and keep phones on an old version.
+
+[[headers]]
+  for = "/*"
+    [headers.values]
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Built files carry a content hash in their name: safe to cache forever.
+[[headers]]
+  for = "/assets/*"
+    [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Files that decide which version a phone runs: always re-check.
 [[headers]]
   for = "/index.html"
     [headers.values]
@@ -43,59 +61,19 @@
     Cache-Control = "no-cache"
 
 [[headers]]
-  for = "/registerSW.js"
+  for = "/workbox-*.js"
     [headers.values]
     Cache-Control = "no-cache"
-
-[[headers]]
-  for = "/push-sw.js"
-    [headers.values]
-    Cache-Control = "no-cache"
-
-[[headers]]
-  for = "/manifest.json"
-    [headers.values]
-    Cache-Control = "no-cache"
-
-# Built files have a content hash in their name, so they can be cached forever.
-[[headers]]
-  for = "/assets/*"
-    [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-
-[[headers]]
-  for = "/*"
-    [headers.values]
-    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
-    X-Frame-Options = "DENY"
-    X-Content-Type-Options = "nosniff"
-    Referrer-Policy = "strict-origin-when-cross-origin"
 
 [[headers]]
   for = "/manifest.json"
     [headers.values]
     Content-Type = "application/manifest+json"
-    Cache-Control = "public, max-age=0, must-revalidate"
-
-[[headers]]
-  for = "/sw.js"
-    [headers.values]
     Cache-Control = "no-cache"
 
-# Push notification service worker — must never be cached and must be
-# allowed to control the entire origin scope ("/").
+# Push notification handler (imported by sw.js) - never cached, may control "/".
 [[headers]]
   for = "/push-sw.js"
     [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
     Service-Worker-Allowed = "/"
-
-[[headers]]
-  for = "/*.js"
-    [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-
-[[headers]]
-  for = "/*.css"
-    [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
