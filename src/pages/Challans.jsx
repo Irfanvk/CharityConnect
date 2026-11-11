@@ -66,6 +66,7 @@ import ChallanForm from "@/components/challans/ChallanForm";
 import AdminRecordPaymentForm from "@/components/challans/AdminRecordPaymentForm";
 import ProofUpload from "@/components/challans/ProofUpload";
 import PullToRefresh from "@/components/mobile/PullToRefresh";
+import { isNotPaidYet } from "@/lib/challanStatus";
 import UserProfilePopover from "@/components/UserProfilePopover";
 import { useToast } from "@/components/ui/use-toast";
 import { PAGE_PATHS } from "@/config/appPaths";
@@ -105,6 +106,9 @@ const statusConfig = {
  * "Proof Uploaded" badge so admins can act on it quickly.
  */
 const getDisplayStatus = (challan) => {
+  if (isNotPaidYet(challan)) {
+    return { label: "Not paid yet", color: "bg-slate-100 text-slate-700", icon: FileText };
+  }
   if (challan.status === "pending" && challan.proof_uploaded_at) {
     return {
       label: "Proof Uploaded",

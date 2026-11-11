@@ -80,7 +80,7 @@ export default function Layout({ children, currentPageName }) {
         const [requestsPage, passwordResets, pendingChallans, pendingBulk] = await Promise.all([
           charityClient.requests.adminList({ status: 'pending', skip: 0, limit: 1 }),
           charityClient.admin.listPasswordResetRequests({ status: 'pending' }).catch(() => []),
-          charityClient.challans.listPaginated({ status: 'pending', skip: 0, limit: 1 }).catch(() => ({ total: 0 })),
+          charityClient.challans.listPaginated({ status: 'pending', submitted: true, skip: 0, limit: 1 }).catch(() => ({ total: 0 })),
           charityClient.bulkOperations.listPending().catch(() => ({ pending: 0 })),
         ]);
         const total =

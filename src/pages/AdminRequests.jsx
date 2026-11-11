@@ -197,7 +197,7 @@ export default function AdminRequests() {
   // Pending challans queries (individual + bulk groups awaiting review)
   const { data: pendingChallanPage = { items: [], total: 0 }, isLoading: pendingChallansLoading } = useQuery({
     queryKey: ["admin", "pending-challans"],
-    queryFn: () => charityClient.challans.listPaginated({ status: "pending", skip: 0, limit: 100 }),
+    queryFn: () => charityClient.challans.listPaginated({ status: "pending", submitted: true, skip: 0, limit: 100 }),
     enabled: isAdmin && activeTab === "challans",
   });
 

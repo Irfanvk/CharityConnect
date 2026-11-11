@@ -1,3 +1,4 @@
+import { isNotPaidYet } from "@/lib/challanStatus";
 import React from "react";
 import { formatMemberId } from "@/lib/utils";
 import { Link, useNavigate } from "react-router-dom";
@@ -45,6 +46,7 @@ const PIE_COLORS = ["#10b981", "#0ea5e9", "#f59e0b", "#ef4444", "#8b5cf6", "#14b
 
 const statusConfig = {
   generated: { label: "Generated", color: "bg-slate-100 text-slate-700", icon: Receipt },
+  not_paid: { label: "Not paid yet", color: "bg-slate-100 text-slate-700", icon: Receipt },
   proof_uploaded: { label: "Proof Uploaded", color: "bg-blue-100 text-blue-700", icon: AlertCircle },
   pending: { label: "Pending", color: "bg-amber-100 text-amber-700", icon: Clock },
   approved: { label: "Approved", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle2 },
@@ -52,6 +54,9 @@ const statusConfig = {
 };
 
 const getStatusForCard = (challan) => {
+  if (isNotPaidYet(challan)) {
+    return statusConfig.not_paid;
+  }
   if (challan.status === "pending" && challan.proof_uploaded_at) {
     return statusConfig.proof_uploaded;
   }
