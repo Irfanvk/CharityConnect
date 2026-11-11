@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import AvatarCropUpload from "@/components/profile/AvatarCropUpload";
 import { APP_VERSION } from "@/lib/appVersion";
+import { formatMonth, isNotPaidYet } from "@/lib/challanStatus";
 import PaymentReminderSetting, { ordinal } from "@/components/PaymentReminderSetting";
 import AvatarLightbox from "@/components/profile/AvatarLightbox";
 
@@ -35,7 +36,7 @@ const FIELD_LABELS = {
 const PAYMENT_STATUS = {
   approved: { label: "Paid", className: "bg-emerald-100 text-emerald-700" },
   pending: { label: "Checking", className: "bg-amber-100 text-amber-700" },
-  generated: { label: "Not paid", className: "bg-slate-100 text-slate-700" },
+  generated: { label: "Not paid yet", className: "bg-slate-100 text-slate-700" },
   rejected: { label: "Rejected", className: "bg-rose-100 text-rose-700" },
 };
 
@@ -541,11 +542,13 @@ export default function Profile() {
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Recent payments</p>
                   {recentPayments.map((challan) => {
-                    const status = PAYMENT_STATUS[challan.status] || { label: challan.status, className: "bg-slate-100 text-slate-700" };
+                    const status = isNotPaidYet(challan)
+                      ? PAYMENT_STATUS.generated
+                      : PAYMENT_STATUS[challan.status] || { label: challan.status, className: "bg-slate-100 text-slate-700" };
                     return (
                       <div key={challan.id} className="flex items-center justify-between gap-3 text-sm">
                         <span className="min-w-0 truncate text-slate-700 dark:text-slate-300">
-                          {challan.type === "monthly" ? challan.month : challan.campaign_name || "Donation"}
+                          {challan.type === "monthly" ? formatMonth(challan.month) : challan.campaign_name || "Donation"}
                         </span>
                         <span className="flex shrink-0 items-center gap-2">
                           <span className="font-medium text-slate-900 dark:text-slate-100">{formatRupees(challan.amount)}</span>

@@ -3,7 +3,7 @@
 **Project:** CharityConnect  
 **Purpose:** Decisions, meeting minutes, and action items  
 **Owner:** Integration Lead  
-**Last Updated:** 2026-11-11
+**Last Updated:** 2026-11-12
 
 ---
 
@@ -11,6 +11,7 @@
 
 | Date | Decision | Owner | Status | Notes |
 |------|----------|-------|--------|-------|
+| 2026-11-12 | "Not paid yet" instead of "Checking"; months as "Feb 2026"; admin review shows real submissions only | Frontend | ✅ | `src/lib/challanStatus.js` (`isNotPaidYet`, `formatMonth`) is used on Profile, Challans and the member dashboard. Admin Requests → Pending Challans and the nav badge ask for `submitted=true`, so imported unpaid months no longer fill the review queue. New scripts: `Check-VPS-Payments.cmd` (read-only) and `Fix-VPS-Unpaid-Amounts.cmd` (preview, YES, CSV backup, one transaction), which set months not paid yet to each member's monthly fee. Backend: API_CHANGELOG 2026-11-12. |
 | 2026-11-11 | Fixed caching: update files were cached for a year | Frontend | ✅ | Found after the merge by checking the live headers: an older catch-all rule in `netlify.toml` (`/*.js` and `/*.css` → `max-age=31536000, immutable`) came last, and Netlify applies the last matching rule, so `sw.js` and `push-sw.js` were cached for a year. That predates today's work. Browsers re-check `sw.js` itself at least daily, but `push-sw.js` (imported by it) could stay old on phones. The rules are now listed once each: long caching only for hashed `/assets/*`; `no-cache` for `index.html`, `sw.js`, `workbox-*.js`, `manifest.json`; `no-store` for `push-sw.js`. |
 | 2026-11-11 | Make sure updates reach every phone | Frontend | ✅ | Each build gets an id `YYYYMMDD.HHMM-<commit>` (`vite.config.js`, Netlify `COMMIT_REF`), shown at the bottom of Profile and sent with the device-status report; Superadmin → notification delivery shows how many users opened the newest version and who is still on an old one. `main.jsx` now checks for a new version every 30 minutes and whenever the app returns to the screen, so an app left open for days still gets the **Update now** prompt. `netlify.toml`: `no-cache` for `index.html`, `sw.js`, `registerSW.js`, `push-sw.js`, `manifest.json` (and long caching for hashed `/assets/*`), so a deploy is picked up immediately. |
 | 2026-11-11 | Fixed two pages that crashed: My requests and campaign donations | Frontend | ✅ | `MemberRequests.jsx` called `useDeepLink` without importing it (since 5f19557, not yet live), so Profile → My requests showed "Something went wrong" and reloading stayed broken. `Campaigns.jsx` used `format` without importing it (also on the live site), crashing a campaign's donations table once a donation had a date. Both imports added; a scan of all of `src/` with `no-undef` now finds no undefined names. The app's error screen now offers **Go to Dashboard** as well as Reload, so a broken page can no longer trap the user. |
