@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { charityClient } from "@/api/charityClient";
 import { useAuth } from "@/lib/AuthContext";
 import { PAGE_PATHS } from "@/config/appPaths";
+import { usePublicSettings } from "@/lib/usePublicSettings";
 import { formatMemberId } from "@/lib/utils";
 import { format } from "@/lib/dateTime";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import {
-  AtSign, BellRing, Camera, CheckCircle, ChevronRight, Inbox, Loader2, LogOut, Mail, MapPin,
+  AtSign, BellRing, Camera, CheckCircle, ChevronRight, Inbox, Landmark, Loader2, LogOut, Mail, MapPin,
   MessageSquare, Phone, UserCircle, X, XCircle,
 } from "lucide-react";
 import AvatarCropUpload from "@/components/profile/AvatarCropUpload";
@@ -94,6 +95,7 @@ function ActionRow({ icon: Icon, label, hint, to, onClick }) {
 export default function Profile() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const bankDetailsEnabled = usePublicSettings().bank_details_enabled !== false;
   const { logout } = useAuth();
 
   const [cropOpen, setCropOpen] = useState(false);
@@ -589,6 +591,9 @@ export default function Profile() {
                 hint={!reminder.organisation_enabled ? "Paused by the admins" : reminder.enabled ? `${ordinal(reminder.day)} of every month` : "Off"}
                 onClick={() => setReminderOpen(true)}
               />
+            )}
+            {bankDetailsEnabled && (
+              <ActionRow icon={Landmark} label="Bank details" hint="Official account and QR for payments" to={PAGE_PATHS.BANK_DETAILS} />
             )}
             <ActionRow
               icon={Inbox}

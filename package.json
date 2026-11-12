@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "mock": "node mock-server/index.js",
+    "prebuild": "node scripts/bank-details-seal.mjs --check",
     "build": "vite build",
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
