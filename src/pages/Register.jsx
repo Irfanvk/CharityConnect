@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { APP_BRAND, APP_IMAGES, APP_PATHS } from "@/config/appPaths";
+import LocationFields from "@/components/members/LocationFields";
 
 // Seconds the success screen is shown before going to the login page.
 const REDIRECT_SECONDS = 3;
@@ -27,6 +28,7 @@ export default function Register() {
     phone: '',
     address: '',
     city: '',
+    country: '',
     monthly_amount: 100
   });
   const [loading, setLoading] = useState(false);
@@ -221,6 +223,12 @@ export default function Register() {
       return;
     }
 
+    if (!formData.country || !formData.city.trim()) {
+      setError('Please choose the country you live in and enter your city.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const inviteValidationResult = await validateInviteAndDetectMode();
       if (!inviteValidationResult?.valid) {
@@ -238,6 +246,8 @@ export default function Register() {
         full_name: formData.full_name,
         phone: formData.phone,
         address: formData.address || '',
+        country: formData.country,
+        city: formData.city.trim(),
         monthly_amount: allowMonthlyAmount ? (parseInt(formData.monthly_amount, 10) || 100) : 0
       });
 
@@ -504,6 +514,14 @@ export default function Register() {
                   />
                 </div>
 
+                <LocationFields
+                  idPrefix="register"
+                  country={formData.country}
+                  city={formData.city}
+                  phone={formData.phone}
+                  onChange={(next) => setFormData((prev) => ({ ...prev, ...next }))}
+                />
+
                 <div className="space-y-2">
                   {inviteValidationMeta.allowMonthlyAmount ? (
                     <>
@@ -533,7 +551,7 @@ export default function Register() {
                 </div>
 
                 <p className="text-xs text-slate-600 dark:text-slate-300">
-                  You can complete additional profile details (address, city, etc.) after registration.
+                  You can add your full address later from your profile.
                 </p>
 
                 <div className="flex gap-3 pt-4">

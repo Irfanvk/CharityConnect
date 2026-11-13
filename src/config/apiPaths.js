@@ -30,6 +30,8 @@ export const API_PATHS = {
     importJob: '/members/import/jobs',
     importJobStatus: (jobId) => `/members/import/jobs/${jobId}`,
     me: '/members/me',
+    myLocation: '/members/me/location',
+    countryStats: '/members/stats/countries',
     byId: (id) => `/members/${id}`,
     byCode: (code) => `/members/code/${code}`,
   },

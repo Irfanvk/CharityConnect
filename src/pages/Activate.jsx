@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import PhoneInput from "@/components/ui/phone-input";
+import LocationFields from "@/components/members/LocationFields";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { APP_IMAGES, APP_PATHS } from "@/config/appPaths";
@@ -55,6 +56,8 @@ export default function Activate() {
     no_email: false,
     whatsapp_same: true,
     whatsapp_phone: "",
+    country: "",
+    city: "",
     username: "",
     password: "",
     confirm: "",
@@ -121,6 +124,8 @@ export default function Activate() {
     if (form.no_email && (!whatsapp || String(whatsapp).replace(/\D/g, "").length < 7)) {
       return "Without email, please give your WhatsApp number.";
     }
+    if (!form.country) return "Please choose the country you live in.";
+    if (!form.city.trim()) return "Please enter your city.";
     if (!username || usernameFormatError) return "Please choose a username (3-30 letters or numbers).";
     if (usernameStatus === "taken") return "This username is taken. Please choose another.";
     if (form.password.length < 8) return "Password must be at least 8 characters.";
@@ -148,6 +153,8 @@ export default function Activate() {
         username,
         password: form.password,
         last_paid_month: form.last_paid_month || null,
+        country: form.country,
+        city: form.city.trim(),
       });
       setDone({ ...result, username });
       window.scrollTo?.(0, 0);
@@ -274,6 +281,14 @@ export default function Activate() {
           onChange={(value) => set({ phone: value })}
           required
           showExamples={false}
+        />
+
+        <LocationFields
+          idPrefix="activate"
+          country={form.country}
+          city={form.city}
+          phone={form.phone}
+          onChange={(next) => set(next)}
         />
 
         <div className="space-y-2">

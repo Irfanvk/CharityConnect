@@ -39,6 +39,7 @@ import { Badge } from "@/components/ui/badge";
 import NotificationManager from "@/components/NotificationManager";
 import NotificationGate, { NotificationsOffBar } from "@/components/NotificationGate";
 import ActivationWelcome from "@/components/ActivationWelcome";
+import LocationGate from "@/components/LocationGate";
 import CorsWarningBanner from "@/components/CorsWarningBanner";
 import PWAInstallButton from "@/components/PWAInstallButton";
 import { PWAUpdatePrompt } from "@/components/PWAUpdatePrompt";
@@ -227,6 +228,7 @@ export default function Layout({ children, currentPageName }) {
     <MemberWatermark>
     <div className="h-[100dvh] overflow-hidden bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900">
       <NotificationManager user={currentUser} />
+      <LocationGate />
       <NotificationGate />
       <ActivationWelcome />
       <style>{`
