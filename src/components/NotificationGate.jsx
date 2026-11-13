@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { DeniedHelp } from "@/components/NotificationSettingsCard";
+import { useLocationMissing } from "@/components/LocationGate";
 
 /*
  * "Turn on notifications" is a required step after every sign-in until this
@@ -78,7 +79,8 @@ export default function NotificationGate() {
 
   const onAuthPage = NO_GATE_PATHS.includes(location.pathname.toLowerCase());
   // Wait for the other first-run dialogs (install popup, setup form, welcome).
-  const othersBusy = install.dialogOpen || install.autoHeld || shouldAutoShowInstall(install);
+  const locationMissing = useLocationMissing();
+  const othersBusy = install.dialogOpen || install.autoHeld || shouldAutoShowInstall(install) || locationMissing;
 
   useEffect(() => {
     if (!missing || onAuthPage || open || othersBusy) return undefined;

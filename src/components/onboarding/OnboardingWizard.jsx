@@ -16,6 +16,7 @@ import { holdAutoInstall } from "@/lib/installPrompt";
 import { APP_BRAND } from "@/config/appPaths";
 import { useToast } from "@/components/ui/use-toast";
 import { isValidInternationalPhone } from "@/lib/phone-utils";
+import LocationFields from "@/components/members/LocationFields";
 
 export default function OnboardingWizard({ open, onComplete, user, memberProfile }) {
   const [step, setStep] = useState(1);
@@ -39,6 +40,7 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
     email: user?.email || memberProfile?.email || '',
     address: memberProfile?.address || '',
     city: memberProfile?.city || '',
+    country: memberProfile?.country || '',
     reminderEnabled: true,
     reminderDay: null, // filled from the server (member's day or the organisation's day)
   });
@@ -66,6 +68,7 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
       email: user?.email || memberProfile?.email || prev.email || '',
       address: memberProfile?.address || prev.address || '',
       city: memberProfile?.city || prev.city || '',
+      country: memberProfile?.country || prev.country || '',
     }));
   }, [user, memberProfile]);
 
@@ -123,8 +126,22 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
         });
       }
 
+      if (!formData.country || !String(formData.city || '').trim()) {
+        throw new Error('Please choose the country you live in and enter your city.');
+      }
+      try {
+        const updated = await charityClient.members.updateMyLocation({
+          country: formData.country,
+          city: String(formData.city).trim(),
+        });
+        queryClient.setQueryData(['members', 'me'], updated);
+      } catch (locationError) {
+        // Someone without a member record (e.g. a superadmin) has no location to save.
+        if (memberProfile?.id || locationError?.status !== 404) throw locationError;
+      }
+
       // Saved on the server, so the setup is done on every device.
-      const address = [formData.address, formData.city].map((v) => String(v || '').trim()).filter(Boolean).join(', ');
+      const address = String(formData.address || '').trim();
       const reminderDay = Number(formData.reminderDay || reminder?.day || 1);
       const saved = await charityClient.auth.completeOnboarding({
         address: address || null,
@@ -243,15 +260,13 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
                 />
               </div>
 
-              <div>
-                <Label htmlFor="city">City</Label>
-                <Input
-                  id="city"
-                  value={formData.city}
-                  onChange={(e) => setFormData({...formData, city: e.target.value})}
-                  placeholder="Enter your city"
-                />
-              </div>
+              <LocationFields
+                idPrefix="setup"
+                country={formData.country}
+                city={formData.city}
+                phone={formData.phone}
+                onChange={(next) => setFormData((prev) => ({ ...prev, ...next }))}
+              />
 
               <p className="text-xs text-slate-500">
                 For security, phone and email changes after registration require admin approval and are sent to Requests.
@@ -383,7 +398,7 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
           {step === 1 && (
             <Button 
               onClick={handleNext}
-              disabled={!formData.phone || !formData.email}
+              disabled={!formData.phone || !formData.email || !formData.country || !String(formData.city || '').trim()}
               className="bg-emerald-600 hover:bg-emerald-700"
             >
               Next Step <ArrowRight className="w-4 h-4 ml-2" />

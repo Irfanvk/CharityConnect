@@ -665,6 +665,7 @@ const charityClient = {
       return {
         total_members: Number(data?.total_members || 0),
         active_members: Number(data?.active_members || 0),
+        registered_members: Number(data?.registered_members || 0),
       };
     },
 
@@ -674,6 +675,14 @@ const charityClient = {
     },
 
     me: async () => normalizeMember(await apiFetch(API_PATHS.members.me, { method: 'GET' })),
+
+    updateMyLocation: async ({ country, city }) =>
+      normalizeMember(await apiFetch(API_PATHS.members.myLocation, {
+        method: 'PUT',
+        body: JSON.stringify({ country, city }),
+      })),
+
+    countryStats: async () => apiFetch(API_PATHS.members.countryStats, { method: 'GET' }),
 
     get: async (id) => normalizeMember(await apiFetch(API_PATHS.members.byId(id), { method: 'GET' })),
 

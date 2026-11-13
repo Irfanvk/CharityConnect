@@ -47,6 +47,7 @@ import MemberForm from "@/components/members/MemberForm";
 import AdminRecordPaymentForm from "@/components/challans/AdminRecordPaymentForm";
 import MemberTimelineDialog from "@/components/members/MemberTimelineDialog";
 import UserProfilePopover, { AvatarCircle } from "@/components/UserProfilePopover";
+import { LIVING_COUNTRIES, PHONE_CODE_OPTIONS, countryName } from "@/lib/countries";
 
 const statusConfig = {
   active: { label: "Active", color: "bg-emerald-100 text-emerald-700" },
@@ -57,6 +58,11 @@ const statusConfig = {
 export default function Members() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("active");
+  const [countryFilter, setCountryFilter] = useState("all");
+  const [phoneCodeFilter, setPhoneCodeFilter] = useState("all");
+  const [phoneSearch, setPhoneSearch] = useState("");
+  const [registeredFilter, setRegisteredFilter] = useState("all");
+  const phoneDigits = phoneSearch.replace(/\D/g, "").replace(/^0+/, "");
   const [sortBy, setSortBy] = useState("name");
   const [sortDirection, setSortDirection] = useState("asc");
   const [pageSize, setPageSize] = useState(20);
@@ -188,13 +194,17 @@ export default function Members() {
   }, []);
 
   const { data: members = [], isLoading, isFetching, isError, error } = useQuery({
-    queryKey: ["members", search, statusFilter, sortBy, sortDirection, currentPage, pageSize],
+    queryKey: ["members", search, statusFilter, countryFilter, phoneCodeFilter, phoneDigits, registeredFilter, sortBy, sortDirection, currentPage, pageSize],
     queryFn: () =>
       charityClient.members.list({
         skip: (currentPage - 1) * pageSize,
         limit: pageSize,
         search,
         status: statusFilter === "all" ? undefined : statusFilter,
+        country: countryFilter === "all" ? undefined : countryFilter,
+        phone_code: phoneCodeFilter === "all" ? undefined : phoneCodeFilter,
+        phone: phoneDigits.length >= 3 ? phoneDigits : undefined,
+        registered: registeredFilter === "all" ? undefined : registeredFilter,
         sort_by: sortBy,
         sort_order: sortDirection,
       }),
@@ -240,11 +250,13 @@ export default function Members() {
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [search, statusFilter, sortBy, sortDirection, pageSize]);
+  }, [search, statusFilter, countryFilter, phoneCodeFilter, phoneDigits, registeredFilter, sortBy, sortDirection, pageSize]);
 
   const paginatedMembers = members;
   const activeMembersCount = Number(memberSummary?.active_members ?? 0);
   const inactiveMembersCount = Math.max(0, Number(memberSummary?.total_members ?? 0) - activeMembersCount);
+  const registeredCount = Number(memberSummary?.registered_members ?? 0);
+  const notRegisteredCount = Math.max(0, Number(memberSummary?.total_members ?? 0) - registeredCount);
 
   const {
     data: editingMemberDetails,
@@ -668,7 +680,7 @@ export default function Members() {
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [search, statusFilter, sortBy, sortDirection, pageSize]);
+  }, [search, statusFilter, countryFilter, phoneCodeFilter, phoneDigits, registeredFilter, sortBy, sortDirection, pageSize]);
 
   React.useEffect(() => {
     if (!wipeNotice?.id) return undefined;
@@ -913,8 +925,8 @@ export default function Members() {
         </Card>
       </div>
 
-      {/* Status Filter + Search/Sort — sticky so it stays reachable on long pages */}
-      <div className="sticky top-0 z-10 -mx-1 px-1 sm:-mx-0 sm:px-0 bg-slate-50/95 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80 space-y-4 py-3">
+      {/* Status Filter + Search/Sort — sticky on wider screens so it stays reachable on long pages */}
+      <div className="md:sticky md:top-0 z-10 -mx-1 px-1 sm:-mx-0 sm:px-0 bg-slate-50/95 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80 space-y-4 py-3">
         {/* Status Filter — segmented tab control */}
         <div
           role="tablist"
@@ -958,7 +970,7 @@ export default function Members() {
           <div className="relative max-w-md w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
-              placeholder="Search by name, ID, or phone..."
+              placeholder="Search by name, ID, phone or city..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10"
@@ -996,6 +1008,88 @@ export default function Members() {
             </select>
           </div>
         </div>
+
+        {isAdmin && (
+          <div
+            role="tablist"
+            aria-label="Filter members by registration"
+            className="inline-flex max-w-full items-center gap-1 rounded-lg bg-slate-100 p-1 overflow-x-auto"
+          >
+            {[
+              { key: "all", label: "Everyone", count: Number(memberSummary?.total_members ?? 0) },
+              { key: "yes", label: "Registered", count: registeredCount },
+              { key: "no", label: "Not registered", count: notRegisteredCount },
+            ].map((tab) => {
+              const isActive = registeredFilter === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setRegisteredFilter(tab.key)}
+                  className={`flex-shrink-0 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${isActive ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                >
+                  {tab.label}
+                  <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold leading-none ${isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500"}`}>
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {isAdmin && (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full sm:w-52">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                aria-label="Phone number"
+                type="tel"
+                inputMode="tel"
+                placeholder="Phone number"
+                value={phoneSearch}
+                onChange={(e) => setPhoneSearch(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+
+            <label htmlFor="country-filter" className="text-sm text-slate-600 whitespace-nowrap sm:ml-2">Lives in</label>
+            <select
+              id="country-filter"
+              value={countryFilter}
+              onChange={(e) => setCountryFilter(e.target.value)}
+              className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
+            >
+              <option value="all">All countries</option>
+              {LIVING_COUNTRIES.map((c) => (
+                <option key={c.iso} value={c.iso}>{c.name}</option>
+              ))}
+              <option value="none">Not entered yet</option>
+            </select>
+
+            <label htmlFor="phone-code-filter" className="text-sm text-slate-600 whitespace-nowrap sm:ml-2">Phone code</label>
+            <select
+              id="phone-code-filter"
+              value={phoneCodeFilter}
+              onChange={(e) => setPhoneCodeFilter(e.target.value)}
+              className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
+            >
+              <option value="all">All phone codes</option>
+              {PHONE_CODE_OPTIONS.map((o) => (
+                <option key={o.dialCode} value={o.dialCode}>{o.dialCode} {o.label}</option>
+              ))}
+              <option value="other">Other / no phone</option>
+            </select>
+
+            {(countryFilter !== "all" || phoneCodeFilter !== "all" || phoneSearch || registeredFilter !== "all") && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => { setCountryFilter("all"); setPhoneCodeFilter("all"); setPhoneSearch(""); setRegisteredFilter("all"); }}>
+                Clear filters
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Members Table */}
@@ -1006,6 +1100,7 @@ export default function Members() {
               <TableRow className="bg-slate-50">
                 <TableHead>Member</TableHead>
                 <TableHead>Contact</TableHead>
+                {isAdmin && <TableHead>Lives in</TableHead>}
                 <TableHead>Join Date</TableHead>
                 <TableHead>Monthly Amount</TableHead>
                 <TableHead>Status</TableHead>
@@ -1015,7 +1110,7 @@ export default function Members() {
             <TableBody>
               {isLoading || isFetching ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                  <TableCell colSpan={isAdmin ? 7 : 6} className="text-center py-8 text-slate-500">
                     <span className="inline-flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin" />
                       Loading members...
@@ -1024,14 +1119,16 @@ export default function Members() {
                 </TableRow>
               ) : isError ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-rose-600">
+                  <TableCell colSpan={isAdmin ? 7 : 6} className="text-center py-8 text-rose-600">
                     {error?.message || "Unable to load members"}
                   </TableCell>
                 </TableRow>
               ) : paginatedMembers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-slate-500">
-                    {statusFilter === "active"
+                  <TableCell colSpan={isAdmin ? 7 : 6} className="text-center py-8 text-slate-500">
+                    {(countryFilter !== "all" || phoneCodeFilter !== "all" || phoneDigits || registeredFilter !== "all")
+                      ? "No members match these filters."
+                      : statusFilter === "active"
                       ? "No active members found."
                       : statusFilter === "inactive"
                         ? "No inactive members found."
@@ -1073,6 +1170,20 @@ export default function Members() {
                         )}
                       </div>
                     </TableCell>
+                    {isAdmin && (
+                      <TableCell>
+                        {member.country ? (
+                          <div className="text-sm">
+                            <p className="text-slate-700">{member.city || "-"}</p>
+                            <p className="text-xs text-slate-500">{countryName(member.country)}</p>
+                          </div>
+                        ) : (
+                          <span className="whitespace-nowrap text-[11px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                            Not entered yet
+                          </span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell>
                       {member.join_date && format(new Date(member.join_date), "MMM d, yyyy")}
                     </TableCell>

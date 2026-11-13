@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useDeepLink } from "@/lib/useDeepLink";
 import { format } from "@/lib/dateTime";
 import { formatMemberId } from "@/lib/utils";
+import { formatLocation } from "@/lib/countries";
 import { emitNotificationsChanged } from "@/lib/notificationState";
 
 export const ACTIVATIONS_QUERY_KEY = ["admin", "member-activations"];
@@ -235,6 +236,7 @@ export default function MemberActivationsPanel({ enabled }) {
                   <CompareRow label="Phone" entered={selected.phone} record={selected.record?.phone} />
                   <CompareRow label="Email" entered={selected.email || "Doesn't use email"} record={selected.record?.email} />
                   <CompareRow label="WhatsApp" entered={selected.whatsapp_phone || "Not given"} />
+                  <CompareRow label="Lives in" entered={formatLocation(selected) || "Not given"} />
                   <CompareRow
                     label="Last month paid"
                     entered={selected.last_paid_month ? monthLabel(selected.last_paid_month) : "Not given"}

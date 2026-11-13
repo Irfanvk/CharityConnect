@@ -22,6 +22,7 @@ import {
   isUnlimitedTarget,
 } from "@/lib/campaigns";
 import CollectionStats from "@/components/dashboard/CollectionStats";
+import MembersByCountryCard from "@/components/dashboard/MembersByCountryCard";
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -169,6 +170,8 @@ export default function SuperAdminDashboard({
           </CardContent>
         </Card>
       </div>
+
+      <MembersByCountryCard />
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import PhoneInput from "@/components/ui/phone-input";
+import LocationFields from "@/components/members/LocationFields";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -29,6 +30,7 @@ const getInitialFormData = (member, suggestedId) => ({
   email: member?.email || '',
   address: member?.address || '',
   city: member?.city || '',
+  country: member?.country || '',
   join_date: member?.join_date || format(new Date(), 'yyyy-MM-dd'),
   status: member?.status || 'active',
   monthly_amount: member?.monthly_amount ?? 100,
@@ -145,14 +147,19 @@ export default function MemberForm({ open, onOpenChange, member, onSubmit, sugge
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="city">City</Label>
-              <Input
-                id="city"
-                value={formData.city}
-                onChange={(e) => setFormData({...formData, city: e.target.value})}
-                placeholder="Mumbai"
+            <div className="md:col-span-2">
+              <LocationFields
+                idPrefix="member-form"
+                required={false}
+                guessFromPhone={false}
+                country={formData.country}
+                city={formData.city}
+                phone={formData.phone}
+                onChange={(next) => setFormData((prev) => ({ ...prev, ...next }))}
               />
+              {!member?.country && member?.id && (
+                <p className="mt-1 text-xs text-amber-700">Not entered yet. The member will be asked for it when they next sign in.</p>
+              )}
             </div>
 
             <div className="space-y-2">

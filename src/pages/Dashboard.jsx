@@ -20,6 +20,7 @@ import PullToRefresh from "@/components/mobile/PullToRefresh";
 import { APP_IMAGES } from "@/config/appPaths";
 import BulkOperationsPanel from "@/components/dashboard/BulkOperationsPanel";
 import CollectionStats from "@/components/dashboard/CollectionStats";
+import MembersByCountryCard from "@/components/dashboard/MembersByCountryCard";
 import { getMemberSetup, isMemberSetupCompleted, saveMemberSetup } from "@/lib/memberSetup";
 import { PAGE_PATHS } from "@/config/appPaths";
 import { dismissWayfinding, recordWayfindingVisit, shouldShowWayfinding, WAYFINDING_STATE_EVENT } from "@/lib/wayfinding";
@@ -591,6 +592,8 @@ export default function Dashboard() {
               <RecentActivity challans={challansArray} />
               <CampaignProgress campaigns={campaignsArray} />
             </div>
+
+            <MembersByCountryCard />
           </>
         )}
       </div>

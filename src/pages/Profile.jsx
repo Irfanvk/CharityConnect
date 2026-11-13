@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import {
-  AtSign, BellRing, Camera, CheckCircle, ChevronRight, Inbox, Landmark, Loader2, LogOut, Mail, MapPin,
+  AtSign, BellRing, Camera, Globe, CheckCircle, ChevronRight, Inbox, Landmark, Loader2, LogOut, Mail, MapPin,
   MessageSquare, Phone, UserCircle, X, XCircle,
 } from "lucide-react";
 import AvatarCropUpload from "@/components/profile/AvatarCropUpload";
@@ -25,6 +25,8 @@ import { APP_VERSION } from "@/lib/appVersion";
 import { formatMonth, isNotPaidYet } from "@/lib/challanStatus";
 import PaymentReminderSetting, { ordinal } from "@/components/PaymentReminderSetting";
 import AvatarLightbox from "@/components/profile/AvatarLightbox";
+import LocationFields from "@/components/members/LocationFields";
+import { formatLocation, isLocationComplete } from "@/lib/countries";
 
 const FIELD_LABELS = {
   full_name: "Full name",
@@ -92,6 +94,68 @@ function ActionRow({ icon: Icon, label, hint, to, onClick }) {
     : <button type="button" onClick={onClick} className={className}>{content}</button>;
 }
 
+/** Country and city: saved straight away (no admin approval), both required. */
+function LocationDialog({ open, onOpenChange, memberProfile }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [form, setForm] = useState({ country: "", city: "" });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  React.useEffect(() => {
+    if (open) {
+      setForm({ country: memberProfile?.country || "", city: memberProfile?.city || "" });
+      setError("");
+    }
+  }, [open, memberProfile]);
+
+  const save = async (e) => {
+    e.preventDefault();
+    if (!form.country) return setError("Please choose the country you live in.");
+    if (!form.city.trim()) return setError("Please enter your city.");
+    setSaving(true);
+    try {
+      const updated = await charityClient.members.updateMyLocation({ country: form.country, city: form.city.trim() });
+      queryClient.setQueryData(["members", "me"], updated);
+      queryClient.invalidateQueries({ queryKey: ["members"] });
+      toast({ title: "Saved", description: "Your country and city were updated." });
+      onOpenChange(false);
+    } catch (err) {
+      setError(err?.message || "Could not save. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Where you live</DialogTitle>
+          <DialogDescription>Only admins can see this.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={save} className="space-y-4">
+          <LocationFields
+            idPrefix="profile"
+            country={form.country}
+            city={form.city}
+            phone={memberProfile?.phone}
+            onChange={(next) => setForm((f) => ({ ...f, ...next }))}
+          />
+          {error && <p className="text-sm text-rose-600" role="alert">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Profile() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -131,6 +195,7 @@ export default function Profile() {
     queryFn: () => charityClient.auth.me(),
   });
   const isMember = user?.role === "member";
+  const [locationOpen, setLocationOpen] = useState(false);
 
   // Admins may have no member record; treat 404 as "none".
   const { data: memberProfile = null } = useQuery({
@@ -487,6 +552,8 @@ export default function Profile() {
         </CardContent>
       </Card>
 
+      <LocationDialog open={locationOpen} onOpenChange={setLocationOpen} memberProfile={memberProfile} />
+
       {/* ── My details ── */}
       <section>
         <h2 className="mb-2 px-1 text-sm font-semibold text-slate-700 dark:text-slate-300">My details</h2>
@@ -497,6 +564,14 @@ export default function Profile() {
             <DetailRow icon={Mail} label="Email" value={user.email} pending={pendingFields.has("email")} onClick={() => openEdit("email")} />
             {memberProfile && (
               <DetailRow icon={MapPin} label="Address" value={memberProfile.address} pending={pendingFields.has("address")} onClick={() => openEdit("address")} />
+            )}
+            {memberProfile?.id && (
+              <DetailRow
+                icon={Globe}
+                label="Lives in"
+                value={isLocationComplete(memberProfile) ? formatLocation(memberProfile) : ""}
+                onClick={() => setLocationOpen(true)}
+              />
             )}
             <DetailRow icon={AtSign} label="Username" value={user.username} pending={pendingFields.has("username")} onClick={() => openEdit("username")} />
           </div>
