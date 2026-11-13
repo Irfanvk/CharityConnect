@@ -313,7 +313,6 @@ export default function Challans() {
     queryKey: ["bulk-operations", "pending", "for-grouping"],
     queryFn: async () => {
       const result = await charityClient.bulkOperations.listPending({
-        days: 365,
         sort_by: 'created_at',
         order: 'desc',
       });
@@ -389,10 +388,9 @@ export default function Challans() {
 
   const groupedChallans = useMemo(() => {
     // ── Build challan-ID → bulk-group map ────────────────────────────────────
-    // The backend /challans/ list does NOT include bulk_group_id on rows.
-    // We cross-reference using:
-    //   1. localStorage (populated at bulk-create time, any status)
-    //   2. Admin bulk-pending-review API (to catch groups from other devices)
+    // Each row from /challans/ carries bulk_group_id, which is enough to group
+    // on any device. The saved group details (localStorage, admin review list)
+    // only add extras such as the shared proof link.
     const localGroups = loadBulkGroups();
     // Merge: admin ops may have fresher data; localStorage has history.
     const allGroupMeta = new Map();
@@ -417,12 +415,10 @@ export default function Challans() {
     const singles = [];
 
     normalisedSourceChallans.forEach((challan) => {
-      // Use ID cross-reference (primary) or inline bulk_group_id if backend ever adds it.
-      const meta =
-        challanIdToGroup.get(Number(challan.id)) ||
-        (challan.bulk_group_id
-          ? allGroupMeta.get(String(challan.bulk_group_id))
-          : null);
+      const serverGroupId = challan.bulk_group_id ? String(challan.bulk_group_id) : null;
+      const meta = serverGroupId
+        ? allGroupMeta.get(serverGroupId) || { bulk_group_id: serverGroupId }
+        : challanIdToGroup.get(Number(challan.id));
 
       if (!meta) {
         singles.push(challan);
@@ -625,40 +621,44 @@ export default function Challans() {
           return result;
         }
 
-        const basePayload = {
-          ...payload,
-          type: "monthly",
-          amount: amountPerMonth,
-        };
-
-        delete basePayload.selected_months;
-        delete basePayload.months_covered;
-        delete basePayload.months_count;
-        delete basePayload.shared_proof_file;
-        delete basePayload.proof_mode;
-
-        const created = await Promise.all(
-          months.map((month) =>
-            charityClient.challans.create({
-              ...basePayload,
-              month,
-            })
-          )
-        );
+        const created = await charityClient.challans.createMonths({
+          months,
+          member_id: isAdmin ? payload?.member_id : undefined,
+          payment_method: payload?.payment_method,
+        });
 
         toast({
           title: "Monthly challans created",
           description:
-            `${months.length} challans created. Upload proof on each challan if required.`,
+            `${created?.created_count ?? months.length} challans created. Upload proof on each challan if required.`,
         });
 
         return {
-          created_challans: created.length,
+          created_challans: created?.created_count ?? months.length,
           mode: "individual",
         };
       }
 
-      return charityClient.challans.create(payload);
+      // Single payment: create the challan, then attach the proof if one was chosen.
+      const { proof_file: proofFile, shared_proof_file: _shared, ...createData } = payload;
+      const created = await charityClient.challans.create(createData);
+      if (!proofFile) {
+        toast({ title: "Challan generated", description: "Upload the payment proof from the list after paying." });
+        return created;
+      }
+      try {
+        const submitted = await charityClient.challans.uploadProof(created.id, proofFile);
+        toast({ title: "Payment submitted", description: "The challan and its proof were sent for review." });
+        return submitted;
+      } catch (error) {
+        // The challan exists; only the proof failed, so it can be uploaded from the list.
+        toast({
+          title: "Challan generated, proof not uploaded",
+          description: `${error?.message || "The upload failed."} Use Upload Proof on the challan to try again.`,
+          variant: "destructive",
+        });
+        return created;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["challans"] });
