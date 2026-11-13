@@ -3,7 +3,7 @@ import { formatMemberId } from "@/lib/utils";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { emitNotificationsChanged } from "@/lib/notificationState";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useDeepLink } from "@/lib/useDeepLink";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -59,17 +60,19 @@ import {
   Trash2,
   Layers,
   HandCoins,
+  ReceiptText,
+  ChevronRight,
 } from "lucide-react";
 import { format } from "@/lib/dateTime";
 import { currentBusinessMonth, formatBusinessDate } from "@/lib/businessTime";
 import ChallanForm from "@/components/challans/ChallanForm";
+import BulkGroupDialog from "@/components/dashboard/BulkGroupDialog";
 import AdminRecordPaymentForm from "@/components/challans/AdminRecordPaymentForm";
 import ProofUpload from "@/components/challans/ProofUpload";
 import PullToRefresh from "@/components/mobile/PullToRefresh";
 import { isNotPaidYet } from "@/lib/challanStatus";
 import UserProfilePopover from "@/components/UserProfilePopover";
 import { useToast } from "@/components/ui/use-toast";
-import { PAGE_PATHS } from "@/config/appPaths";
 import { saveBulkGroup, loadBulkGroups, updateBulkGroupStatus } from "@/lib/bulkGroupStore";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -177,6 +180,8 @@ export default function Challans() {
   const [entryFilter, setEntryFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [recordOpen, setRecordOpen] = useState(false);
+  // Admins: one "New payment" button, then a choice between the two kinds.
+  const [newPaymentOpen, setNewPaymentOpen] = useState(false);
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
@@ -199,7 +204,6 @@ export default function Challans() {
   const [user, setUser] = useState(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
 
   useEffect(() => {
     charityClient.auth.me().then(setUser).catch(() => { });
@@ -218,16 +222,20 @@ export default function Challans() {
   // ── Supporting data ───────────────────────────────────────────────────────
   // Admins can list all members; regular members cannot — they get 403 or []
   // from the members list endpoint. Fetch own profile via /members/me instead.
+  // The server returns 20 members unless asked for more; the page needs all of them
+  // to show names and fees for any member.
   const { data: members = [] } = useQuery({
-    queryKey: ["members"],
-    queryFn: () => charityClient.members.list(),
+    queryKey: ["members", "all"],
+    queryFn: () => charityClient.members.list({ limit: 500 }),
     enabled: !!user && isAdmin,
   });
 
+  // Everyone's own member record (admins have one too).
   const { data: myMemberFromApi } = useQuery({
     queryKey: ["members", "me"],
     queryFn: () => charityClient.members.me(),
-    enabled: !!user && !isAdmin,
+    enabled: !!user,
+    retry: false,
   });
 
   const { data: campaigns = [] } = useQuery({
@@ -238,9 +246,9 @@ export default function Challans() {
 
   // The member record linked to the logged-in user.
   // Used to scope the challans API call for non-admin users.
-  const myMember = isAdmin
-    ? members.find((m) => m.email === user?.email)
-    : myMemberFromApi ?? null;
+  const myMember = myMemberFromApi
+    ?? (isAdmin ? members.find((m) => m.email === user?.email) : null)
+    ?? null;
 
   // Members array passed to ChallanForm:
   // - Admins: full list (for member picker)
@@ -850,17 +858,11 @@ export default function Challans() {
     await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
   };
 
-  const openBulkOperationDashboard = useCallback(
-    (challan) => {
-      if (!challan?.bulk_group_id) return;
-      const params = new URLSearchParams({
-        tab: "bulk-operations",
-        bulk_group_id: String(challan.bulk_group_id),
-      });
-      navigate(`${PAGE_PATHS.DASHBOARD}?${params.toString()}`);
-    },
-    [navigate]
-  );
+  // Bulk payment details open here, so the admin stays on the Challans list.
+  const [bulkDialogId, setBulkDialogId] = useState(null);
+  const openBulkOperation = useCallback((challan) => {
+    if (challan?.bulk_group_id) setBulkDialogId(String(challan.bulk_group_id));
+  }, []);
 
   const getEffectiveProofUrl = useCallback(
     (challan) => {
@@ -938,6 +940,14 @@ export default function Challans() {
           />
         )}
 
+        {isAdmin && (
+          <BulkGroupDialog
+            bulkGroupId={bulkDialogId}
+            open={Boolean(bulkDialogId)}
+            onOpenChange={(open) => { if (!open) setBulkDialogId(null); }}
+          />
+        )}
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
           <div>
@@ -948,22 +958,59 @@ export default function Challans() {
               Manage payment challans and approvals
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {isAdmin && (
-              <Button variant="outline" onClick={() => setRecordOpen(true)} className="select-none">
-                <HandCoins className="w-4 h-4 mr-2" />
-                Record payment
-              </Button>
-            )}
-            <Button
-              onClick={() => setFormOpen(true)}
-              className="bg-emerald-600 hover:bg-emerald-700 select-none"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Generate Challan
-            </Button>
-          </div>
+          <Button
+            onClick={() => (isAdmin ? setNewPaymentOpen(true) : setFormOpen(true))}
+            className="bg-emerald-600 hover:bg-emerald-700 select-none"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            {isAdmin ? "New payment" : "Generate Challan"}
+          </Button>
         </div>
+
+        {isAdmin && (
+          <Dialog open={newPaymentOpen} onOpenChange={setNewPaymentOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>New payment</DialogTitle>
+                <DialogDescription>Choose what you want to do.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                {[
+                  {
+                    key: "record",
+                    icon: HandCoins,
+                    title: "Money already received",
+                    text: "Cash, bank transfer or UPI a member gave you. Another admin verifies it.",
+                    open: () => setRecordOpen(true),
+                  },
+                  {
+                    key: "challan",
+                    icon: ReceiptText,
+                    title: "Generate a challan",
+                    text: "A challan to be paid, for you or a member. Add the proof now or later.",
+                    open: () => setFormOpen(true),
+                  },
+                ].map(({ key, icon: Icon, title, text, open }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => { setNewPaymentOpen(false); open(); }}
+                    className="flex w-full items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-left transition hover:border-emerald-400 hover:bg-emerald-50/40 dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium text-slate-900 dark:text-white">{title}</span>
+                      <span className="block text-xs text-slate-500 dark:text-slate-400">{text}</span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
+                  </button>
+                ))}
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Filters */}
         <div className="flex flex-col gap-3">
@@ -1237,10 +1284,10 @@ export default function Challans() {
 
                               {isAdmin && challan.bulk_group_id && (
                                 <DropdownMenuItem
-                                  onClick={() => openBulkOperationDashboard(challan)}
+                                  onClick={() => openBulkOperation(challan)}
                                 >
                                   <Layers className="w-4 h-4 mr-2" />
-                                  Open Bulk Operation
+                                  Bulk payment details
                                 </DropdownMenuItem>
                               )}
 

@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, X } from "lucide-react";
+import { formatMonth } from "@/lib/challanStatus";
 
 const METHODS = [
   { value: "cash", label: "Cash" },
@@ -66,6 +67,7 @@ export default function AdminRecordPaymentForm({
     if (!open) return;
     setMember(presetMember && !isOwnMemberRecord(presetMember, currentUser) ? presetMember : null);
     setSearch("");
+    setSearchTerm("");
     setKind("monthly");
     setSelectedMonths([]);
     setCampaignId("");
@@ -84,18 +86,29 @@ export default function AdminRecordPaymentForm({
     setSelectedMonths([]);
   }, [member]);
 
+  // Search on the server, so every member can be found (not just the ones loaded on the page).
+  const [searchTerm, setSearchTerm] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setSearchTerm(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+  const { data: found = [], isFetching: searching } = useQuery({
+    queryKey: ["members", "record-search", searchTerm],
+    enabled: open && searchTerm.length > 0,
+    queryFn: () => charityClient.members.list({ search: searchTerm, limit: 20 }),
+  });
+
   const candidates = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = searchTerm.toLowerCase();
     if (!term) return [];
-    return members
-      .filter((m) => !isOwnMemberRecord(m, currentUser))
-      .filter((m) =>
-        [m.full_name, m.member_code, m.member_id, m.phone]
-          .filter(Boolean)
-          .some((v) => String(v).toLowerCase().includes(term))
-      )
-      .slice(0, 8);
-  }, [search, members, currentUser]);
+    const local = members.filter((m) =>
+      [m.full_name, m.member_code, m.member_id, m.phone]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(term))
+    );
+    const byId = new Map([...found, ...local].map((m) => [String(m.id), m]));
+    return [...byId.values()].filter((m) => !isOwnMemberRecord(m, currentUser)).slice(0, 8);
+  }, [searchTerm, found, members, currentUser]);
 
   const { data: payable, isFetching: loadingMonths } = useQuery({
     queryKey: ["challans", "payable-months", "admin-record", member?.id],
@@ -202,7 +215,7 @@ export default function AdminRecordPaymentForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle>Record payment</DialogTitle>
+          <DialogTitle>Money already received</DialogTitle>
           <DialogDescription>
             Enter a payment received from a member. It stays pending until a different admin verifies it.
           </DialogDescription>
@@ -215,7 +228,7 @@ export default function AdminRecordPaymentForm({
               <p>
                 <span className="text-slate-500">For:</span>{" "}
                 {kind === "monthly"
-                  ? selectedMonths.join(", ")
+                  ? selectedMonths.map(formatMonth).join(", ")
                   : activeCampaigns.find((c) => String(c.id) === String(campaignId))?.title}
               </p>
               <p><span className="text-slate-500">Total:</span> <strong>{formatInr(total)}</strong></p>
@@ -257,6 +270,12 @@ export default function AdminRecordPaymentForm({
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
+                  {searching && candidates.length === 0 && (
+                    <p className="text-xs text-slate-500"><Loader2 className="w-3 h-3 inline animate-spin mr-1" />Searching…</p>
+                  )}
+                  {!searching && searchTerm && candidates.length === 0 && (
+                    <p className="text-xs text-slate-500">No members found.</p>
+                  )}
                   {candidates.length > 0 && (
                     <div className="rounded-md border divide-y max-h-48 overflow-y-auto">
                       {candidates.map((m) => (
@@ -308,7 +327,7 @@ export default function AdminRecordPaymentForm({
                             : "bg-white dark:bg-slate-900"
                         }`}
                       >
-                        {m}{m === currentMonth ? " •" : ""}
+                        {formatMonth(m)}{m === currentMonth ? " •" : ""}
                       </button>
                     ))}
                   </div>

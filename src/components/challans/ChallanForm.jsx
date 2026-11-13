@@ -153,7 +153,8 @@ export default function ChallanForm({
   const [proofError, setProofError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Admin member search combobox
+  // Admin member search combobox; pickedMember is the record chosen from the search results.
+  const [pickedMember, setPickedMember] = useState(null);
   const [memberSearch, setMemberSearch] = useState("");
   const [memberOptions, setMemberOptions] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
@@ -215,7 +216,7 @@ export default function ChallanForm({
 
   // Payable months from backend
   const effectiveFromMonth = fromMonth || null;
-  const { data: payableMonthsData, isFetching: fetchingMonths } = useQuery({
+  const { data: payableMonthsData, isFetching: fetchingMonths, isError: payableMonthsError } = useQuery({
     queryKey: ["challans", "payable-months", formData.member_id, includeUpcomingMonths, effectiveFromMonth],
     enabled: Boolean(formData.member_id) && formData.type === "monthly",
     queryFn: () =>
@@ -224,31 +225,19 @@ export default function ChallanForm({
         include_upcoming: includeUpcomingMonths,
         ...(effectiveFromMonth ? { from_month: effectiveFromMonth } : {}),
       }),
-    keepPreviousData: true,
   });
 
   // Selectable months: prefer backend data, fall back to local calculation
   const selectableMonths = useMemo(() => {
-    const backendMonths = Array.isArray(payableMonthsData?.all_months)
-      ? payableMonthsData.all_months
-      : [];
+    // The server knows the member's join month and every month already paid or waiting,
+    // so its list is the one to show (an empty list means everything is paid).
+    if (Array.isArray(payableMonthsData?.all_months)) return payableMonthsData.all_months;
 
-    // When user explicitly chooses a start month, ensure that month range is always
-    // available even if backend returns a narrower set.
-    const serverMonth = payableMonthsData?.current_month || currentBusinessMonth();
-    if (fromMonth) {
-      const localMonths = buildLocalMonths(fromMonth, includeUpcomingMonths, upcomingLimit, paidSet, serverMonth);
-      return Array.from(new Set([...backendMonths, ...localMonths])).sort();
-    }
-
-    if (backendMonths.length > 0) {
-      return backendMonths;
-    }
-
-    // Local fallback (when backend returns empty due to join_date/new-member edge cases)
-    const start = addBusinessMonths(serverMonth, -12);
-    return buildLocalMonths(start, includeUpcomingMonths, upcomingLimit, paidSet, serverMonth);
-  }, [payableMonthsData, fromMonth, includeUpcomingMonths, paidSet, upcomingLimit]);
+    // Only if the server could not be reached: a rough list from the chosen start month,
+    // or the platform start. The server still checks every month on submit.
+    if (!payableMonthsError) return [];
+    return buildLocalMonths(fromMonth || PLATFORM_START_MONTH, includeUpcomingMonths, upcomingLimit, paidSet);
+  }, [payableMonthsData, payableMonthsError, fromMonth, includeUpcomingMonths, paidSet, upcomingLimit]);
 
   // Keep selection valid when selectable months change
   useEffect(() => {
@@ -294,10 +283,19 @@ export default function ChallanForm({
     return { label: "Pending", cls: "bg-amber-100 text-amber-700" };
   };
 
-  const activeMember = members.find((m) => areSameId(m.id, formData.member_id)) || myMember;
+  // The member this challan is for. An admin's choice never falls back to the admin's own record,
+  // which used to show the admin's own fee (or ₹0) for members outside the loaded list.
+  const activeMember = isAdmin
+    ? (pickedMember && areSameId(pickedMember.id, formData.member_id) ? pickedMember : null)
+      || members.find((m) => areSameId(m.id, formData.member_id))
+      || null
+    : members.find((m) => areSameId(m.id, formData.member_id)) || myMember;
   // Never guess: the server always uses the member's own fee for their payments.
   const monthlyAmount = Number(activeMember?.monthly_amount) || 0;
-  const feeMissing = formData.type === "monthly" && Boolean(activeMember) && monthlyAmount <= 0;
+  // "Auto" start: the member's join month, never before the platform start (Aug 2024).
+  const joinMonth = String(activeMember?.join_date || "").slice(0, 7);
+  const autoStartMonth = /^\d{4}-\d{2}$/.test(joinMonth) && joinMonth > PLATFORM_START_MONTH ? joinMonth : PLATFORM_START_MONTH;
+  const feeMissing = formData.type === "monthly" && Boolean(formData.member_id) && monthlyAmount <= 0;
   const activeCampaigns = campaigns.filter((c) => c.status === "active");
   const startMonthOptions = useMemo(
     () => buildStartMonthOptions(payableMonthsData?.current_month || currentBusinessMonth()),
@@ -389,8 +387,9 @@ export default function ChallanForm({
                       key={m.id}
                       className="p-2 hover:bg-slate-100 cursor-pointer text-sm"
                       onClick={() => {
+                        setPickedMember(m);
                         setFormData({ ...formData, member_id: String(m.id) });
-                        setMemberSearch(`${m.full_name} (${formatMemberId(m.member_id)})`);;
+                        setMemberSearch(`${m.full_name} (${formatMemberId(m.member_id)})`);
                         setShowDropdown(false);
                       }}
                     >
@@ -436,14 +435,15 @@ export default function ChallanForm({
                     <SelectValue placeholder="Auto (use membership start)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__auto">Auto (membership start date)</SelectItem>
+                    <SelectItem value="__auto">Auto — from {format(parseISO(autoStartMonth + "-01"), "MMMM yyyy")}</SelectItem>
                     {startMonthOptions.map((m) => (
                       <SelectItem key={m} value={m}>{format(parseISO(m + "-01"), "MMMM yyyy")}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-slate-500">
-                  Change this if you want to pay from an earlier or specific month (e.g. January 2026).
+                  Auto starts from the member's join month ({format(parseISO(autoStartMonth + "-01"), "MMM yyyy")}), or Aug 2024 when
+                  they joined earlier. Months already paid or waiting for review are not listed. Pick a month to start somewhere else.
                 </p>
               </div>
 
@@ -476,7 +476,11 @@ export default function ChallanForm({
                 </div>
 
                 <div className="border rounded-lg max-h-56 overflow-y-auto bg-slate-50 divide-y divide-slate-100">
-                  {selectableMonths.length === 0 ? (
+                  {selectableMonths.length === 0 && !payableMonthsData && !payableMonthsError ? (
+                    <div className="py-8 text-center text-sm text-slate-500">
+                      <Loader2 className="w-4 h-4 inline animate-spin mr-2" />Loading months…
+                    </div>
+                  ) : selectableMonths.length === 0 ? (
                     <div className="py-8 text-center">
                       <p className="text-sm text-slate-500">All months are paid ✓</p>
                       <p className="text-xs text-slate-400 mt-1">Try changing "Start From Month" to an earlier date.</p>
