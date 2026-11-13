@@ -35,7 +35,10 @@ systemctl show charity.service -p Environment --value | tr ' ' '\n' | grep -E '^
 ls -1 *.pem 2>/dev/null | sed 's/^/  key file in app folder: /' || true
 echo "== Worker"
 echo "  charity-celery.service: $(systemctl is-active charity-celery.service)"
-venv/bin/celery -A app.workers.celery_app:celery inspect ping -t 10 2>/dev/null | grep -q pong && echo "  Worker answers: pong" || echo "  Worker did not answer"
+ping_out=$(venv/bin/celery -A app.workers.celery_app:celery inspect ping -t 10 2>&1)
+if echo "$ping_out" | grep -q pong; then echo "  Worker answers: pong"; else echo "  Ping got no reply (not an error by itself): $(echo "$ping_out" | tail -n 1 | cut -c1-160)"; fi
+echo "  Tasks the worker finished in the last hour: $(journalctl -u charity-celery.service --since '1 hour ago' --no-pager | grep -c 'succeeded in' || true)"
+echo "  Task errors in the last hour: $(journalctl -u charity-celery.service --since '1 hour ago' --no-pager | grep -cE 'raised unexpected|ERROR/' || true)"
 echo "  Tasks waiting: notifications=$(redis-cli llen notifications), default=$(redis-cli llen default)"
 echo "== Backend log since the restart"
 since=$(systemctl show charity.service -p ActiveEnterTimestamp --value)
