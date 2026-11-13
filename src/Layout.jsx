@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { charityClient } from "@/api/charityClient";
 import { useAuth } from "@/lib/AuthContext";
+import { usePublicSettings } from "@/lib/usePublicSettings";
 import { APP_IMAGES, PAGE_PATHS, ROUTE_KEYS } from "@/config/appPaths";
 import { pagesConfig } from "@/pages.config";
 import {
@@ -23,6 +24,7 @@ import {
   FileText,
   Upload,
   Wallet,
+  Landmark,
   MapPinned
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -141,6 +143,7 @@ export default function Layout({ children, currentPageName }) {
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const isSuperadmin = currentUser?.role === 'superadmin';
+  const bankDetailsEnabled = usePublicSettings().bank_details_enabled !== false;
   const displayName =
     currentUser?.full_name?.trim() ||
     currentUser?.username?.trim() ||
@@ -155,6 +158,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Members", href: ROUTE_KEYS.MEMBERS, path: PAGE_PATHS.MEMBERS, icon: Users, adminOnly: true, description: "Who is part of the organisation" },
     { name: "Challans", href: ROUTE_KEYS.CHALLANS, path: PAGE_PATHS.CHALLANS, icon: Receipt, description: "Payments, receipts, and proof uploads" },
     { name: "Campaigns", href: ROUTE_KEYS.CAMPAIGNS, path: PAGE_PATHS.CAMPAIGNS, icon: Heart, description: "Causes you can support and track" },
+    { name: "Bank Details", href: ROUTE_KEYS.BANK_DETAILS, path: PAGE_PATHS.BANK_DETAILS, icon: Landmark, hidden: !bankDetailsEnabled, description: "Official account and QR for payments" },
     { name: "Reports", href: ROUTE_KEYS.REPORTS, path: PAGE_PATHS.REPORTS, icon: FileText, adminOnly: true, description: "Financial summaries and exports" },
     { name: "Audit Logs", href: ROUTE_KEYS.AUDIT_LOGS, path: PAGE_PATHS.AUDIT_LOGS, icon: Settings, adminOnly: true, description: "Who changed what and when" },
     { name: "Fund Utilization", href: ROUTE_KEYS.FUND_UTILIZATION, path: PAGE_PATHS.FUND_UTILIZATION, icon: Wallet, adminOnly: true, description: "How funds are being used" },
@@ -187,6 +191,7 @@ export default function Layout({ children, currentPageName }) {
   ];
 
   const filteredNav = navigation.filter(item => {
+    if (item.hidden) return false;
     if (item.superadminOnly) return isSuperadmin;
     if (item.adminOnly) return isAdmin;
     return true;

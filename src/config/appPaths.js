@@ -23,6 +23,7 @@ export const ROUTE_KEYS = {
   SUPERADMIN_PANEL: 'SuperadminPanel',
   IMPORT: 'Import',
   FUND_UTILIZATION: 'FundUtilization',
+  BANK_DETAILS: 'BankDetails',
 };
 
 export const APP_PATHS = {
@@ -49,6 +50,7 @@ export const PAGE_PATHS = {
   SUPERADMIN_PANEL: createPageUrl(ROUTE_KEYS.SUPERADMIN_PANEL),
   IMPORT: createPageUrl(ROUTE_KEYS.IMPORT),
   FUND_UTILIZATION: createPageUrl(ROUTE_KEYS.FUND_UTILIZATION),
+  BANK_DETAILS: createPageUrl(ROUTE_KEYS.BANK_DETAILS),
 };
 
 export const APP_IMAGES = {

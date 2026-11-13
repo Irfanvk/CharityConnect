@@ -1,41 +1,28 @@
 import React from "react";
 import { usePublicSettings } from "@/lib/usePublicSettings";
+import BankDetailsCard from "@/components/branding/BankDetailsCard";
 
-// Shows only the payment fields the superadmin has filled in. All values render as plain text.
+// "How to pay" inside the payment form. The account details and QR come from the
+// locked file src/config/bankDetails.js. Only the note underneath is editable by
+// the superadmin, and it is shown apart from the official details.
 export default function PaymentInstructions({ className = "" }) {
   const s = usePublicSettings();
-  const rows = [
-    ["UPI ID", s.payment_upi_id],
-    ["Bank", s.payment_bank_name],
-    ["Account name", s.payment_account_name],
-    ["Account number", s.payment_account_number_masked_display],
-    ["IFSC / IBAN", s.payment_ifsc_or_iban],
-  ].filter(([, value]) => value);
-  const qr = s.payment_upi_qr_image_url;
-  const text = s.payment_instructions_text;
+  const showBank = s.bank_details_enabled !== false;
+  const note = s.payment_instructions_text;
+  const support = [s.support_whatsapp_number && `WhatsApp ${s.support_whatsapp_number}`, s.support_email].filter(Boolean).join(" · ");
 
-  if (!rows.length && !qr && !text) return null;
+  if (!showBank && !note && !support) return null;
 
   return (
-    <section className={`rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-50 ${className}`}>
-      <h3 className="mb-2 font-semibold">How to pay</h3>
-      <div className="flex gap-3">
-        <dl className="min-w-0 flex-1 space-y-1">
-          {rows.map(([label, value]) => (
-            <div key={label} className="flex gap-2">
-              <dt className="w-28 shrink-0 opacity-80">{label}</dt>
-              <dd className="break-all font-medium">{value}</dd>
-            </div>
-          ))}
-        </dl>
-        {qr && <img src={qr} alt="UPI QR code" className="h-24 w-24 rounded border bg-white object-contain" />}
-      </div>
-      {text && <p className="mt-2 whitespace-pre-line">{text}</p>}
-      {(s.support_whatsapp_number || s.support_email) && (
-        <p className="mt-2 text-xs opacity-80">
-          Need help? {[s.support_whatsapp_number && `WhatsApp ${s.support_whatsapp_number}`, s.support_email].filter(Boolean).join(" · ")}
-        </p>
+    <div className={`space-y-2 ${className}`}>
+      {showBank && <BankDetailsCard compact />}
+      {note && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Note from the admins</p>
+          <p className="whitespace-pre-line">{note}</p>
+        </div>
       )}
-    </section>
+      {support && <p className="text-xs text-slate-500 dark:text-slate-400">Need help? {support}</p>}
+    </div>
   );
 }
