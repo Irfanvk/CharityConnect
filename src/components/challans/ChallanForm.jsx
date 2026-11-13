@@ -64,6 +64,54 @@ function buildStartMonthOptions(currentMonth = currentBusinessMonth()) {
   return options.reverse(); // newest first
 }
 
+const PROOF_TYPES = ["image/jpeg", "image/jpg", "image/png", "application/pdf"];
+
+// Checks a chosen proof file; returns an error sentence, or "" when it is fine.
+function proofFileProblem(file, maxUploadMb) {
+  if (!PROOF_TYPES.includes(file.type)) return "Please choose a JPG, PNG or PDF file.";
+  if (file.size > maxUploadMb * 1024 * 1024) return `This file is too large. The limit is ${maxUploadMb}MB.`;
+  return "";
+}
+
+// File picker for a payment proof, or the chosen file with a remove button.
+function ProofPicker({ file, onPick, onClear, prompt, maxUploadMb, error }) {
+  return (
+    <>
+      {!file ? (
+        <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white px-4 py-6 text-center hover:border-emerald-400 hover:bg-emerald-50/30 transition-colors">
+          <Upload className="w-8 h-8 text-slate-400 mb-2" />
+          <span className="text-sm text-slate-700 font-medium">{prompt}</span>
+          <span className="text-xs text-slate-400 mt-1">JPG, PNG, PDF up to {maxUploadMb}MB</span>
+          <input
+            type="file"
+            accept={PROOF_TYPES.join(",")}
+            onChange={(e) => { onPick(e.target.files?.[0] || null); e.target.value = ""; }}
+            className="hidden"
+          />
+        </label>
+      ) : (
+        <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2">
+          <div className="flex items-center gap-3 min-w-0">
+            {file.type === "application/pdf" ? (
+              <FileText className="w-4 h-4 text-rose-500 shrink-0" />
+            ) : (
+              <ImageIcon className="w-4 h-4 text-emerald-600 shrink-0" />
+            )}
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
+              <p className="text-xs text-slate-500">{Math.max(1, Math.round(file.size / 1024))} KB</p>
+            </div>
+          </div>
+          <Button type="button" variant="ghost" size="icon" aria-label="Remove file" onClick={onClear}>
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+      {error && <p role="alert" className="text-xs text-rose-600">{error}</p>}
+    </>
+  );
+}
+
 export default function ChallanForm({
   open,
   onOpenChange,
@@ -99,6 +147,10 @@ export default function ChallanForm({
   const [fromMonth, setFromMonth] = useState(""); // user-chosen start month
   const [proofMode, setProofMode] = useState("individual");
   const [sharedProofFile, setSharedProofFile] = useState(null);
+  // Single payment (one month or a donation): proof now, or "upload later".
+  const [proofFile, setProofFile] = useState(null);
+  const [proofLater, setProofLater] = useState(false);
+  const [proofError, setProofError] = useState("");
   const [loading, setLoading] = useState(false);
 
   // Admin member search combobox
@@ -116,6 +168,9 @@ export default function ChallanForm({
     setIncludeUpcomingMonths(false);
     setProofMode("individual");
     setSharedProofFile(null);
+    setProofFile(null);
+    setProofLater(false);
+    setProofError("");
   }, [open, formData.member_id]);
 
   // Re-seed member_id when myMember resolves asynchronously
@@ -219,25 +274,16 @@ export default function ChallanForm({
   const clearAll = () => setSelectedMonths([]);
   const usesSharedBulkProof = formData.type === "monthly" && selectedMonths.length > 1 && proofMode === "shared";
 
-  const handleSharedProofChange = (event) => {
-    const nextFile = event.target.files?.[0] || null;
-    if (!nextFile) {
-      setSharedProofFile(null);
-      return;
-    }
+  // One month or a donation: a single challan that can carry its proof right away.
+  const isSinglePayment =
+    (formData.type === "monthly" && selectedMonths.length === 1) || formData.type === "donation";
+  const sendsProofNow = isSinglePayment && !proofLater && Boolean(proofFile);
 
-    if (nextFile.size > maxUploadMb * 1024 * 1024) {
-      setSharedProofFile(null);
-      return;
-    }
-
-    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "application/pdf"];
-    if (!allowedTypes.includes(nextFile.type)) {
-      setSharedProofFile(null);
-      return;
-    }
-
-    setSharedProofFile(nextFile);
+  const pickProof = (setFile) => (file) => {
+    if (!file) { setFile(null); return; }
+    const problem = proofFileProblem(file, maxUploadMb);
+    setProofError(problem);
+    setFile(problem ? null : file);
   };
 
   const getMonthTag = (month) => {
@@ -249,7 +295,9 @@ export default function ChallanForm({
   };
 
   const activeMember = members.find((m) => areSameId(m.id, formData.member_id)) || myMember;
-  const monthlyAmount = activeMember?.monthly_amount || 100;
+  // Never guess: the server always uses the member's own fee for their payments.
+  const monthlyAmount = Number(activeMember?.monthly_amount) || 0;
+  const feeMissing = formData.type === "monthly" && Boolean(activeMember) && monthlyAmount <= 0;
   const activeCampaigns = campaigns.filter((c) => c.status === "active");
   const startMonthOptions = useMemo(
     () => buildStartMonthOptions(payableMonthsData?.current_month || currentBusinessMonth()),
@@ -282,10 +330,14 @@ export default function ChallanForm({
         month: formData.type === "monthly" ? monthsToPay[0] : undefined,
         proof_mode: formData.type === "monthly" && monthsToPay.length > 1 ? proofMode : "individual",
         shared_proof_file: usesSharedBulkProof ? sharedProofFile : null,
+        proof_file: sendsProofNow ? proofFile : null,
       });
       setSelectedMonths([]);
       setSharedProofFile(null);
       setProofMode("individual");
+      setProofFile(null);
+      setProofLater(false);
+      setProofError("");
     } finally {
       setLoading(false);
     }
@@ -293,11 +345,14 @@ export default function ChallanForm({
 
   const canSubmit =
     !loading &&
+    !feeMissing &&
     formData.member_id &&
     (isAdmin || myMember) &&
     (formData.type === "donation"
       ? Boolean(formData.campaign_id)
-      : selectedMonths.length > 0 && (!usesSharedBulkProof || Boolean(sharedProofFile)));
+      : selectedMonths.length > 0 && (!usesSharedBulkProof || Boolean(sharedProofFile))) &&
+    // a single payment needs its proof, or an explicit "upload later"
+    (!isSinglePayment || proofLater || Boolean(proofFile));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -492,41 +547,14 @@ export default function ChallanForm({
                     <div className="space-y-2">
                       <Label>Shared proof file *</Label>
 
-                      {!sharedProofFile ? (
-                        <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white px-4 py-6 text-center hover:border-emerald-400 hover:bg-emerald-50/30 transition-colors">
-                          <Upload className="w-8 h-8 text-slate-400 mb-2" />
-                          <span className="text-sm text-slate-700 font-medium">Upload one proof for all selected months</span>
-                          <span className="text-xs text-slate-400 mt-1">JPG, PNG, PDF up to {maxUploadMb}MB</span>
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/jpg,image/png,application/pdf"
-                            onChange={handleSharedProofChange}
-                            className="hidden"
-                          />
-                        </label>
-                      ) : (
-                        <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2">
-                          <div className="flex items-center gap-3 min-w-0">
-                            {sharedProofFile.type === "application/pdf" ? (
-                              <FileText className="w-4 h-4 text-rose-500 shrink-0" />
-                            ) : (
-                              <ImageIcon className="w-4 h-4 text-emerald-600 shrink-0" />
-                            )}
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium text-slate-900 truncate">{sharedProofFile.name}</p>
-                              <p className="text-xs text-slate-500">{Math.max(1, Math.round(sharedProofFile.size / 1024))} KB</p>
-                            </div>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setSharedProofFile(null)}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      )}
+                      <ProofPicker
+                        file={sharedProofFile}
+                        onPick={pickProof(setSharedProofFile)}
+                        onClear={() => setSharedProofFile(null)}
+                        prompt="Upload one proof for all selected months"
+                        maxUploadMb={maxUploadMb}
+                        error={proofError}
+                      />
 
                       <p className="text-xs text-slate-500">
                         This proof will be attached to the bulk challan group covering all {selectedMonths.length} selected months.
@@ -536,8 +564,16 @@ export default function ChallanForm({
                 </div>
               )}
 
+              {feeMissing && (
+                <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                  {isAdmin
+                    ? "This member has no monthly amount set. Set it on the member first."
+                    : "Your monthly amount is not set yet. Please ask the admins to set it."}
+                </p>
+              )}
+
               {/* Summary */}
-              {selectedMonths.length > 0 && (
+              {selectedMonths.length > 0 && !feeMissing && (
                 <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 space-y-1 text-sm">
                   <div className="flex justify-between text-slate-600">
                     <span>Monthly amount</span><span>₹{monthlyAmount}</span>
@@ -587,6 +623,47 @@ export default function ChallanForm({
             </>
           )}
 
+          {/* ── Proof for a single payment: now, or "upload later" ── */}
+          {isSinglePayment && formData.member_id && !feeMissing && (formData.type === "monthly" || formData.campaign_id) && (
+            <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              {!proofLater ? (
+                <>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <Label>Payment proof</Label>
+                    <button
+                      type="button"
+                      onClick={() => { setProofLater(true); setProofFile(null); setProofError(""); }}
+                      className="text-xs text-slate-500 hover:text-slate-700 underline underline-offset-2"
+                    >
+                      Upload later
+                    </button>
+                  </div>
+                  <ProofPicker
+                    file={proofFile}
+                    onPick={pickProof(setProofFile)}
+                    onClear={() => setProofFile(null)}
+                    prompt="Add the payment screenshot or receipt"
+                    maxUploadMb={maxUploadMb}
+                    error={proofError}
+                  />
+                </>
+              ) : (
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-xs text-slate-600">
+                    Only the challan will be generated. Upload the proof from the challan list after paying.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setProofLater(false)}
+                    className="shrink-0 text-xs font-medium text-emerald-700 hover:underline"
+                  >
+                    Add proof now
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Notes */}
           <div className="space-y-1.5">
             <Label>Notes (Optional)</Label>
@@ -602,7 +679,7 @@ export default function ChallanForm({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={!canSubmit} className="bg-emerald-600 hover:bg-emerald-700">
               {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Generate Challan
+              {sendsProofNow ? "Generate & Submit Proof" : "Generate Challan"}
             </Button>
           </div>
         </form>

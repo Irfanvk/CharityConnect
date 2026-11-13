@@ -105,6 +105,13 @@ function parseErrorMessage(data, fallback = 'Unexpected error occurred') {
   if (typeof data?.message === 'string' && data.message.trim()) return data.message;
   if (typeof data?.detail === 'string' && data.detail.trim()) return data.detail;
   if (typeof data?.detail === 'object' && data.detail !== null && typeof data.detail.msg === 'string') return data.detail.msg;
+  if (typeof data?.detail === 'object' && data.detail !== null && typeof data.detail.message === 'string') {
+    // e.g. {message, duplicate_months: ["2026-08"]}: say which months
+    const months = data.detail.duplicate_months || data.detail.invalid_months;
+    return Array.isArray(months) && months.length
+      ? `${data.detail.message}: ${months.join(', ')}`
+      : data.detail.message;
+  }
   if (Array.isArray(data?.detail) && data.detail.length > 0) {
     const messages = data.detail
       .map((item) => item?.msg || item?.message || item?.detail)
@@ -904,6 +911,23 @@ const charityClient = {
       }));
     },
 
+    // Several months, each with its own proof later: created together in one step,
+    // so a dropped connection never leaves only some of the months created.
+    createMonths: async ({ months, member_id, payment_method } = {}) => {
+      const payload = {
+        months: Array.isArray(months) ? months : [],
+        amount: 0, // the server uses the member's own monthly fee
+        type: 'monthly',
+        proof_type: 'individual',
+        payment_method: payment_method || undefined,
+      };
+      if (member_id !== '' && member_id !== null && member_id !== undefined) payload.member_id = member_id;
+      return apiFetch(API_PATHS.challans.multi, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+
     bulkCreate: async (data) => {
       const payload = {
         ...(data || {}),
@@ -943,6 +967,7 @@ const charityClient = {
       const operations = data?.bulk_operations || data?.items || data?.data || data || [];
       return {
         pending: data?.pending ?? (Array.isArray(operations) ? operations.length : 0),
+        total: data?.total ?? null,
         bulk_operations: extractArray(operations).map(normalizeBulkOperation),
       };
     },

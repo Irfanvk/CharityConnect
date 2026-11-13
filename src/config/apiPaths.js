@@ -52,6 +52,7 @@ export const API_PATHS = {
     reject: (id) => `/challans/${id}/reject`,
     revert: (id) => `/challans/${id}/revert`,
     bulkCreate: '/challans/bulk-create',
+    multi: '/challans/multi',
   },
   bulk: {
     pendingReview: '/admin/bulk-pending-review',

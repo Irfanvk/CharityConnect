@@ -9,13 +9,17 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { CheckCircle2, ExternalLink, Layers, Loader2, Search, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink, Layers, Loader2, Search, UserCog, XCircle } from "lucide-react";
 import { format } from "@/lib/dateTime";
 import { emitNotificationsChanged } from "@/lib/notificationState";
-import { loadBulkGroups, saveBulkGroup, updateBulkGroupStatus } from "@/lib/bulkGroupStore";
+import { saveBulkGroup, updateBulkGroupStatus } from "@/lib/bulkGroupStore";
+import { formatMonth } from "@/lib/challanStatus";
 
 const MIN_REASON_LENGTH = 10;
 const OWN_PAYMENT_LABEL = "Your payment — another admin will review";
+const OWN_ENTRY_LABEL = "You entered this — another admin will review";
+// Tab -> server status. History comes from the server, so every admin and device sees the same list.
+const TAB_STATUS = { pending: "pending_approval", approved: "approved", rejected: "rejected", all: "all" };
 
 export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -36,41 +40,21 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
   }, [initialBulkGroupId]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["bulk-operations", "pending"],
+    queryKey: ["bulk-operations", "pending", statusFilter],
     queryFn: async () => {
       const result = await charityClient.bulkOperations.listPending({
-        days: 365,
+        status: TAB_STATUS[statusFilter] || "pending_approval",
         sort_by: "created_at",
         order: "desc",
+        limit: 200,
       });
-      // Persist API results into localStorage so they survive page reloads
-      // and are visible to the Challans grouping logic too.
-      const ops = result?.bulk_operations || [];
-      ops.forEach((op) => saveBulkGroup(op));
+      // Keep the local group map current for the Challans page grouping.
+      (result?.bulk_operations || []).forEach((op) => saveBulkGroup(op));
       return result;
     },
   });
 
-  // Merge API results with localStorage so groups created on THIS device
-  // (or in a previous session) are always visible — even if they've aged out
-  // of the backend's pending-review window.
-  const bulkOperations = useMemo(() => {
-    const apiOps = data?.bulk_operations || [];
-    const localOps = loadBulkGroups();
-
-    const merged = new Map();
-    // Local first (older / richer history), then API overwrites with fresh data
-    localOps.forEach((op) => {
-      if (op?.bulk_group_id) merged.set(String(op.bulk_group_id), op);
-    });
-    apiOps.forEach((op) => {
-      if (op?.bulk_group_id) merged.set(String(op.bulk_group_id), op);
-    });
-
-    return Array.from(merged.values()).sort(
-      (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
-    );
-  }, [data]);
+  const bulkOperations = useMemo(() => data?.bulk_operations || [], [data]);
 
   const { data: selectedBulkDetails, isLoading: isDetailsLoading } = useQuery({
     queryKey: ["bulk-operations", "details", selectedBulkGroupId],
@@ -107,7 +91,7 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
     mutationFn: ({ bulkGroupId, reason }) =>
       charityClient.bulkOperations.reject(bulkGroupId, {
         reason,
-        action: "delete",
+        action: "reject", // keep the records so the member sees the reason
       }),
     onSuccess: () => {
       updateBulkGroupStatus(selectedBulkGroupId, "rejected");
@@ -155,58 +139,38 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
     queryFn: () => charityClient.auth.me(),
   });
 
-  // Separation of duties: an admin never reviews their own bulk payment.
-  const isOwnBulk = (groupId, details) => {
-    const op =
-      details?.member_user_id != null
-        ? details
-        : bulkOperations.find((o) => String(o.bulk_group_id) === String(groupId));
-    return (
-      op?.member_user_id != null &&
-      currentUser?.id != null &&
-      Number(op.member_user_id) === Number(currentUser.id)
-    );
+  // Separation of duties: an admin never reviews their own payment, nor one they entered.
+  const reviewBlock = (op) => {
+    if (!op || currentUser?.id == null) return null;
+    const me = Number(currentUser.id);
+    if (op.member_user_id != null && Number(op.member_user_id) === me) return OWN_PAYMENT_LABEL;
+    if (op.created_by_user_id != null && Number(op.created_by_user_id) === me) return OWN_ENTRY_LABEL;
+    return null;
   };
 
   const proofUrl = selectedBulkDetails?.proof_url || null;
   const proofLower = String(proofUrl || "").toLowerCase();
   const isPdfProof = proofLower.endsWith(".pdf");
 
-  // Status normalisation: backend returns "pending_approval", localStorage may
-  // store "approved" / "rejected" / "pending_approval".
   const isPending = (op) => {
     const s = String(op?.status || "").toLowerCase();
     return s === "pending_approval" || s === "pending";
   };
 
   const filteredOps = useMemo(() => {
-    let ops = bulkOperations;
-
-    if (statusFilter === "pending") {
-      ops = ops.filter(isPending);
-    } else if (statusFilter === "approved") {
-      ops = ops.filter((op) => String(op?.status || "").toLowerCase() === "approved");
-    } else if (statusFilter === "rejected") {
-      ops = ops.filter((op) => String(op?.status || "").toLowerCase() === "rejected");
-    }
-
     const q = search.trim().toLowerCase();
-    if (q) {
-      ops = ops.filter(
-        (op) =>
-          (op.member_name || "").toLowerCase().includes(q) ||
-          String(op.bulk_group_id || "").toLowerCase().includes(q) ||
-          (op.member_email || "").toLowerCase().includes(q)
-      );
-    }
+    if (!q) return bulkOperations;
+    return bulkOperations.filter(
+      (op) =>
+        (op.member_name || "").toLowerCase().includes(q) ||
+        (op.member_code || "").toLowerCase().includes(q) ||
+        String(op.bulk_group_id || "").toLowerCase().includes(q) ||
+        (op.member_email || "").toLowerCase().includes(q)
+    );
+  }, [bulkOperations, search]);
 
-    return ops;
-  }, [bulkOperations, statusFilter, search]);
-
-  const pendingCount = useMemo(
-    () => bulkOperations.filter(isPending).length,
-    [bulkOperations]
-  );
+  const pendingCount = data?.pending ?? 0;
+  const monthsLabel = (op) => (op?.months || []).map(formatMonth).join(", ");
 
   return (
     <div className="space-y-4">
@@ -228,7 +192,7 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input
-                placeholder="Search by member name or group ID…"
+                placeholder="Search by name, member ID or group ID…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
@@ -251,8 +215,8 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
           ) : filteredOps.length === 0 ? (
             <div className="text-center py-10 text-slate-500">
               {bulkOperations.length === 0
-                ? "No bulk operations found."
-                : "No operations match your filter."}
+                ? statusFilter === "pending" ? "Nothing waiting for review." : "No bulk operations found."
+                : "No operations match your search."}
             </div>
           ) : (
             <div className="space-y-3">
@@ -274,13 +238,32 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
                   >
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <p className="font-semibold text-slate-900 dark:text-white">{bulk.member_name || "Member"}</p>
+                          {bulk.member_code && <span className="text-xs text-slate-500">{bulk.member_code}</span>}
                           {statusBadge}
                         </div>
-                        <p className="text-sm text-slate-600">{bulk.months_count || bulk.months?.length || 0} month(s) · ₹{Number(bulk.total_amount || 0).toLocaleString()}</p>
+                        <p className="text-sm text-slate-600">{bulk.months_count || bulk.months?.length || 0} month(s) · ₹{Number(bulk.total_amount || 0).toLocaleString()} <span className="text-slate-400">(₹{Number(bulk.amount_per_month || 0).toLocaleString()}/month)</span></p>
+                        {monthsLabel(bulk) && <p className="text-xs text-slate-500">{monthsLabel(bulk)}</p>}
                         <p className="text-xs text-slate-500">{bulk.created_at ? format(new Date(bulk.created_at), "MMM d, yyyy h:mm a") : "-"}</p>
-                        <p className="text-xs text-slate-500 font-mono">Group: {bulk.bulk_group_id}</p>
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {bulk.entered_by_admin && (
+                            <Badge variant="outline" className="gap-1 text-xs"><UserCog className="h-3 w-3" />Entered by {bulk.created_by_name || "an admin"}</Badge>
+                          )}
+                          {bulk.has_proof === false && (
+                            <Badge className="gap-1 border-0 bg-amber-100 text-xs text-amber-800"><AlertTriangle className="h-3 w-3" />No proof</Badge>
+                          )}
+                          {bulk.challans_missing && (
+                            <Badge variant="outline" className="text-xs">Months deleted (older app)</Badge>
+                          )}
+                        </div>
+                        {opStatus === "approved" && bulk.approved_by_name && (
+                          <p className="text-xs text-emerald-700">Approved by {bulk.approved_by_name}</p>
+                        )}
+                        {opStatus === "rejected" && bulk.rejection_reason && (
+                          <p className="text-xs text-rose-700">Reason: {bulk.rejection_reason}</p>
+                        )}
+                        <p className="text-xs text-slate-400 font-mono">Group: {bulk.bulk_group_id}</p>
                       </div>
 
                       <div className="flex flex-wrap gap-2">
@@ -291,10 +274,10 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
                         >
                           View Details
                         </Button>
-                        {opIsPending && isOwnBulk(bulk.bulk_group_id, bulk) && (
-                          <p className="text-xs text-slate-500 italic self-center">{OWN_PAYMENT_LABEL}</p>
+                        {opIsPending && reviewBlock(bulk) && (
+                          <p className="text-xs text-slate-500 italic self-center">{reviewBlock(bulk)}</p>
                         )}
-                        {opIsPending && !isOwnBulk(bulk.bulk_group_id, bulk) && (
+                        {opIsPending && !reviewBlock(bulk) && (
                           <>
                             <Button
                               className="bg-emerald-600 hover:bg-emerald-700"
@@ -347,14 +330,33 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-slate-500">Member</p>
                   <p className="font-medium">{selectedBulkDetails.member_name || "-"}</p>
-                  <p className="text-sm text-slate-600">{selectedBulkDetails.member_email || ""}</p>
+                  <p className="text-sm text-slate-600">{[selectedBulkDetails.member_code, selectedBulkDetails.member_email].filter(Boolean).join(" · ")}</p>
                 </div>
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-slate-500">Summary</p>
-                  <p className="font-medium">{selectedBulkDetails.months_count || selectedBulkDetails.months?.length || 0} month(s)</p>
-                  <p className="text-sm text-slate-600">₹{Number(selectedBulkDetails.total_amount || 0).toLocaleString()}</p>
+                  <p className="font-medium">{selectedBulkDetails.months_count || selectedBulkDetails.months?.length || 0} month(s) · ₹{Number(selectedBulkDetails.amount_per_month || 0).toLocaleString()}/month</p>
+                  <p className="text-sm text-slate-600">Total ₹{Number(selectedBulkDetails.total_amount || 0).toLocaleString()}</p>
                 </div>
               </div>
+
+              {selectedBulkDetails.entered_by_admin && (
+                <p className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                  <UserCog className="h-4 w-4 shrink-0" />
+                  Entered by {selectedBulkDetails.created_by_name || "an admin"} for this member. A different admin must approve it.
+                </p>
+              )}
+              {selectedBulkDetails.has_proof === false && (
+                <div className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div>
+                    <p className="font-medium">No proof attached</p>
+                    <p>Reason given: {selectedBulkDetails.notes || "none"}</p>
+                  </div>
+                </div>
+              )}
+              {String(selectedBulkDetails.status || "").toLowerCase() === "rejected" && selectedBulkDetails.rejection_reason && (
+                <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">Rejected: {selectedBulkDetails.rejection_reason}</p>
+              )}
 
               {proofUrl && (
                 <div className="rounded-lg border p-3">
@@ -383,13 +385,13 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
                 <p className="text-xs text-slate-500 mb-2">Linked Challans</p>
                 <div className="max-h-56 overflow-y-auto space-y-2">
                   {(selectedBulkDetails.linked_challans || []).length === 0 ? (
-                    <p className="text-sm text-slate-500">No linked challans returned.</p>
+                    <p className="text-sm text-slate-500">The months of this payment were deleted by an older version of the app.</p>
                   ) : (
                     selectedBulkDetails.linked_challans.map((entry) => (
                       <div key={entry.challan_id} className="flex items-center justify-between p-2 rounded bg-slate-50">
                         <div>
-                          <p className="text-sm font-medium">Challan #{entry.challan_id}</p>
-                          <p className="text-xs text-slate-500">Month: {entry.month || "-"}</p>
+                          <p className="text-sm font-medium">{entry.month ? formatMonth(entry.month) : "-"}</p>
+                          <p className="text-xs text-slate-500">Challan #{entry.challan_id}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-medium">₹{Number(entry.amount || 0).toLocaleString()}</p>
@@ -405,8 +407,8 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
                 <Button variant="outline" onClick={() => setDetailsOpen(false)}>
                   Close
                 </Button>
-                {isOwnBulk(selectedBulkDetails.bulk_group_id || selectedBulkGroupId, selectedBulkDetails) ? (
-                  <p className="text-xs text-slate-500 italic self-center">{OWN_PAYMENT_LABEL}</p>
+                {!isPending(selectedBulkDetails) ? null : reviewBlock(selectedBulkDetails) ? (
+                  <p className="text-xs text-slate-500 italic self-center">{reviewBlock(selectedBulkDetails)}</p>
                 ) : (
                   <>
                 <Button
