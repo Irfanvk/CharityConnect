@@ -42,7 +42,6 @@ export default function AdminRecordPaymentForm({
 }) {
   const { toast } = useToast();
   const settings = usePublicSettings();
-  const maxMonths = Number(settings.max_months_per_payment) || 12;
   const maxUploadMb = Number(settings.proof_max_upload_mb) || 5;
 
   const [search, setSearch] = useState("");
@@ -113,7 +112,8 @@ export default function AdminRecordPaymentForm({
   const { data: payable, isFetching: loadingMonths } = useQuery({
     queryKey: ["challans", "payable-months", "admin-record", member?.id],
     enabled: open && !!member && kind === "monthly",
-    queryFn: () => charityClient.challans.payableMonths({ member_id: Number(member.id), include_upcoming: true }),
+    // "Not paid yet" months (imported or generated, nothing handed in) are offered too: this entry fills them in.
+    queryFn: () => charityClient.challans.payableMonths({ member_id: Number(member.id), include_upcoming: true, include_unpaid_placeholders: true }),
   });
 
   const { data: campaigns = [] } = useQuery({
@@ -141,16 +141,11 @@ export default function AdminRecordPaymentForm({
   const notesRequired = NOTES_METHODS.includes(method) || amountDiffers;
   const activeCampaigns = campaigns.filter((c) => String(c.status).toLowerCase() === "active");
 
+  // Admins recording money already received: any number of months in one entry.
   const toggleMonth = (m) => {
-    setSelectedMonths((prev) => {
-      if (prev.includes(m)) return prev.filter((x) => x !== m);
-      if (prev.length >= maxMonths) {
-        toast({ title: `You can record at most ${maxMonths} months at once.`, variant: "destructive" });
-        return prev;
-      }
-      return [...prev, m].sort();
-    });
+    setSelectedMonths((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m].sort()));
   };
+  const owedMonths = months.filter((m) => m <= currentMonth);
 
   const pickProof = (file) => {
     if (file && file.size > maxUploadMb * 1024 * 1024) {
@@ -307,7 +302,22 @@ export default function AdminRecordPaymentForm({
 
             {kind === "monthly" ? (
               <div className="space-y-2">
-                <Label>Months (max {maxMonths})</Label>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label>Months</Label>
+                  {months.length > 0 && (
+                    <div className="flex gap-2 text-xs">
+                      {owedMonths.length > 0 && (
+                        <button type="button" className="font-medium text-emerald-700 hover:underline" onClick={() => setSelectedMonths(owedMonths)}>
+                          All owed ({owedMonths.length})
+                        </button>
+                      )}
+                      <button type="button" className="font-medium text-emerald-700 hover:underline" onClick={() => setSelectedMonths([...months])}>
+                        All ({months.length})
+                      </button>
+                      <button type="button" className="text-slate-500 hover:underline" onClick={() => setSelectedMonths([])}>Clear</button>
+                    </div>
+                  )}
+                </div>
                 {!member ? (
                   <p className="text-xs text-slate-500">Select a member to see payable months.</p>
                 ) : loadingMonths ? (
@@ -331,6 +341,12 @@ export default function AdminRecordPaymentForm({
                       </button>
                     ))}
                   </div>
+                )}
+                {selectedMonths.length > 0 && (
+                  <p className="text-sm font-medium text-slate-700">
+                    {selectedMonths.length} {selectedMonths.length === 1 ? "month" : "months"} selected · {formatInr(total)}
+                    {selectedMonths.length > 1 && <span className="font-normal text-slate-500"> (one entry, approved together)</span>}
+                  </p>
                 )}
                 <Label htmlFor="rec-amount-pm">Amount per month (₹)</Label>
                 <Input

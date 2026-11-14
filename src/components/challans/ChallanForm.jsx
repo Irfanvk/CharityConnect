@@ -132,7 +132,8 @@ export default function ChallanForm({
   const publicSettings = usePublicSettings();
   const maxUploadMb = publicSettings.proof_max_upload_mb;
   const upcomingLimit = publicSettings.upcoming_months_payable;
-  const maxMonthsPerPayment = publicSettings.max_months_per_payment;
+  // Members: the "max months per payment" setting. Admins entering for a member: no limit.
+  const maxMonthsPerPayment = isAdmin ? Number.POSITIVE_INFINITY : publicSettings.max_months_per_payment;
 
   const [formData, setFormData] = useState({
     member_id: defaultMemberId,
@@ -683,7 +684,8 @@ export default function ChallanForm({
             <Textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="Any additional notes…"
+              maxLength={500}
+              placeholder="Any additional notes… (shown on the challan)"
               rows={2}
             />
           </div>
