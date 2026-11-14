@@ -1590,6 +1590,28 @@ const charityClient = {
   },
 
   // Audit logs for admin
+  /** Relief fund claims (backend app/services/relief_service.py). */
+  relief: {
+    me: () => apiFetch(API_PATHS.relief.me, { method: 'GET' }),
+    eligibility: (memberId, query = {}) => apiFetch(API_PATHS.relief.eligibility(memberId), { method: 'GET' }, query),
+    list: (query = {}) => apiFetch(API_PATHS.relief.claims, { method: 'GET' }, query),
+    get: (id) => apiFetch(API_PATHS.relief.claim(id), { method: 'GET' }),
+    create: (data) => apiFetch(API_PATHS.relief.claims, { method: 'POST', body: JSON.stringify(data) }),
+    approve: (id, note) => apiFetch(API_PATHS.relief.action(id, 'approve'), { method: 'POST', body: JSON.stringify({ note }) }),
+    reject: (id, reason) => apiFetch(API_PATHS.relief.action(id, 'reject'), { method: 'POST', body: JSON.stringify({ reason }) }),
+    markPaid: (id, data) => apiFetch(API_PATHS.relief.action(id, 'paid'), { method: 'POST', body: JSON.stringify(data) }),
+    cancel: (id, reason) => apiFetch(API_PATHS.relief.action(id, 'cancel'), { method: 'POST', body: JSON.stringify({ reason }) }),
+  },
+
+  /** Admin reports (see backend app/services/report_service.py). */
+  reports: {
+    memberStatement: (memberId, query = {}) =>
+      apiFetch(API_PATHS.reports.memberStatement(memberId), { method: 'GET' }, query),
+    dues: (query = {}) => apiFetch(API_PATHS.reports.dues, { method: 'GET', timeoutMs: 60000 }, query),
+    payments: (query = {}) => apiFetch(API_PATHS.reports.payments, { method: 'GET', timeoutMs: 60000 }, query),
+    yearGrid: (query = {}) => apiFetch(API_PATHS.reports.yearGrid, { method: 'GET', timeoutMs: 60000 }, query),
+  },
+
   auditLogs: {
     list: async (query = {}) => {
       const data = await apiFetch(API_PATHS.auditLogs.list, { method: 'GET' }, query);

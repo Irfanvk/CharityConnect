@@ -25,7 +25,8 @@ import {
   Upload,
   Wallet,
   Landmark,
-  MapPinned
+  MapPinned,
+  HandHeart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -162,6 +163,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Bank Details", href: ROUTE_KEYS.BANK_DETAILS, path: PAGE_PATHS.BANK_DETAILS, icon: Landmark, hidden: !bankDetailsEnabled, description: "Official account and QR for payments" },
     { name: "Reports", href: ROUTE_KEYS.REPORTS, path: PAGE_PATHS.REPORTS, icon: FileText, adminOnly: true, description: "Financial summaries and exports" },
     { name: "Audit Logs", href: ROUTE_KEYS.AUDIT_LOGS, path: PAGE_PATHS.AUDIT_LOGS, icon: Settings, adminOnly: true, description: "Who changed what and when" },
+    { name: "Relief Fund", href: ROUTE_KEYS.RELIEF, path: PAGE_PATHS.RELIEF, icon: HandHeart, description: "Help for members: death, illness, retirement" },
     { name: "Fund Utilization", href: ROUTE_KEYS.FUND_UTILIZATION, path: PAGE_PATHS.FUND_UTILIZATION, icon: Wallet, adminOnly: true, description: "How funds are being used" },
     ...(hasRequestsPage
       ? [

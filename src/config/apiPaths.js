@@ -126,6 +126,19 @@ export const API_PATHS = {
     uploadBranding: '/files/upload/branding',
     deleteFile: '/files/delete',
   },
+  relief: {
+    me: '/relief/me',
+    eligibility: (memberId) => `/relief/eligibility/${memberId}`,
+    claims: '/relief/claims',
+    claim: (id) => `/relief/claims/${id}`,
+    action: (id, action) => `/relief/claims/${id}/${action}`,
+  },
+  reports: {
+    memberStatement: (memberId) => `/reports/member-statement/${memberId}`,
+    dues: '/reports/dues',
+    payments: '/reports/payments',
+    yearGrid: '/reports/year-grid',
+  },
   auditLogs: {
     list: '/audit-logs/',
     feed: '/audit-logs/feed',

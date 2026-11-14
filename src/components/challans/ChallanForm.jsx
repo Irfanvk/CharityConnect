@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -143,7 +142,9 @@ export default function ChallanForm({
     notes: "",
   });
   const [selectedMonths, setSelectedMonths] = useState([]);
-  const [includeUpcomingMonths, setIncludeUpcomingMonths] = useState(false);
+  // How many future months to offer (0 = none), up to the superadmin's "Advance months payable".
+  const [aheadCount, setAheadCount] = useState(0);
+  const includeUpcomingMonths = aheadCount > 0;
   const [fromMonth, setFromMonth] = useState(""); // user-chosen start month
   const [proofMode, setProofMode] = useState("individual");
   const [sharedProofFile, setSharedProofFile] = useState(null);
@@ -166,7 +167,7 @@ export default function ChallanForm({
     if (!open) return;
     setSelectedMonths([]);
     setFromMonth("");
-    setIncludeUpcomingMonths(false);
+    setAheadCount(0);
     setProofMode("individual");
     setSharedProofFile(null);
     setProofFile(null);
@@ -217,12 +218,13 @@ export default function ChallanForm({
   // Payable months from backend
   const effectiveFromMonth = fromMonth || null;
   const { data: payableMonthsData, isFetching: fetchingMonths, isError: payableMonthsError } = useQuery({
-    queryKey: ["challans", "payable-months", formData.member_id, includeUpcomingMonths, effectiveFromMonth],
+    queryKey: ["challans", "payable-months", formData.member_id, aheadCount, effectiveFromMonth],
     enabled: Boolean(formData.member_id) && formData.type === "monthly",
     queryFn: () =>
       charityClient.challans.payableMonths({
         ...(isAdmin ? { member_id: Number(formData.member_id) } : {}),
         include_upcoming: includeUpcomingMonths,
+        ...(includeUpcomingMonths ? { upcoming_count: aheadCount } : {}),
         ...(effectiveFromMonth ? { from_month: effectiveFromMonth } : {}),
       }),
   });
@@ -236,8 +238,8 @@ export default function ChallanForm({
     // Only if the server could not be reached: a rough list from the chosen start month,
     // or the platform start. The server still checks every month on submit.
     if (!payableMonthsError) return [];
-    return buildLocalMonths(fromMonth || PLATFORM_START_MONTH, includeUpcomingMonths, upcomingLimit, paidSet);
-  }, [payableMonthsData, payableMonthsError, fromMonth, includeUpcomingMonths, paidSet, upcomingLimit]);
+    return buildLocalMonths(fromMonth || PLATFORM_START_MONTH, includeUpcomingMonths, Math.min(aheadCount, upcomingLimit), paidSet);
+  }, [payableMonthsData, payableMonthsError, fromMonth, includeUpcomingMonths, aheadCount, paidSet, upcomingLimit]);
 
   // Keep selection valid when selectable months change
   useEffect(() => {
@@ -447,17 +449,24 @@ export default function ChallanForm({
                 </p>
               </div>
 
-              {/* Include upcoming toggle */}
-              <div className="flex items-center justify-between rounded-lg border p-3 bg-slate-50">
-                <div>
-                  <p className="text-sm font-medium text-slate-900">Include upcoming months</p>
-                  <p className="text-xs text-slate-500">Add the next 3 months (pay in advance)</p>
+              {/* Pay ahead: how many future months to list */}
+              {upcomingLimit > 0 && (
+                <div className="flex items-center justify-between gap-3 rounded-lg border p-3 bg-slate-50">
+                  <div>
+                    <Label htmlFor="pay-ahead" className="text-sm font-medium text-slate-900">Pay ahead</Label>
+                    <p className="text-xs text-slate-500">Add future months to the list (up to {upcomingLimit})</p>
+                  </div>
+                  <Select value={String(aheadCount)} onValueChange={(v) => setAheadCount(Number(v))}>
+                    <SelectTrigger id="pay-ahead" className="w-36 bg-white"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">None</SelectItem>
+                      {Array.from({ length: upcomingLimit }, (_, i) => i + 1).map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n} {n === 1 ? "month" : "months"}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <Checkbox
-                  checked={includeUpcomingMonths}
-                  onCheckedChange={(c) => setIncludeUpcomingMonths(Boolean(c))}
-                />
-              </div>
+              )}
 
               {/* Month grid */}
               <div className="space-y-2">
