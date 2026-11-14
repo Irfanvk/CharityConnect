@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { charityClient } from "@/api/charityClient";
 import { queryKeys } from "@/lib/queryKeys";
@@ -27,18 +28,18 @@ const typeLabel = {
 
 const REQUEST_DEEP_LINK_PARAMS = ["request"];
 
+const isOpen = (request) => request.status === "pending";
+
 export default function MemberRequests() {
-  const [statusFilter, setStatusFilter] = useState("all");
+  // Open = waiting for an admin; Done = approved or not approved. Done ones stay for the record.
+  const [tab, setTab] = useState("open");
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const { data: requests = [], isLoading } = useQuery({
-    queryKey: queryKeys.requests.mine(statusFilter),
-    queryFn: () =>
-      charityClient.requests.list({
-        ...(statusFilter !== "all" ? { status: statusFilter } : {}),
-        limit: 200,
-      }),
+    queryKey: queryKeys.requests.mine("all"),
+    queryFn: () => charityClient.requests.list({ limit: 200 }),
   });
 
   const cancelMutation = useMutation({
@@ -59,12 +60,18 @@ export default function MemberRequests() {
     },
   });
 
-  const filtered = useMemo(() => {
-    if (statusFilter === "all") return requests;
-    return requests.filter((request) => request.status === statusFilter);
-  }, [requests, statusFilter]);
+  const openRequests = useMemo(() => requests.filter(isOpen), [requests]);
+  const doneRequests = useMemo(() => requests.filter((request) => !isOpen(request)), [requests]);
+  const filtered = tab === "open" ? openRequests : doneRequests;
 
-  useDeepLink({ params: REQUEST_DEEP_LINK_PARAMS, ready: !isLoading });
+  // A link to a finished request (e.g. from an "approved" notification) opens the Done tab.
+  const linked = requests.find((request) => String(request.id) === searchParams.get("request"));
+  const linkedTab = linked ? (isOpen(linked) ? "open" : "done") : null;
+  useEffect(() => {
+    if (linkedTab) setTab(linkedTab);
+  }, [linkedTab]);
+
+  useDeepLink({ params: REQUEST_DEEP_LINK_PARAMS, ready: !isLoading && (!linkedTab || linkedTab === tab) });
 
   return (
     <div className="space-y-6">
@@ -73,12 +80,10 @@ export default function MemberRequests() {
         <p className="text-slate-500">Track your submitted requests and admin responses.</p>
       </div>
 
-      <Tabs value={statusFilter} onValueChange={setStatusFilter}>
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="approved">Approved</TabsTrigger>
-          <TabsTrigger value="rejected">Rejected</TabsTrigger>
+          <TabsTrigger value="open">Open ({openRequests.length})</TabsTrigger>
+          <TabsTrigger value="done">Done ({doneRequests.length})</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -89,7 +94,11 @@ export default function MemberRequests() {
       ) : filtered.length === 0 ? (
         <Card className="border-0 shadow-sm">
           <CardContent className="py-12 text-center text-slate-500">
-            No requests yet. Use Request Change to submit your first request.
+            {requests.length === 0
+              ? "No requests yet. Use Request Change to submit your first request."
+              : tab === "open"
+                ? "Nothing waiting. Your finished requests are under Done."
+                : "No finished requests yet."}
           </CardContent>
         </Card>
       ) : (

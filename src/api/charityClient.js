@@ -1596,6 +1596,15 @@ const charityClient = {
       return extractArray(data).map(normalizeAuditLog);
     },
 
+    /** Audit Logs page: { items, total, skip, limit, has_more, counts }; filters run on the server. */
+    feed: (query = {}) => apiFetch(API_PATHS.auditLogs.feed, { method: 'GET' }, query),
+
+    /** { actors, actions, areas, system_count } for the filter lists. */
+    filters: () => apiFetch(API_PATHS.auditLogs.filters, { method: 'GET' }),
+
+    /** CSV text of every entry matching the filters (max 5000). */
+    exportCsv: (query = {}) => apiFetch(API_PATHS.auditLogs.exportCsv, { method: 'GET', timeoutMs: 120000 }, query),
+
     get: async (id) => normalizeAuditLog(await apiFetch(API_PATHS.auditLogs.byId(id), { method: 'GET' })),
 
     create: (data) => {

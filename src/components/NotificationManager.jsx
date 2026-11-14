@@ -2,7 +2,7 @@ import { APP_VERSION } from "@/lib/appVersion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { APP_BRAND, APP_IMAGES } from "@/config/appPaths";
 import { useNotifications } from "@/context/NotificationContext";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { charityClient } from "@/api/charityClient";
 import { syncPushSubscription } from "@/lib/pushSetup";
 import { safeInternalLink } from "@/lib/notificationLinks";
@@ -14,8 +14,28 @@ export default function NotificationManager({ user }) {
   const [permission, setPermission] = useState(
     hasNotificationApi ? window.Notification.permission : "unsupported"
   );
-  const { notifications } = useNotifications();
+  const { notifications, markReadByIds } = useNotifications();
   const navigate = useNavigate();
+  const location = useLocation();
+  const markedFromPushRef = useRef(new Set());
+
+  // Opening a notification from the phone counts as reading it. The service worker adds
+  // ?from_push=<id> to the link; mark it read once signed in, then drop the parameter.
+  useEffect(() => {
+    if (!user) return;
+    const params = new URLSearchParams(location.search);
+    const raw = params.get("from_push");
+    if (raw === null) return;
+    const id = Number(raw);
+    params.delete("from_push");
+    const rest = params.toString();
+    navigate(`${location.pathname}${rest ? `?${rest}` : ""}${location.hash}`, { replace: true });
+    if (!Number.isInteger(id) || id <= 0 || markedFromPushRef.current.has(id)) return;
+    markedFromPushRef.current.add(id);
+    markReadByIds([id]).catch(() => {
+      markedFromPushRef.current.delete(id); // try again next time it is opened
+    });
+  }, [location.hash, location.pathname, location.search, markReadByIds, navigate, user]);
 
   // Permission is requested only from an explicit tap elsewhere; here we just follow changes.
   useEffect(() => {
@@ -153,12 +173,16 @@ export default function NotificationManager({ user }) {
 
         browserNotification.onclick = () => {
           window.focus();
+          browserNotification.close();
+          markReadByIds([notification.id]).catch(() => {});
+          const link = safeInternalLink(notification.link_url);
+          if (link) navigate(link);
         };
       } catch {
         // Ignore notification rendering failures on unsupported browsers.
       }
     });
-  }, [hasNotificationApi, permission, relevantUnreadNotifications, user]);
+  }, [hasNotificationApi, markReadByIds, navigate, permission, relevantUnreadNotifications, user]);
 
   return null;
 }
