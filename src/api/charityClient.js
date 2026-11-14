@@ -922,13 +922,14 @@ const charityClient = {
 
     // Several months, each with its own proof later: created together in one step,
     // so a dropped connection never leaves only some of the months created.
-    createMonths: async ({ months, member_id, payment_method } = {}) => {
+    createMonths: async ({ months, member_id, payment_method, notes } = {}) => {
       const payload = {
         months: Array.isArray(months) ? months : [],
         amount: 0, // the server uses the member's own monthly fee
         type: 'monthly',
         proof_type: 'individual',
         payment_method: payment_method || undefined,
+        notes: notes || undefined,
       };
       if (member_id !== '' && member_id !== null && member_id !== undefined) payload.member_id = member_id;
       return apiFetch(API_PATHS.challans.multi, {

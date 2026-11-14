@@ -76,6 +76,14 @@ export default defineConfig(({ mode }) => {
             'radix-ui': ['@radix-ui/react-accordion', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
             'form-handling': ['@hookform/resolvers', 'react-hook-form'],
             'query': ['@tanstack/react-query'],
+            // Big libraries in their own files keep the main file well under the
+            // service worker's precache limit (the build fails above it).
+            'charts': ['recharts'],
+            'pdf': ['jspdf', 'jspdf-autotable'],
+            'canvas': ['html2canvas'],
+            'motion': ['framer-motion'],
+            'icons': ['lucide-react'],
+            'dates': ['date-fns'],
           },
         },
       },
@@ -107,6 +115,8 @@ export default defineConfig(({ mode }) => {
           skipWaiting: false,
           clientsClaim: false,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
+          // Safety margin; files above this are not cached for offline use and fail the build.
+          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
           runtimeCaching: [
             {
               // Relative API calls: network-first, fallback to cache when offline.

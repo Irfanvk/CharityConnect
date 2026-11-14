@@ -67,6 +67,7 @@ import { format } from "@/lib/dateTime";
 import { currentBusinessMonth, formatBusinessDate } from "@/lib/businessTime";
 import ChallanForm from "@/components/challans/ChallanForm";
 import BulkGroupDialog from "@/components/dashboard/BulkGroupDialog";
+import MemberChallansView from "@/components/challans/MemberChallansView";
 import AdminRecordPaymentForm from "@/components/challans/AdminRecordPaymentForm";
 import ProofUpload from "@/components/challans/ProofUpload";
 import PullToRefresh from "@/components/mobile/PullToRefresh";
@@ -389,7 +390,9 @@ export default function Challans() {
       member_name:
         challan.member_name ||
         linkedMember?.full_name ||
-        `Member ${formatMemberId(challan.member_id)}`,
+        `Member ${formatMemberId(challan.member_code || linkedMember?.member_code || "")}`,
+      // The member ID people know (MEM-0042); member_id is only the database number.
+      member_code: challan.member_code || linkedMember?.member_code || null,
       amount: parseAmount(challan.amount),
     };
   });
@@ -486,7 +489,7 @@ export default function Challans() {
         challan_ids: rows.map((entry) => entry.id),
         challan_number: /^BCH-/i.test(groupId) ? groupId : `BULK-${groupId.slice(0, 8).toUpperCase()}`,
         member_name:
-          meta.member_name || first.member_name || `Member ${formatMemberId(first.member_id)}`,
+          meta.member_name || first.member_name || `Member ${formatMemberId(first.member_code || "")}`,
         amount: rows.reduce((sum, entry) => sum + parseAmount(entry.amount), 0),
         months_covered: uniqueMonths,
         months_count: uniqueMonths.length,
@@ -633,6 +636,7 @@ export default function Challans() {
           months,
           member_id: isAdmin ? payload?.member_id : undefined,
           payment_method: payload?.payment_method,
+          notes: payload?.notes,
         });
 
         toast({
@@ -952,19 +956,22 @@ export default function Challans() {
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-              Challans
+              {isAdmin ? "Challans" : "My payments"}
             </h1>
             <p className="text-slate-500 dark:text-slate-400">
-              Manage payment challans and approvals
+              {isAdmin ? "Manage payment challans and approvals" : "What you owe, and what you have paid"}
             </p>
           </div>
-          <Button
-            onClick={() => (isAdmin ? setNewPaymentOpen(true) : setFormOpen(true))}
-            className="bg-emerald-600 hover:bg-emerald-700 select-none"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            {isAdmin ? "New payment" : "Generate Challan"}
-          </Button>
+          {/* Members have "Pay now" in the summary box below. */}
+          {isAdmin && (
+            <Button
+              onClick={() => setNewPaymentOpen(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 select-none"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New payment
+            </Button>
+          )}
         </div>
 
         {isAdmin && (
@@ -1012,6 +1019,19 @@ export default function Challans() {
           </Dialog>
         )}
 
+        {!isAdmin ? (
+          <MemberChallansView
+            entries={groupedChallans}
+            isLoading={isLoading}
+            myMember={myMember}
+            onPay={() => setFormOpen(true)}
+            onUpload={(challan) => { setSelectedChallan(challan); setUploadOpen(true); }}
+            onViewProof={openProofViewer}
+            onDelete={setDeleteTarget}
+            getProofUrl={getEffectiveProofUrl}
+          />
+        ) : (
+        <>
         {/* Filters */}
         <div className="flex flex-col gap-3">
           <div className="relative w-full">
@@ -1150,9 +1170,9 @@ export default function Challans() {
                               <p className="font-medium text-slate-900">
                                 {challan.member_name}
                               </p>
-                              {challan.member_id && (
+                              {challan.member_code && (
                                 <p className="text-xs text-slate-500">
-                                  {formatMemberId(challan.member_id)}
+                                  {formatMemberId(challan.member_code)}
                                 </p>
                               )}
                             </div>
@@ -1254,10 +1274,12 @@ export default function Challans() {
                                   {challan.collected_by_name ? ` · Collected by ${challan.collected_by_name}` : ""}
                                   {challan.received_on ? ` · Received ${formatBusinessDate(challan.received_on)}` : ""}
                                 </p>
-                                {challan.entry_notes && (
-                                  <p className="text-xs text-slate-500 italic">Note: {challan.entry_notes}</p>
-                                )}
                               </div>
+                            )}
+                            {challan.entry_notes && (
+                              <p className="mt-1 max-w-xs rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-900 break-words" title={challan.entry_notes}>
+                                <span className="font-semibold">Note:</span> {challan.entry_notes}
+                              </p>
                             )}
                           </div>
                         </TableCell>
@@ -1293,7 +1315,7 @@ export default function Challans() {
 
                               {/* Upload / Re-upload Proof */}
                               {!challan.is_bulk_group && (challan.status === "generated" ||
-                                challan.status === "rejected") &&
+                                challan.status === "rejected" || isNotPaidYet(challan)) &&
                                 (isAdmin ||
                                   (myMember &&
                                     normalizeId(challan.member_id) ===
@@ -1466,6 +1488,8 @@ export default function Challans() {
               </Button>
             </div>
           </div>
+        )}
+        </>
         )}
 
         {/* Challan Form */}
