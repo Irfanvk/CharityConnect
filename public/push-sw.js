@@ -42,16 +42,28 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const relativeUrl = event.notification?.data?.link_url || event.notification?.data?.url || '/Notifications';
+  const data = event.notification?.data || {};
+  const relativeUrl = data.link_url || data.url || '/Notifications';
   // openWindow requires an absolute URL; self.location.origin covers any domain (dev, Netlify, custom)
-  const absoluteUrl = relativeUrl.startsWith('http') ? relativeUrl : self.location.origin + relativeUrl;
+  let absoluteUrl = relativeUrl.startsWith('http') ? relativeUrl : self.location.origin + relativeUrl;
+  // The app marks this notification read when it sees ?from_push=<id> (opening it = reading it).
+  const notificationId = Number(data.notification_id);
+  if (Number.isInteger(notificationId) && notificationId > 0) {
+    try {
+      const target = new URL(absoluteUrl);
+      target.searchParams.set('from_push', String(notificationId));
+      absoluteUrl = target.toString();
+    } catch {
+      // Keep the plain link.
+    }
+  }
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clientList) => {
       for (const client of clientList) {
         if ('focus' in client) {
           // The app listens for this message and routes in-app; navigate() is the fallback.
-          client.postMessage({ type: 'notification-click', url: absoluteUrl });
+          client.postMessage({ type: 'notification-click', url: absoluteUrl, notification_id: notificationId || null });
           const focused = await client.focus();
           if (focused && 'navigate' in focused) {
             try {

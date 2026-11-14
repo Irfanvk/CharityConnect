@@ -100,6 +100,8 @@ export default function NotificationSettingsCard() {
   };
 
   const categories = data?.categories || {};
+  // Admins (not superadmins): device on/off only; the server sends them everything.
+  const simple = Boolean(data?.simple_settings);
 
   return (
     <div className="space-y-5">
@@ -132,6 +134,15 @@ export default function NotificationSettingsCard() {
         )}
       </div>
 
+      {simple && (
+        <p className="text-xs text-slate-500">
+          As an admin you get every notification: payments and requests to review, announcements and reminders.
+          Just keep notifications on for this device.
+        </p>
+      )}
+
+      {!simple && (
+      <>
       {data?.payment_reminder?.applies && (
         <PaymentReminderSetting
           enabled={data.payment_reminder.enabled}
@@ -211,6 +222,8 @@ export default function NotificationSettingsCard() {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

@@ -13,7 +13,11 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, Inbox, KeyRound, MessageCircle, CheckCircle2, Receipt, UserCheck } from "lucide-react";
+import { Loader2, Inbox, KeyRound, MessageCircle, CheckCircle2, Receipt, UserCheck, Trash2 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import MemberActivationsPanel, { ACTIVATIONS_QUERY_KEY } from "@/components/admin/MemberActivationsPanel";
 import { format } from "@/lib/dateTime";
 import { useMemo } from "react";
@@ -113,6 +117,7 @@ export default function AdminRequests() {
     return ["password", "challans", "activations"].includes(tab) ? tab : "member";
   }); // "member" | "password" | "challans" | "activations"
   const [status, setStatus] = useState("all");
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [requestType, setRequestType] = useState("all");
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -392,6 +397,24 @@ export default function AdminRequests() {
     },
   });
 
+  // Pending or rejected requests (not amount changes or account closures) after 7 days.
+  const deleteMutation = useMutation({
+    mutationFn: (request) => charityClient.requests.cancel(request.id),
+    onSuccess: async (_data, request) => {
+      await queryClient.invalidateQueries({ queryKey: ["requests"] });
+      emitNotificationsChanged('updated');
+      setSelectedRequestIds((prev) => prev.filter((id) => id !== request.id));
+      setDeleteTarget(null);
+      toast({
+        title: "Request deleted",
+        description: request.status === "pending" ? "The member was told it was closed." : undefined,
+      });
+    },
+    onError: (error) => {
+      toast({ title: "Could not delete", description: error?.message || "Please try again.", variant: "destructive" });
+    },
+  });
+
   // The activations tab handles its own ?request= deep links.
   useDeepLink({ params: REQUEST_DEEP_LINK_PARAMS, ready: activeTab !== "activations" && !isLoading && !prLoading });
 
@@ -572,13 +595,27 @@ export default function AdminRequests() {
                           )}
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => { setSelectedRequest(request); setReviewOpen(true); }}
-                      >
-                        {request.status === "pending" && !isOwnUser(request.user_id) ? "Review" : "View"}
-                      </Button>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {request.admin_can_delete && !isOwnUser(request.user_id) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-rose-600"
+                            title="Delete request"
+                            aria-label="Delete request"
+                            onClick={() => setDeleteTarget(request)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => { setSelectedRequest(request); setReviewOpen(true); }}
+                        >
+                          {request.status === "pending" && !isOwnUser(request.user_id) ? "Review" : "View"}
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -593,6 +630,28 @@ export default function AdminRequests() {
           )}
         </div>
       )}
+
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open && !deleteMutation.isPending) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{deleteTarget?.subject || "Request"}" from {deleteTarget?.member_name || "the member"} will be removed for good.
+              {deleteTarget?.status === "pending" && " The member gets a notification that it was closed without a change."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Keep</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 hover:bg-rose-700"
+              disabled={deleteMutation.isPending}
+              onClick={(e) => { e.preventDefault(); deleteMutation.mutate(deleteTarget); }}
+            >
+              {deleteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ── Password Reset Requests tab ── */}
       {activeTab === "password" && (

@@ -128,6 +128,9 @@ export const API_PATHS = {
   },
   auditLogs: {
     list: '/audit-logs/',
+    feed: '/audit-logs/feed',
+    filters: '/audit-logs/filters',
+    exportCsv: '/audit-logs/export',
     byId: (id) => `/audit-logs/${id}`,
   },
   users: {

@@ -41,13 +41,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2, X, Download, ChevronDown, ChevronUp, AlertTriangle, UserPlus, MessageCircle, Copy, CheckCircle2, HandCoins } from "lucide-react";
+import { Plus, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2, X, Download, ChevronDown, ChevronUp, AlertTriangle, UserPlus, MessageCircle, Copy, CheckCircle2, HandCoins } from "lucide-react";
 import { format } from "date-fns";
 import MemberForm from "@/components/members/MemberForm";
+import MembersFilterBar from "@/components/members/MembersFilterBar";
 import AdminRecordPaymentForm from "@/components/challans/AdminRecordPaymentForm";
 import MemberTimelineDialog from "@/components/members/MemberTimelineDialog";
 import UserProfilePopover, { AvatarCircle } from "@/components/UserProfilePopover";
-import { LIVING_COUNTRIES, PHONE_CODE_OPTIONS, countryName } from "@/lib/countries";
+import { countryName } from "@/lib/countries";
 
 const statusConfig = {
   active: { label: "Active", color: "bg-emerald-100 text-emerald-700" },
@@ -925,171 +926,33 @@ export default function Members() {
         </Card>
       </div>
 
-      {/* Status Filter + Search/Sort — sticky on wider screens so it stays reachable on long pages */}
-      <div className="md:sticky md:top-0 z-10 -mx-1 px-1 sm:-mx-0 sm:px-0 bg-slate-50/95 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80 space-y-4 py-3">
-        {/* Status Filter — segmented tab control */}
-        <div
-          role="tablist"
-          aria-label="Filter members by status"
-          className="inline-flex w-full sm:w-auto max-w-full items-center gap-1 rounded-lg bg-slate-100 p-1 overflow-x-auto sm:overflow-visible sm:flex-wrap"
-        >
-          {[
-            { key: "all", label: "All", count: Number(memberSummary?.total_members ?? 0) },
-            { key: "active", label: "Active", count: activeMembersCount },
-            { key: "inactive", label: "Inactive", count: inactiveMembersCount },
-          ].map((tab) => {
-            const isActive = statusFilter === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => setStatusFilter(tab.key)}
-                className={`relative flex-shrink-0 flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 ${isActive
-                  ? "bg-white text-emerald-700 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-                  }`}
-              >
-                {tab.label}
-                <span
-                  className={`rounded-full px-1.5 py-0.5 text-xs font-semibold leading-none transition-colors duration-200 ${isActive
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-slate-200 text-slate-500"
-                    }`}
-                >
-                  {tab.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Search + Sort */}
-        <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
-          <div className="relative max-w-md w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input
-              placeholder="Search by name, ID, phone or city..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-slate-600 whitespace-nowrap">Sort by</label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
-            >
-              <option value="name">Member Name</option>
-              <option value="id">Member ID</option>
-            </select>
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setSortDirection(prev => (prev === "asc" ? "desc" : "asc"))}
-            >
-              {sortDirection === "asc" ? "Asc" : "Desc"}
-            </Button>
-
-            <label className="text-sm text-slate-600 whitespace-nowrap ml-2">Per page</label>
-            <select
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
-            >
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-          </div>
-        </div>
-
-        {isAdmin && (
-          <div
-            role="tablist"
-            aria-label="Filter members by registration"
-            className="inline-flex max-w-full items-center gap-1 rounded-lg bg-slate-100 p-1 overflow-x-auto"
-          >
-            {[
-              { key: "all", label: "Everyone", count: Number(memberSummary?.total_members ?? 0) },
-              { key: "yes", label: "Registered", count: registeredCount },
-              { key: "no", label: "Not registered", count: notRegisteredCount },
-            ].map((tab) => {
-              const isActive = registeredFilter === tab.key;
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => setRegisteredFilter(tab.key)}
-                  className={`flex-shrink-0 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${isActive ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-                >
-                  {tab.label}
-                  <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold leading-none ${isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500"}`}>
-                    {tab.count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {isAdmin && (
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative w-full sm:w-52">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                aria-label="Phone number"
-                type="tel"
-                inputMode="tel"
-                placeholder="Phone number"
-                value={phoneSearch}
-                onChange={(e) => setPhoneSearch(e.target.value)}
-                className="pl-9 h-9"
-              />
-            </div>
-
-            <label htmlFor="country-filter" className="text-sm text-slate-600 whitespace-nowrap sm:ml-2">Lives in</label>
-            <select
-              id="country-filter"
-              value={countryFilter}
-              onChange={(e) => setCountryFilter(e.target.value)}
-              className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
-            >
-              <option value="all">All countries</option>
-              {LIVING_COUNTRIES.map((c) => (
-                <option key={c.iso} value={c.iso}>{c.name}</option>
-              ))}
-              <option value="none">Not entered yet</option>
-            </select>
-
-            <label htmlFor="phone-code-filter" className="text-sm text-slate-600 whitespace-nowrap sm:ml-2">Phone code</label>
-            <select
-              id="phone-code-filter"
-              value={phoneCodeFilter}
-              onChange={(e) => setPhoneCodeFilter(e.target.value)}
-              className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
-            >
-              <option value="all">All phone codes</option>
-              {PHONE_CODE_OPTIONS.map((o) => (
-                <option key={o.dialCode} value={o.dialCode}>{o.dialCode} {o.label}</option>
-              ))}
-              <option value="other">Other / no phone</option>
-            </select>
-
-            {(countryFilter !== "all" || phoneCodeFilter !== "all" || phoneSearch || registeredFilter !== "all") && (
-              <Button type="button" variant="ghost" size="sm" onClick={() => { setCountryFilter("all"); setPhoneCodeFilter("all"); setPhoneSearch(""); setRegisteredFilter("all"); }}>
-                Clear filters
-              </Button>
-            )}
-          </div>
-        )}
+      {/* Search, filters and sort; sticky on wider screens so it stays reachable on long pages */}
+      <div className="md:sticky md:top-0 z-10 -mx-1 px-1 sm:-mx-0 sm:px-0 bg-slate-50/95 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80 py-3">
+        <MembersFilterBar
+          isAdmin={isAdmin}
+          search={search}
+          onSearchChange={setSearch}
+          filters={{ status: statusFilter, registered: registeredFilter, country: countryFilter, phoneCode: phoneCodeFilter, phone: phoneSearch }}
+          onFiltersChange={(next) => {
+            setStatusFilter(next.status);
+            setRegisteredFilter(next.registered);
+            setCountryFilter(next.country);
+            setPhoneCodeFilter(next.phoneCode);
+            setPhoneSearch(next.phone);
+          }}
+          sortBy={sortBy}
+          sortDirection={sortDirection}
+          onSortChange={(by, dir) => { setSortBy(by); setSortDirection(dir); }}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          counts={{
+            total: Number(memberSummary?.total_members ?? 0),
+            active: activeMembersCount,
+            inactive: inactiveMembersCount,
+            registered: registeredCount,
+            notRegistered: notRegisteredCount,
+          }}
+        />
       </div>
 
       {/* Members Table */}
