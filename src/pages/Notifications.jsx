@@ -107,13 +107,21 @@ export default function Notifications() {
 
   const isRead = (n) => n?.is_read || Boolean(n?.read_by?.includes(user?.email));
 
-  const markAsRead = async (n) => {
+  // Tap = read, on the spot. A notification about a page opens it straight away;
+  // one without a page (an announcement) opens up to show the whole message.
+  const [expandedId, setExpandedId] = useState(null);
+  const markAsRead = (n) => {
     if (!isRead(n)) {
-      await markReadByIds([n.id]);
-      emitNotificationsChanged("read");
+      markReadByIds([n.id])
+        .then(() => emitNotificationsChanged("read"))
+        .catch(() => {});
     }
     const link = getNotificationLink(n);
-    if (link) navigate(link);
+    if (link) {
+      navigate(link);
+    } else {
+      setExpandedId((current) => (current === n.id ? null : n.id));
+    }
   };
 
   const handleMarkAllAsRead = async () => {
@@ -352,7 +360,7 @@ export default function Notifications() {
                     <p className={`font-medium leading-snug ${read ? "text-slate-700" : "text-slate-900"}`}>
                       {notification.title}
                     </p>
-                    <p className="text-sm text-slate-500 mt-0.5 line-clamp-2">{notification.message}</p>
+                    <p className={`text-sm text-slate-500 mt-0.5 whitespace-pre-line ${expandedId === notification.id ? "" : "line-clamp-2"}`}>{notification.message}</p>
                     <p className="text-xs text-slate-400 mt-1.5">
                       {format(new Date(notification.created_date), "d MMM yyyy, h:mm a")}
                     </p>
