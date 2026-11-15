@@ -5,7 +5,7 @@ import { useNotifications } from "@/context/NotificationContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import { charityClient } from "@/api/charityClient";
 import { syncPushSubscription } from "@/lib/pushSetup";
-import { safeInternalLink } from "@/lib/notificationLinks";
+import { getNotificationLink, safeInternalLink } from "@/lib/notificationLinks";
 
 export default function NotificationManager({ user }) {
   const hasNotificationApi = typeof window !== "undefined" && "Notification" in window;
@@ -175,7 +175,7 @@ export default function NotificationManager({ user }) {
           window.focus();
           browserNotification.close();
           markReadByIds([notification.id]).catch(() => {});
-          const link = safeInternalLink(notification.link_url);
+          const link = getNotificationLink(notification);
           if (link) navigate(link);
         };
       } catch {

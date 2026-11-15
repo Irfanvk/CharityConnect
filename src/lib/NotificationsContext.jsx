@@ -156,13 +156,26 @@ export function NotificationsProvider({ children }) {
     await fetchFeed(undefined, { force: true });
   }, [fetchFeed]);
 
+  // Marked read on the spot (list, badge and count), then saved on the server.
+  // If saving fails, the feed is reloaded so the screen shows the true state.
   const markReadByIds = useCallback(async (ids = []) => {
     const normalized = Array.from(
       new Set((ids || []).map((id) => Number(id)).filter(Boolean))
     );
     if (normalized.length === 0) return;
-    await charityClient.notifications.patchRead({ notification_ids: normalized, mark_all: false });
-    await fetchFeed(undefined, { force: true });
+    const wanted = new Set(normalized);
+    const newlyRead = notificationsRef.current.filter((n) => wanted.has(Number(n.id)) && !n.is_read).length;
+    if (newlyRead > 0) {
+      setNotifications((prev) => prev.map((n) => (wanted.has(Number(n.id)) ? { ...n, is_read: true } : n)));
+      setUnreadCount((count) => Math.max(0, count - newlyRead));
+    }
+    try {
+      await charityClient.notifications.patchRead({ notification_ids: normalized, mark_all: false });
+    } catch (error) {
+      fetchFeed(undefined, { force: true }).catch(() => {});
+      throw error;
+    }
+    fetchFeed(undefined, { force: true }).catch(() => {});
   }, [fetchFeed]);
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
