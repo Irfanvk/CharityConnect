@@ -145,6 +145,7 @@ export const API_PATHS = {
     dues: '/reports/dues',
     payments: '/reports/payments',
     yearGrid: '/reports/year-grid',
+    paidList: '/reports/paid-list',
   },
   auditLogs: {
     list: '/audit-logs/',

@@ -49,6 +49,28 @@ function YearChartDialog({ L, open, onOpenChange }) {
   for (let y = thisYear; y >= 2024; y--) years.push(String(y));
   const [year, setYear] = useState(String(thisYear));
   const [busy, setBusy] = useState(null);
+  // The committee's paid list runs Aug-Jul: "2025-2026" = Aug 2025 to Jul 2026.
+  const currentFy = Number(format(new Date(), "M")) >= 8 ? thisYear : thisYear - 1;
+  const fyYears = [];
+  for (let y = currentFy; y >= 2024; y--) fyYears.push(String(y));
+  const [fy, setFy] = useState(String(currentFy));
+  const paidList = async () => {
+    setBusy("paid-list");
+    try {
+      const data = await charityClient.reports.paidList(fy);
+      const { downloadPaidListExcel } = await import("@/lib/paidListExcel");
+      await downloadPaidListExcel(data);
+      charityClient.auditLogs.create({
+        action: "report_generated", entity_type: "Report", entity_id: 0,
+        details: { report: "membership_collection", year: data.label, members: data.rows.length, campaigns: data.campaigns.length },
+      }).catch(() => {});
+      onOpenChange(false);
+    } catch (error) {
+      toast({ title: L.t("fileFailed"), description: error?.message, variant: "destructive" });
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const run = (kind) => async () => {
     setBusy(kind);
@@ -130,6 +152,23 @@ function YearChartDialog({ L, open, onOpenChange }) {
             {busy === "pdf" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{L.t("downloadPdf")}
           </Button>
         </DialogFooter>
+        <div className="mt-2 space-y-2 border-t border-slate-200 pt-4">
+          <p className="text-base font-semibold text-slate-900">Membership Collection Report (traditional Excel)</p>
+          <p className="-mt-1 text-sm text-slate-600">
+            The committee's own sheet, Aug–Jul: every member by member ID, ✓ for each paid month, W waiting,
+            – before joining; received, pending, each campaign given to that year, and the net total.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {fyYears.map((y) => (
+              <Button key={y} variant={fy === y ? "default" : "outline"} className={fy === y ? "bg-emerald-600 hover:bg-emerald-700" : ""} onClick={() => setFy(y)}>
+                {y}-{Number(y) + 1}
+              </Button>
+            ))}
+          </div>
+          <Button onClick={paidList} disabled={Boolean(busy)} className="h-11 w-full bg-emerald-700 hover:bg-emerald-800">
+            {busy === "paid-list" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Download {fy}-{Number(fy) + 1} report
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

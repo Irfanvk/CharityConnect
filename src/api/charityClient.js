@@ -1626,6 +1626,7 @@ const charityClient = {
     dues: (query = {}) => apiFetch(API_PATHS.reports.dues, { method: 'GET', timeoutMs: 60000 }, query),
     payments: (query = {}) => apiFetch(API_PATHS.reports.payments, { method: 'GET', timeoutMs: 60000 }, query),
     yearGrid: (query = {}) => apiFetch(API_PATHS.reports.yearGrid, { method: 'GET', timeoutMs: 60000 }, query),
+    paidList: (year) => apiFetch(API_PATHS.reports.paidList, { method: 'GET', timeoutMs: 60000 }, { year }),
   },
 
   auditLogs: {

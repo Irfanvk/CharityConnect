@@ -4,8 +4,8 @@ import { charityClient } from "@/api/charityClient";
 // Mirrors the backend registry defaults; used until /settings/public loads.
 export const PUBLIC_SETTINGS_DEFAULTS = {
   proof_max_upload_mb: 5,
-  upcoming_months_payable: 12,
-  max_months_per_payment: 12,
+  upcoming_months_payable: 36,
+  max_months_per_payment: 36,
   default_campaign_min_amount: 100,
   member_stats_visible: false,
   bank_details_enabled: true,
