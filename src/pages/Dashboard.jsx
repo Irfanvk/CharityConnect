@@ -3,6 +3,9 @@ import React, { useState, useEffect, useCallback } from "react";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
+import UserAvatar from "@/components/UserAvatar";
+import BannerCarousel from "@/components/banners/BannerCarousel";
+import { formatMemberId } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
 import { Users, Heart, TrendingUp, Calendar, Clock, Bell, BookOpen, LogOut, MapPinned, Receipt, User, Wallet } from "lucide-react";
 import { currentBusinessMonth, formatBusinessDate } from "@/lib/businessTime";
@@ -422,15 +425,18 @@ export default function Dashboard() {
             memberProfile={memberProfile}
           />
 
+          <BannerCarousel place="dashboard" />
           <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 rounded-2xl p-8 text-white relative overflow-hidden">
             <div
               className="absolute inset-0 opacity-10 bg-cover bg-center"
               style={{ backgroundImage: `url('${APP_IMAGES.DASHBOARD.SUPERADMIN_WELCOME_BG}')` }}
             />
             <div className="relative">
-              <h1 className="text-3xl font-bold mb-2">
-                Welcome back, {displayName}! 🚀
-              </h1>
+              <WelcomeIdentity user={user} memberProfile={memberProfile} name={displayName}>
+                <h1 className="text-3xl font-bold mb-2">
+                  Welcome back, {displayName}! 🚀
+                </h1>
+              </WelcomeIdentity>
               <p className="text-purple-100 text-lg">
                 System-wide analytics and performance insights
               </p>
@@ -468,15 +474,18 @@ export default function Dashboard() {
             memberProfile={memberProfile}
           />
 
+          <BannerCarousel place="dashboard" />
           <div className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 rounded-2xl p-6 text-white relative overflow-hidden">
             <div
               className="absolute inset-0 opacity-10 bg-cover bg-center"
               style={{ backgroundImage: `url('${APP_IMAGES.DASHBOARD.MEMBER_WELCOME_BG}')` }}
             />
             <div className="relative">
-              <h1 className="text-2xl font-bold mb-1">
-                Welcome back, {displayName}! 👋
-              </h1>
+              <WelcomeIdentity user={user} memberProfile={memberProfile} name={displayName}>
+                <h1 className="text-2xl font-bold mb-1">
+                  Welcome back, {displayName}! 👋
+                </h1>
+              </WelcomeIdentity>
               <p className="text-emerald-100">Track your contributions and stay connected</p>
               <div className="flex items-center gap-2 mt-3 text-emerald-100 text-sm">
                 <Calendar className="w-4 h-4" />
@@ -518,15 +527,18 @@ export default function Dashboard() {
           memberProfile={memberProfile}
         />
 
+        <BannerCarousel place="dashboard" />
         <div className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 rounded-2xl p-8 text-white relative overflow-hidden">
           <div
             className="absolute inset-0 opacity-10 bg-cover bg-center"
             style={{ backgroundImage: `url('${APP_IMAGES.DASHBOARD.MEMBER_WELCOME_BG}')` }}
           />
           <div className="relative">
-            <h1 className="text-3xl font-bold mb-2">
-              Welcome back, {displayName}! 👋
-            </h1>
+            <WelcomeIdentity user={user} memberProfile={memberProfile} name={displayName}>
+              <h1 className="text-3xl font-bold mb-2">
+                Welcome back, {displayName}! 👋
+              </h1>
+            </WelcomeIdentity>
             <p className="text-emerald-100 text-lg">
               Here's an overview of your charity's performance
             </p>
@@ -598,5 +610,30 @@ export default function Dashboard() {
         )}
       </div>
     </PullToRefresh>
+  );
+}
+
+/** Photo next to the welcome line; under it the member ID and role, or "Add your photo". */
+function WelcomeIdentity({ user, memberProfile, name, children }) {
+  const role = String(user?.role || "").toLowerCase();
+  const roleLabel = role === "superadmin" ? "Superadmin" : role === "admin" ? "Admin" : "Member";
+  return (
+    <div className="mb-1 flex items-center gap-4">
+      <Link to={user?.avatar_url ? PAGE_PATHS.PROFILE : `${PAGE_PATHS.PROFILE}?photo=1`} className="shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white" aria-label={user?.avatar_url ? "My profile" : "Add your photo"}>
+        <UserAvatar url={user?.avatar_url} name={name} size="lg" showAdd />
+      </Link>
+      <div className="min-w-0">
+        {children}
+        <p className="text-sm text-white/85">
+          {[memberProfile?.member_code && formatMemberId(memberProfile.member_code), roleLabel].filter(Boolean).join(" · ")}
+          {!user?.avatar_url && (
+            <>
+              {" · "}
+              <Link to={`${PAGE_PATHS.PROFILE}?photo=1`} className="font-semibold underline underline-offset-2">Add your photo</Link>
+            </>
+          )}
+        </p>
+      </div>
+    </div>
   );
 }

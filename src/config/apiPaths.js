@@ -126,6 +126,13 @@ export const API_PATHS = {
     uploadBranding: '/files/upload/branding',
     deleteFile: '/files/delete',
   },
+  banners: {
+    login: '/banners/login',
+    forMe: '/banners/for-me',
+    list: '/banners',
+    byId: (id) => `/banners/${id}`,
+    image: '/banners/image',
+  },
   relief: {
     me: '/relief/me',
     eligibility: (memberId) => `/relief/eligibility/${memberId}`,

@@ -1,1163 +1,157 @@
-// @ts-nocheck
-
-import React, { useEffect, useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+import React, { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Link, useSearchParams } from "react-router-dom";
 import {
-  BookOpen, Users, Shield, Settings, Heart, Receipt,
-  FileText, Bell, BarChart3, CheckCircle2, AlertCircle,
-  Lightbulb, ArrowRight, Upload, UserPlus, LogIn,
-  Search, Filter, ThumbsUp, ThumbsDown, RefreshCw,
-  HelpCircle, Star, ChevronRight, Info, Wallet,
-  ClipboardList, MessageSquare, Download, Eye
+  AlertCircle, ArrowLeft, BadgeCheck, Bell, BookOpen, CalendarPlus, Camera, ChevronRight, ExternalLink, FileSpreadsheet,
+  HandCoins, HandHeart, Heart, Image, Inbox, KeyRound, Landmark, Megaphone, MessageSquare, Search, Shield, Smartphone,
+  Upload, UserPen, UserPlus, UserRound, Wallet, X,
 } from "lucide-react";
-import { APP_BRAND } from "@/config/appPaths";
-import { useAuth } from "@/lib/AuthContext";
-import {
-  getWayfindingPreference,
-  setWayfindingPreference,
-  shouldShowWayfinding,
-  WAYFINDING_STATE_EVENT,
-} from "@/lib/wayfinding";
+import { charityClient } from "@/api/charityClient";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useReportsLanguage } from "@/lib/reportsI18n";
+import { LanguageSwitch } from "@/components/reports/simple/ReportsShared";
+import { GUIDE_TASKS, GUIDE_TEXT } from "@/lib/guideContent";
 
-// ─── Helper components ─────────────────────────────────────────────────────
+/*
+ * User guide: "How do I…?" cards with search, in English / Malayalam / Kannada.
+ * Members see the everyday tasks; admins see those plus the admin tasks.
+ * A card opens numbered steps, a screenshot (sample data only) and an "Open this page" button.
+ */
 
-function Step({ number, color = "emerald", title, children }) {
-  const colors = {
-    emerald: "bg-emerald-600",
-    blue: "bg-blue-600",
-    rose: "bg-rose-600",
-    amber: "bg-amber-500",
-    purple: "bg-purple-600",
-    indigo: "bg-indigo-600",
-  };
+// Only the icons the guide uses (importing the whole icon set would make the app much bigger).
+const Icons = {
+  Wallet, Upload, CalendarPlus, Landmark, Camera, UserPen, Bell, KeyRound, Smartphone, HandHeart, Heart, MessageSquare, HandCoins, BadgeCheck, Inbox, UserPlus, Search, UserRound, AlertCircle, FileSpreadsheet, Image, Megaphone, Shield,
+};
+
+function TaskIcon({ name, className }) {
+  const Icon = Icons[name] || BookOpen;
+  return <Icon className={className} />;
+}
+
+function TaskCard({ task, lang, onOpen }) {
   return (
-    <div className="flex items-start gap-4">
-      <div className={`w-8 h-8 rounded-full ${colors[color]} text-white flex items-center justify-center text-sm font-bold shrink-0 mt-0.5`}>
-        {number}
+    <button
+      type="button"
+      onClick={() => onOpen(task.id)}
+      className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900"
+    >
+      <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${task.role === "admin" ? "bg-indigo-50 text-indigo-700" : "bg-emerald-50 text-emerald-700"}`}>
+        <TaskIcon name={task.icon} className="h-6 w-6" />
+      </span>
+      <span className="min-w-0 flex-1 text-base font-semibold text-slate-900 dark:text-white">{task.title[lang] || task.title.en}</span>
+      <ChevronRight className="h-5 w-5 shrink-0 text-slate-400" />
+    </button>
+  );
+}
+
+function TaskDetail({ task, lang, T, onBack }) {
+  const steps = task.steps[lang] || task.steps.en;
+  const [shotOk, setShotOk] = useState(true);
+  return (
+    <div className="space-y-4">
+      <Button variant="outline" onClick={onBack} className="h-11 gap-1.5 bg-white"><ArrowLeft className="h-5 w-5" />{T.back}</Button>
+      <div className="flex items-center gap-3">
+        <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${task.role === "admin" ? "bg-indigo-50 text-indigo-700" : "bg-emerald-50 text-emerald-700"}`}>
+          <TaskIcon name={task.icon} className="h-7 w-7" />
+        </span>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{task.title[lang] || task.title.en}</h2>
       </div>
-      <div className="flex-1">
-        <p className="font-semibold text-slate-800">{title}</p>
-        {children && <p className="text-sm text-slate-600 mt-0.5">{children}</p>}
+
+      <div className="grid gap-4 md:grid-cols-[1fr_260px]">
+        <ol className="space-y-3">
+          {steps.map((step, i) => (
+            <li key={i} className="flex gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-base font-bold text-white">{i + 1}</span>
+              <span className="pt-0.5 text-base leading-relaxed text-slate-800 dark:text-slate-100">{step}</span>
+            </li>
+          ))}
+        </ol>
+        {task.shot && shotOk && (
+          <figure className="mx-auto w-full max-w-[260px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm dark:border-slate-700">
+            <img src={task.shot} alt="" loading="lazy" className="w-full" onError={() => setShotOk(false)} />
+          </figure>
+        )}
       </div>
+
+      {task.page && (
+        <Button asChild className="h-12 gap-2 bg-emerald-600 px-6 text-base hover:bg-emerald-700">
+          <Link to={task.page}><ExternalLink className="h-5 w-5" />{T.open}</Link>
+        </Button>
+      )}
+      <p className="text-sm text-slate-500">{T.stillStuck}</p>
     </div>
   );
 }
-
-function Tip({ children }) {
-  return (
-    <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
-      <Lightbulb className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-      <span className="text-amber-800">{children}</span>
-    </div>
-  );
-}
-
-function Note({ children }) {
-  return (
-    <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
-      <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-      <span className="text-blue-800">{children}</span>
-    </div>
-  );
-}
-
-function SectionTitle({ icon: Icon, color, children }) {
-  const colors = {
-    emerald: "text-emerald-600",
-    blue: "text-blue-600",
-    rose: "text-rose-600",
-    amber: "text-amber-500",
-    purple: "text-purple-600",
-    indigo: "text-indigo-600",
-  };
-  return (
-    <h3 className={`font-bold text-lg flex items-center gap-2 ${colors[color] || "text-slate-700"}`}>
-      {Icon && <Icon className="w-5 h-5" />}
-      {children}
-    </h3>
-  );
-}
-
-function StatusBadge({ status }) {
-  const map = {
-    generated: { label: "Generated", class: "bg-slate-100 text-slate-700" },
-    pending: { label: "Pending", class: "bg-yellow-100 text-yellow-700" },
-    proof_uploaded: { label: "Proof Uploaded", class: "bg-blue-100 text-blue-700" },
-    approved: { label: "Approved", class: "bg-emerald-100 text-emerald-700" },
-    rejected: { label: "Rejected", class: "bg-red-100 text-red-700" },
-    active: { label: "Active", class: "bg-emerald-100 text-emerald-700" },
-    inactive: { label: "Inactive", class: "bg-slate-100 text-slate-600" },
-    suspended: { label: "Suspended", class: "bg-red-100 text-red-700" },
-  };
-  const s = map[status] || { label: status, class: "bg-slate-100 text-slate-700" };
-  return (
-    <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${s.class}`}>
-      {s.label}
-    </span>
-  );
-}
-
-function TaskCard({ icon: Icon, color, title, body, bullets }) {
-  const tones = {
-    emerald: 'border-emerald-200 bg-emerald-50/70 text-emerald-700',
-    blue: 'border-blue-200 bg-blue-50/70 text-blue-700',
-    amber: 'border-amber-200 bg-amber-50/70 text-amber-700',
-    rose: 'border-rose-200 bg-rose-50/70 text-rose-700',
-  };
-
-  return (
-    <div className="rounded-2xl border border-slate-200 p-4">
-      <div className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border ${tones[color] || tones.emerald}`}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <h4 className="mt-4 text-base font-semibold text-slate-900">{title}</h4>
-      <p className="mt-2 text-sm leading-relaxed text-slate-600">{body}</p>
-      <ul className="mt-3 space-y-2 text-sm text-slate-600">
-        {bullets.map((bullet) => (
-          <li key={bullet} className="flex items-start gap-2">
-            <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-            <span>{bullet}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-// ─── Main Page ──────────────────────────────────────────────────────────────
 
 export default function Documentation() {
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("start");
+  const L = useReportsLanguage();
+  const lang = L.lang;
+  const T = GUIDE_TEXT[lang] || GUIDE_TEXT.en;
+  const [params, setParams] = useSearchParams();
+  const [search, setSearch] = useState("");
+  const { data: user } = useQuery({ queryKey: ["me"], queryFn: () => charityClient.auth.me() });
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
-  const isMember = !isAdmin;
-  const wayfindingUserKey = user?.id || user?.email || null;
-  const [wayfindingPreference, setWayfindingPreferenceState] = useState("auto");
 
-  const isWayfindingVisible = useMemo(
-    () => shouldShowWayfinding(wayfindingUserKey),
-    [wayfindingUserKey, wayfindingPreference]
-  );
-
-  useEffect(() => {
-    setWayfindingPreferenceState(getWayfindingPreference(wayfindingUserKey));
-  }, [wayfindingUserKey]);
-
-  useEffect(() => {
-    if (!wayfindingUserKey || typeof window === "undefined") return undefined;
-
-    const handleWayfindingStateChange = (event) => {
-      if (event?.detail?.userKey && String(event.detail.userKey) !== String(wayfindingUserKey)) {
-        return;
-      }
-      setWayfindingPreferenceState(getWayfindingPreference(wayfindingUserKey));
-    };
-
-    window.addEventListener(WAYFINDING_STATE_EVENT, handleWayfindingStateChange);
-    return () => window.removeEventListener(WAYFINDING_STATE_EVENT, handleWayfindingStateChange);
-  }, [wayfindingUserKey]);
-
-  const turnWayfindingOn = () => {
-    setWayfindingPreference(wayfindingUserKey, "on");
-    setWayfindingPreferenceState("on");
+  const openId = params.get("topic");
+  const open = GUIDE_TASKS.find((t) => t.id === openId && (t.role === "member" || isAdmin));
+  const setOpen = (id) => {
+    const next = new URLSearchParams(params);
+    if (id) next.set("topic", id); else next.delete("topic");
+    setParams(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const turnWayfindingOff = () => {
-    setWayfindingPreference(wayfindingUserKey, "off");
-    setWayfindingPreferenceState("off");
-  };
-
-  const setWayfindingAuto = () => {
-    setWayfindingPreference(wayfindingUserKey, "auto");
-    setWayfindingPreferenceState("auto");
-  };
+  const visible = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return GUIDE_TASKS.filter((t) => t.role === "member" || isAdmin).filter((t) => {
+      if (!term) return true;
+      const hay = [t.words, ...Object.values(t.title), ...Object.values(t.steps).flat()].join(" ").toLowerCase();
+      return term.split(/\s+/).every((w) => hay.includes(w));
+    });
+  }, [search, isAdmin]);
+  const groups = [["member", T.memberTasks], ["admin", T.adminTasks]]
+    .map(([role, heading]) => [heading, visible.filter((t) => t.role === role)])
+    .filter(([, items]) => items.length);
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-10">
-
-      {/* ── Header ── role-aware */}
-      {isAdmin ? (
-        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-8 text-white shadow-lg">
-          <div className="flex items-center gap-3 mb-2">
-            <Shield className="w-8 h-8" />
-            <h1 className="text-3xl font-bold">Admin Guide — {APP_BRAND.NAME}</h1>
-          </div>
-          <p className="text-blue-100 text-lg">
-            Your complete reference for managing members, challans, campaigns, and the day-to-day running of the organisation.
-          </p>
-          <div className="flex flex-wrap gap-2 mt-4">
-            <Badge className="bg-white/20 text-white border-0">Admin &amp; Superadmin</Badge>
-            <Badge className="bg-white/20 text-white border-0">Member Guide included as a reference</Badge>
-            <Badge className="bg-white/20 text-white border-0">Separate Member &amp; Admin FAQs</Badge>
-          </div>
+    <div className="mx-auto max-w-4xl space-y-5" lang={L.locale}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900 dark:text-white"><BookOpen className="h-7 w-7 text-emerald-600" />{T.title}</h1>
+          {!open && <p className="text-slate-600 dark:text-slate-300">{T.sub}</p>}
         </div>
+        <LanguageSwitch L={L} />
+      </div>
+
+      {open ? (
+        <TaskDetail task={open} lang={lang} T={T} onBack={() => setOpen(null)} />
       ) : (
-        <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-8 text-white shadow-lg">
-          <div className="flex items-center gap-3 mb-2">
-            <BookOpen className="w-8 h-8" />
-            <h1 className="text-3xl font-bold">Member Guide — {APP_BRAND.NAME}</h1>
+        <>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={T.search} aria-label={T.search} className="h-12 bg-white pl-11 pr-10 text-base" />
+            {search && (
+              <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:text-slate-600" aria-label="Clear">
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
-          <p className="text-emerald-100 text-lg">
-            Everything you need to get started and make the most of the platform.
-          </p>
-          <div className="flex flex-wrap gap-2 mt-4">
-            <Badge className="bg-white/20 text-white border-0">New here? Start with "Getting Started"</Badge>
-            <Badge className="bg-white/20 text-white border-0">Common questions? Check the FAQ tab</Badge>
-          </div>
-        </div>
-      )}
-
-      {/* ── Tabs ── */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        {isAdmin ? (
-          <TabsList className="grid grid-cols-2 md:grid-cols-4">
-            <TabsTrigger value="start">Getting Started</TabsTrigger>
-            <TabsTrigger value="member">Member Guide</TabsTrigger>
-            <TabsTrigger value="admin">Admin Guide</TabsTrigger>
-            <TabsTrigger value="faq">FAQs</TabsTrigger>
-          </TabsList>
-        ) : (
-          <TabsList className="grid grid-cols-3">
-            <TabsTrigger value="start">Getting Started</TabsTrigger>
-            <TabsTrigger value="member">My Guide</TabsTrigger>
-            <TabsTrigger value="faq">FAQ</TabsTrigger>
-          </TabsList>
-        )}
-
-        {/* ════════════════════════════════════════
-            TAB: Getting Started
-        ════════════════════════════════════════ */}
-        <TabsContent value="start" className="space-y-6 mt-6">
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Star className="w-5 h-5 text-emerald-600" />
-                Wayfinding Controls
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-slate-700">
-              <p>
-                Turn wayfinding on when you want guided labels and home-map hints. Turn it off for the normal compact experience.
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={turnWayfindingOn}
-                  className={`rounded-xl border px-4 py-2 font-medium transition-colors ${wayfindingPreference === 'on' ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'}`}
-                >
-                  Turn on wayfinding
-                </button>
-                <button
-                  type="button"
-                  onClick={turnWayfindingOff}
-                  className={`rounded-xl border px-4 py-2 font-medium transition-colors ${wayfindingPreference === 'off' ? 'border-rose-600 bg-rose-600 text-white' : 'border-rose-200 text-rose-700 hover:bg-rose-50'}`}
-                >
-                  Turn off wayfinding
-                </button>
-                <button
-                  type="button"
-                  onClick={setWayfindingAuto}
-                  className={`rounded-xl border px-4 py-2 font-medium transition-colors ${wayfindingPreference === 'auto' ? 'border-slate-700 bg-slate-700 text-white' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}
-                >
-                  Use automatic mode
-                </button>
-              </div>
-              <Note>
-                Current state: <strong>{isWayfindingVisible ? 'ON' : 'OFF'}</strong>.
-                {" "}
-                Preference: <strong>{wayfindingPreference.toUpperCase()}</strong>.
-              </Note>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Star className="w-5 h-5 text-amber-500" />
-                Welcome to {APP_BRAND.NAME}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-slate-700">
-              <p>
-                <strong>{APP_BRAND.NAME}</strong> is the charity management platform for{" "}
-                <strong>{APP_BRAND.TAGLINE}</strong>. It helps you track membership payments,
-                contribute to donation campaigns, and stay in touch with the organisation — all in one place.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                <div className="border rounded-xl p-4 text-center space-y-2">
-                  <Receipt className="w-7 h-7 text-emerald-600 mx-auto" />
-                  <p className="font-semibold">Pay &amp; Track</p>
-                  <p className="text-xs text-slate-500">Generate challans and upload your payment proof in seconds</p>
-                </div>
-                <div className="border rounded-xl p-4 text-center space-y-2">
-                  <Heart className="w-7 h-7 text-rose-500 mx-auto" />
-                  <p className="font-semibold">Donate</p>
-                  <p className="text-xs text-slate-500">Browse and donate to active fundraising campaigns</p>
-                </div>
-                <div className="border rounded-xl p-4 text-center space-y-2">
-                  <Bell className="w-7 h-7 text-indigo-500 mx-auto" />
-                  <p className="font-semibold">Stay Informed</p>
-                  <p className="text-xs text-slate-500">Receive real-time notifications from the organisation</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* New Member Onboarding */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-blue-600" />
-                How to Join — Step by Step
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-4">
-                <Step number={1} color="blue" title="Receive your invite code">
-                  An admin will share a personal invite code with you via WhatsApp or email.
-                </Step>
-                <Step number={2} color="blue" title='Go to the app and click "Register"'>
-                  On the login page, click <strong>Register</strong>. Enter your name, email, password, and the invite code you received.
-                </Step>
-                <Step number={3} color="blue" title="Verify your email (if prompted)">
-                  Check your inbox for a verification email and click the link to confirm your account.
-                </Step>
-                <Step number={4} color="blue" title="Complete your profile">
-                  After logging in for the first time you'll be prompted to fill in your phone number and address. This is required to be fully active.
-                </Step>
-                <Step number={5} color="blue" title="You're in! Start by paying your first challan">
-                  Head to <strong>Challans</strong> in the left sidebar and generate your first monthly payment.
-                </Step>
-              </div>
-              <Tip>Keep your invite code safe — each code can only be used once.</Tip>
-            </CardContent>
-          </Card>
-
-          {/* User Roles at a Glance */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-indigo-600" />
-                Who Can Do What?
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              <div className="border-l-4 border-emerald-500 pl-4 space-y-1">
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-emerald-600">Member</Badge>
-                  <span className="text-slate-500 text-xs">That's you if you're a regular participant</span>
-                </div>
-                <ul className="text-slate-600 space-y-0.5 pt-1">
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />View your own payment history</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />Generate &amp; upload challans</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />Donate to campaigns</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />Submit requests to admin</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />Manage your notifications</li>
-                </ul>
-              </div>
-              {isAdmin && (
-                <div className="border-l-4 border-blue-500 pl-4 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-blue-600">Admin</Badge>
-                    <span className="text-slate-500 text-xs">Organisation manager</span>
-                  </div>
-                  <ul className="text-slate-600 space-y-0.5 pt-1">
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />Everything a Member can do</li>
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />Add, edit &amp; manage members</li>
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />Approve or reject payment challans</li>
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />Create and manage campaigns</li>
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />Generate reports &amp; exports</li>
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />Send notifications to members</li>
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />Review audit logs</li>
-                  </ul>
-                </div>
-              )}
-              <Note>You can always see your current role in the <strong>Profile</strong> page (click your name in the top-right corner).</Note>
-            </CardContent>
-          </Card>
-
-          {/* Navigation guide */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ArrowRight className="w-5 h-5 text-slate-500" />
-                Finding Your Way Around
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm space-y-3">
-              <p className="text-slate-600">Use the <strong>left sidebar</strong> (or bottom bar on mobile) to navigate between sections:</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {[
-                  { icon: BarChart3, color: "text-emerald-600", name: "Dashboard", desc: "Summary of your activity and latest updates" },
-                  { icon: Receipt, color: "text-emerald-600", name: "Challans", desc: "Generate and manage your payments" },
-                  { icon: Heart, color: "text-rose-500", name: "Campaigns", desc: "Active fundraising drives to donate to" },
-                  { icon: Bell, color: "text-indigo-500", name: "Notifications", desc: "Alerts and messages from the organisation" },
-                  { icon: MessageSquare, color: "text-amber-500", name: "Requests", desc: "Send a message or request to the admin" },
-                  { icon: FileText, color: "text-slate-500", name: "Profile", desc: "Update your personal information" },
-                ].map(({ icon: Icon, color, name, desc }) => (
-                  <div key={name} className="flex items-start gap-3 p-3 border rounded-lg">
-                    <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${color}`} />
-                    <div>
-                      <p className="font-semibold">{name}</p>
-                      <p className="text-xs text-slate-500">{desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-        </TabsContent>
-
-        {/* ════════════════════════════════════════
-            TAB: Member Guide
-        ════════════════════════════════════════ */}
-        <TabsContent value="member" className="space-y-6 mt-6">
-
-          {/* Admin reference banner */}
-          {isAdmin && (
-            <Card className="border-emerald-200 bg-emerald-50/40">
-              <CardContent className="pt-4 text-sm text-emerald-800">
-                <div className="flex items-start gap-2">
-                  <Info className="w-5 h-5 shrink-0 mt-0.5" />
-                  <span>
-                    <strong>Admin reference view.</strong> This is what your members see and do.
-                    Use it to understand the member experience and help them when they need support.
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-emerald-600" />
-                Start With These Common Tasks
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <TaskCard
-                  icon={Receipt}
-                  color="emerald"
-                  title="How to pay"
-                  body="Use this whenever you need to complete your monthly payment or upload proof."
-                  bullets={[
-                    'Open Challans',
-                    'Generate the challan for the right month',
-                    'Transfer the money and upload proof',
-                  ]}
-                />
-                <TaskCard
-                  icon={FileText}
-                  color="blue"
-                  title="How to update profile"
-                  body="Use this when your phone, address, avatar, or other personal details need to change."
-                  bullets={[
-                    'Open Profile from the account menu',
-                    'Use the pencil or avatar controls',
-                    'Track pending field requests in My Requests if approval is needed',
-                  ]}
-                />
-                <TaskCard
-                  icon={MessageSquare}
-                  color="amber"
-                  title="How to request help or changes"
-                  body="Use this when you need admin attention for payments, profile corrections, or general support."
-                  bullets={[
-                    'Open My Requests',
-                    'Create a new request with a clear reason',
-                    'Watch notifications for updates or resolution',
-                  ]}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Dashboard */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-emerald-600" />
-                Your Dashboard
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-slate-700 space-y-3">
-              <p>
-                The <strong>Dashboard</strong> is your home screen. When you log in, you'll see:
-              </p>
-              <ul className="space-y-1.5">
-                <li className="flex items-start gap-2"><ChevronRight className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" /><span><strong>Total contributions</strong> — the total amount you've paid (approved challans)</span></li>
-                <li className="flex items-start gap-2"><ChevronRight className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" /><span><strong>Pending challans</strong> — payments awaiting admin approval</span></li>
-                <li className="flex items-start gap-2"><ChevronRight className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" /><span><strong>Active campaigns</strong> — fundraising drives you can join</span></li>
-                <li className="flex items-start gap-2"><ChevronRight className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" /><span><strong>Recent activity</strong> — latest challan and notification updates</span></li>
-              </ul>
-              <Tip>Check your Dashboard first every time you log in to see if any challans have been rejected or approved.</Tip>
-            </CardContent>
-          </Card>
-
-          {/* Challans */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Receipt className="w-5 h-5 text-emerald-600" />
-                How to Pay Your Monthly Challan
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <p className="text-sm text-slate-600">
-                A <strong>challan</strong> is your payment record. Every month you need to create one, transfer the money, upload proof, and wait for admin approval. Here's the full flow:
-              </p>
-
-              <div className="space-y-4">
-                <Step number={1} color="emerald" title='Go to "Challans" in the sidebar' />
-                <Step number={2} color="emerald" title='Click "Generate Challan"'>
-                  A form will appear. Select <strong>Monthly</strong> as the type, pick the month you're paying for, and confirm the amount.
-                </Step>
-                <Step number={3} color="emerald" title="Transfer the money">
-                  Pay via bank transfer or the method your organisation uses. Keep the receipt or screenshot handy.
-                </Step>
-                <Step number={4} color="emerald" title="Upload your proof">
-                  Back on the Challans page, find your challan and click <strong>Upload Proof</strong>. Attach the payment screenshot or receipt (JPG, PNG, or PDF, max 3 MB).
-                </Step>
-                <Step number={5} color="emerald" title="Wait for admin approval">
-                  Your challan status will change to <StatusBadge status="proof_uploaded" />.
-                  The admin will review it and either approve or reject it.
-                </Step>
-                <Step number={6} color="emerald" title="Check the result">
-                  Once reviewed you'll see <StatusBadge status="approved" /> or <StatusBadge status="rejected" />.
-                  If rejected, read the reason, fix the issue, and re-upload your proof.
-                </Step>
-              </div>
-
-              <div className="bg-slate-50 border rounded-lg p-4 space-y-2">
-                <p className="font-semibold text-sm">Challan Status Meanings</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
-                  <div className="flex items-center gap-2"><StatusBadge status="generated" /> <span>Challan created, not yet paid</span></div>
-                  <div className="flex items-center gap-2"><StatusBadge status="pending" /> <span>Awaiting your proof upload</span></div>
-                  <div className="flex items-center gap-2"><StatusBadge status="proof_uploaded" /> <span>Proof submitted, admin reviewing</span></div>
-                  <div className="flex items-center gap-2"><StatusBadge status="approved" /> <span>Payment confirmed ✓</span></div>
-                  <div className="flex items-center gap-2"><StatusBadge status="rejected" /> <span>Rejected — re-upload needed</span></div>
-                </div>
-              </div>
-
-              <Tip>You can pay multiple months at once. When generating a challan, select multiple months from the dropdown. Each month will get its own challan automatically.</Tip>
-            </CardContent>
-          </Card>
-
-          {/* Campaigns */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Heart className="w-5 h-5 text-rose-500" />
-                How to Donate to a Campaign
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-slate-600">
-                Campaigns are special fundraising drives organised for a specific purpose. You can donate by creating a campaign challan.
-              </p>
-              <div className="space-y-4">
-                <Step number={1} color="rose" title='Go to "Campaigns" in the sidebar'>
-                  Browse the list of active campaigns and click one to see its goal, deadline, and progress.
-                </Step>
-                <Step number={2} color="rose" title='Click "Donate" on the campaign'>
-                  A challan form will appear pre-filled with the campaign details. Enter the amount you wish to donate (must meet the minimum if set).
-                </Step>
-                <Step number={3} color="rose" title="Transfer the money and upload proof">
-                  Same as a monthly challan — pay first, then upload proof.
-                </Step>
-                <Step number={4} color="rose" title="Track your donation">
-                  Your donation challan will appear in the Challans page under the campaign type.
-                </Step>
-              </div>
-              <Note>Campaign challans follow the same approval process as monthly challans. Once approved, the campaign progress bar will update automatically.</Note>
-            </CardContent>
-          </Card>
-
-          {/* Profile */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-slate-500" />
-                How to Update Your Profile
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-slate-700">
-              <p>Click your name or avatar in the <strong>top-right corner</strong> of any page to open your profile.</p>
-              <p>Use the pencil buttons beside each field or the avatar controls to make a change.</p>
-              <ul className="space-y-1 pl-2">
-                <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-slate-400" />Full name, phone number, address</li>
-                <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-slate-400" />Profile picture</li>
-                <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-slate-400" />Email and username when those edits are allowed</li>
-              </ul>
-              <Note>For members, important field changes are sent to admin for approval. You can follow them on the <strong>My Requests</strong> page. Admins and superadmins save profile edits directly.</Note>
-              <Tip>Keep your phone number up to date — admins use it to contact you if a payment needs clarification.</Tip>
-            </CardContent>
-          </Card>
-
-          {/* Requests */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-amber-500" />
-                Sending a Request to Admin
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-slate-700">
-              <p>If you have a question, need a correction, or want to report something, use the <strong>Requests</strong> page:</p>
-              <div className="space-y-4">
-                <Step number={1} color="amber" title='Go to "Requests" in the sidebar' />
-                <Step number={2} color="amber" title='Click "New Request"'>
-                  Choose the request type (e.g., Payment Issue, Profile Update, General Query), write a subject and describe your issue.
-                </Step>
-                <Step number={3} color="amber" title="Submit and track">
-                  Your request will show as <strong>Pending</strong> until an admin responds. You'll receive a notification when it's resolved.
-                </Step>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Notifications */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="w-5 h-5 text-indigo-500" />
-                Notifications
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-slate-700">
-              <p>The bell icon <strong>at the top</strong> shows how many unread notifications you have. Click it to see them.</p>
-              <ul className="space-y-1 pl-2">
-                <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-slate-400" />Challan approved or rejected</li>
-                <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-slate-400" />New campaign launched</li>
-                <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-slate-400" />Request resolved</li>
-                <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-slate-400" />General announcements from admin</li>
-              </ul>
-              <Tip>You can allow browser push notifications so you don't miss any updates even when the app isn't open. A prompt will appear the first time you visit the Notifications page.</Tip>
-            </CardContent>
-          </Card>
-
-        </TabsContent>
-
-        {/* ════════════════════════════════════════
-            TAB: Admin Guide (admin/superadmin only)
-        ════════════════════════════════════════ */}
-        {isAdmin && (
-          <TabsContent value="admin" className="space-y-6 mt-6">
-
-            <Card className="border-blue-200 bg-blue-50/40">
-              <CardContent className="pt-4 text-sm text-blue-800">
-                <div className="flex items-start gap-2">
-                  <Shield className="w-5 h-5 shrink-0 mt-0.5" />
-                  <span>This section is only visible to admins and superadmins. It covers the day-to-day tasks you'll be performing to keep the organisation running.</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-blue-600" />
-                  Start With These Common Admin Jobs
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                  <TaskCard
-                    icon={ThumbsUp}
-                    color="emerald"
-                    title="Approve payments"
-                    body="Your daily review flow starts in Challans and Notifications."
-                    bullets={[
-                      'Filter challans by proof uploaded',
-                      'Open proof and verify the transaction',
-                      'Approve or reject with a clear reason',
-                    ]}
-                  />
-                  <TaskCard
-                    icon={Users}
-                    color="blue"
-                    title="Manage members"
-                    body="Use this when onboarding new members or correcting member records."
-                    bullets={[
-                      'Create or open a member record',
-                      'Update status, amount, or contact details',
-                      'Send or regenerate invite access when needed',
-                    ]}
-                  />
-                  <TaskCard
-                    icon={MessageSquare}
-                    color="amber"
-                    title="Handle requests"
-                    body="Use this to process profile-change requests, issues, and member questions."
-                    bullets={[
-                      'Open Requests',
-                      'Review pending items first',
-                      'Respond and mark resolved once complete',
-                    ]}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Members */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-blue-600" />
-                  Managing Members
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-
-                <div className="space-y-3">
-                  <SectionTitle icon={UserPlus} color="blue">Adding a New Member</SectionTitle>
-                  <div className="space-y-3">
-                    <Step number={1} color="blue" title='Go to "Members" → click "Add Member"'>
-                      Fill in the member's full name, phone, email, address, city, and set their monthly amount.
-                    </Step>
-                    <Step number={2} color="blue" title="Assign a Member ID">
-                      Enter a unique member ID (e.g., GCC-001). This is used for identification throughout the system.
-                    </Step>
-                    <Step number={3} color="blue" title="Save the record">
-                      The member is now in the system. They won't have login access yet — send them an invite next.
-                    </Step>
-                    <Step number={4} color="blue" title="Send an invite">
-                      Go to <strong>Settings → Invites</strong>. Generate an invite code and send it to the member. They use this to register.
-                    </Step>
-                  </div>
-                  <Tip>You can bulk-import members from a CSV file via Settings → Import. Download the template first to see the required column format.</Tip>
-                </div>
-
-                <hr />
-
-                <div className="space-y-3">
-                  <SectionTitle icon={Eye} color="blue">Viewing &amp; Editing a Member</SectionTitle>
-                  <p className="text-sm text-slate-600">On the Members page, click any member's name to open their profile. From there you can:</p>
-                  <ul className="text-sm space-y-1 text-slate-600 pl-4">
-                    <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-blue-400" />Edit contact details and monthly amount</li>
-                    <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-blue-400" />Change status: <StatusBadge status="active" /> <StatusBadge status="inactive" /> <StatusBadge status="suspended" /></li>
-                    <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-blue-400" />View their challan and payment history</li>
-                  </ul>
-                </div>
-
-              </CardContent>
-            </Card>
-
-            {/* Challans */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Receipt className="w-5 h-5 text-emerald-600" />
-                  Reviewing &amp; Approving Challans
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <p className="text-sm text-slate-600">
-                  When a member uploads proof of payment, the challan status changes to <StatusBadge status="proof_uploaded" />. You'll see it in your notification feed and on the Challans page.
-                </p>
-
-                <div className="space-y-3">
-                  <SectionTitle icon={ThumbsUp} color="emerald">Approving a Challan</SectionTitle>
-                  <div className="space-y-3">
-                    <Step number={1} color="emerald" title='Go to "Challans" and filter by "Proof Uploaded"'>
-                      Use the status filter dropdown to show only challans awaiting review.
-                    </Step>
-                    <Step number={2} color="emerald" title="Open the proof">
-                      Click the challan row to expand it, then click <strong>View Proof</strong> to see the member's payment screenshot.
-                    </Step>
-                    <Step number={3} color="emerald" title='Click "Approve"'>
-                      If the proof is valid, click the green Approve button. The challan status changes to <StatusBadge status="approved" /> and the member is notified.
-                    </Step>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <SectionTitle icon={ThumbsDown} color="rose">Rejecting a Challan</SectionTitle>
-                  <div className="space-y-3">
-                    <Step number={1} color="rose" title='Click "Reject" on the challan'>
-                      A dialog will appear asking for a rejection reason.
-                    </Step>
-                    <Step number={2} color="rose" title="Enter a clear reason">
-                      Explain why it's rejected (e.g., "Amount doesn't match", "Proof is unclear", "Wrong month"). This is shown to the member.
-                    </Step>
-                    <Step number={3} color="rose" title="Confirm rejection">
-                      The member will be notified and can re-upload the correct proof.
-                    </Step>
-                  </div>
-                  <Note>Rejected challans are kept for audit purposes. The member can upload new proof to the same challan.</Note>
-                </div>
-
-                <div className="space-y-3">
-                  <SectionTitle icon={ClipboardList} color="blue">Bulk Challan Operations</SectionTitle>
-                  <p className="text-sm text-slate-600">You can generate challans for all members at once (e.g., for a new month):</p>
-                  <div className="space-y-3">
-                    <Step number={1} color="blue" title='On the Challans page, click "Generate Challan" → select "Bulk"'>
-                      Choose the month and which members to include. The system creates one challan per member.
-                    </Step>
-                    <Step number={2} color="blue" title="Approve or reject the whole group">
-                      Bulk challans are grouped. You can approve or reject the entire group at once from the admin panel.
-                    </Step>
-                  </div>
-                  <Tip>Bulk approve skips any challan that is already approved or rejected — it won't overwrite existing decisions.</Tip>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Campaigns */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Heart className="w-5 h-5 text-rose-500" />
-                  Creating &amp; Managing Campaigns
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="space-y-4">
-                    <Step number={1} color="rose" title='Go to "Campaigns" → click "Create Campaign"'>
-                      Fill in the campaign title, description, target amount, start date, end date, and the minimum donation amount (optional).
-                    </Step>
-                    <Step number={2} color="rose" title="Publish the campaign">
-                      Once saved, the campaign becomes visible to all members on their Campaigns page.
-                    </Step>
-                    <Step number={3} color="rose" title="Monitor progress">
-                      The campaign card shows collected amount vs target in real time. Click the campaign to see individual donor details.
-                    </Step>
-                    <Step number={4} color="rose" title="Close or complete">
-                      When the goal is reached or the end date passes, mark the campaign as <strong>Completed</strong>. You can also extend the deadline by editing the end date.
-                    </Step>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Reports */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-amber-500" />
-                  Reports &amp; Analytics
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-slate-700">
-                <p>Go to <strong>Reports</strong> in the sidebar to access financial and activity reports:</p>
-                <ul className="space-y-1.5 pl-2">
-                  <li className="flex items-start gap-2"><ChevronRight className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" /><span><strong>Monthly Collection Report</strong> — total collected per month, broken down by member</span></li>
-                  <li className="flex items-start gap-2"><ChevronRight className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" /><span><strong>Campaign Performance</strong> — how much each campaign raised and from how many donors</span></li>
-                  <li className="flex items-start gap-2"><ChevronRight className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" /><span><strong>Member Activity</strong> — who is up to date vs who has outstanding payments</span></li>
-                </ul>
-                <div className="flex items-center gap-2 pt-1">
-                  <Download className="w-4 h-4 text-slate-500" />
-                  <span className="text-slate-600">Most reports can be <strong>exported to CSV</strong> using the Export button on each report page.</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Notifications */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Bell className="w-5 h-5 text-indigo-500" />
-                  Sending Notifications to Members
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-slate-700">
-                <p>You can broadcast messages to all members, specific members, or just admins:</p>
-                <div className="space-y-4">
-                  <Step number={1} color="indigo" title='Go to "Notifications" → click "Send Notification"'>
-                    Fill in the title and message body.
-                  </Step>
-                  <Step number={2} color="indigo" title="Choose the audience">
-                    <strong>All</strong> — everyone; <strong>Members only</strong> — regular members; <strong>Admins only</strong> — admin team.
-                  </Step>
-                  <Step number={3} color="indigo" title="Choose the type">
-                    Info, Success, Warning, or Alert — this controls the colour and icon shown to recipients.
-                  </Step>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Requests */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-amber-500" />
-                  Handling Member Requests
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-slate-700">
-                <p>Go to <strong>Admin → Requests</strong> to see all open requests from members.</p>
-                <ul className="space-y-1.5 pl-2">
-                  <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-amber-400" />Filter by status (Pending / Resolved) or priority</li>
-                  <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-amber-400" />Click a request to open it and write a response</li>
-                  <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-amber-400" />Mark as Resolved once addressed — the member will be notified</li>
-                </ul>
-                <Tip>High-priority requests show a red badge. Review those first.</Tip>
-              </CardContent>
-            </Card>
-
-            {/* Audit Logs */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Search className="w-5 h-5 text-purple-600" />
-                  Audit Logs — Who Did What
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-slate-700">
-                <p>Every admin action is recorded automatically. Go to <strong>Audit Logs</strong> to see the full history:</p>
-                <ul className="space-y-1 pl-2">
-                  <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-purple-400" />Who performed the action and when</li>
-                  <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-purple-400" />What was changed (member updated, challan approved, etc.)</li>
-                  <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-purple-400" />Filter by action type or date range</li>
-                </ul>
-                <Note>Audit logs cannot be deleted. They are permanent records for accountability.</Note>
-              </CardContent>
-            </Card>
-
-          </TabsContent>
-        )}
-
-        {/* ════════════════════════════════════════
-            TAB: FAQ
-        ════════════════════════════════════════ */}
-        <TabsContent value="faq" className="space-y-4 mt-6">
-
-          {isAdmin ? (
-            /* ── Admin view: two separate FAQ cards ── */
-            <>
-              {/* Member FAQ card */}
-              <Card className="border-emerald-200">
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <CardTitle className="flex items-center gap-2 text-emerald-700">
-                        <Users className="w-5 h-5" />
-                        Member FAQs
-                      </CardTitle>
-                      <p className="text-sm text-slate-500 mt-1">
-                        Questions your members commonly ask. Useful as a reference when supporting them.
-                      </p>
-                    </div>
-                    <Badge className="bg-emerald-100 text-emerald-700 shrink-0">For Members</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-5 text-sm divide-y divide-slate-100">
-                  {[
-                    {
-                      q: "I haven't received my invite code — what do I do?",
-                      a: "They should contact you (admin) directly via WhatsApp or phone and ask you to regenerate their invite code from Settings → Invites.",
-                    },
-                    {
-                      q: "My challan was rejected — what should I do?",
-                      a: "They should open the rejected challan, read the rejection reason you provided, then re-upload the correct payment proof. They do not need to create a new challan.",
-                    },
-                    {
-                      q: "I made a payment but forgot to upload proof — is it lost?",
-                      a: "No. The challan stays in Generated or Pending status. They can find it in the Challans page and click Upload Proof at any time.",
-                    },
-                    {
-                      q: "Can I pay multiple months at once?",
-                      a: "Yes. When generating a challan, members can select multiple months from the month picker. Each month gets a separate challan, but they can upload a single shared proof covering all of them.",
-                    },
-                    {
-                      q: "Why can't I change the amount on my challan?",
-                      a: "Only admins can modify challan amounts. If a member believes their amount is wrong, they should submit a Request to you.",
-                    },
-                    {
-                      q: "How do I know if my campaign donation was accepted?",
-                      a: "Members receive a notification when their campaign challan is approved. They can also check the campaign page — their name will appear in the donor list.",
-                    },
-                    {
-                      q: "How do I reset my password?",
-                      a: 'They should click "Forgot Password" on the login page, enter their email, and follow the reset link. If they don\'t receive it, ask them to check spam, or reset it manually from the Admin panel.',
-                    },
-                    {
-                      q: "Why can't I see other members' data?",
-                      a: "Members only see their own challans and profile — this is by design for privacy. Only admins have access to all member records.",
-                    },
-                  ].map(({ q, a }) => (
-                    <div key={q} className="space-y-1.5 pt-4 first:pt-0">
-                      <div className="flex items-start gap-2">
-                        <HelpCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                        <p className="font-semibold text-slate-800">{q}</p>
-                      </div>
-                      <p className="text-slate-600 pl-6">{a}</p>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              {/* Admin FAQ card */}
-              <Card className="border-blue-200">
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <CardTitle className="flex items-center gap-2 text-blue-700">
-                        <Shield className="w-5 h-5" />
-                        Admin FAQs
-                      </CardTitle>
-                      <p className="text-sm text-slate-500 mt-1">
-                        Answers to common admin tasks and edge cases.
-                      </p>
-                    </div>
-                    <Badge className="bg-blue-100 text-blue-700 shrink-0">For Admins</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-5 text-sm divide-y divide-slate-100">
-                  {[
-                    {
-                      q: "A member registered but their profile isn't linked to a member record — why?",
-                      a: "This happens when the email used during registration doesn't match the email on the member record, or the record wasn't created first. Go to Members, find or create their record, and make sure the email matches exactly.",
-                    },
-                    {
-                      q: "Can I undo an approval?",
-                      a: "Yes — find the challan and use the Revert action to change it back to Pending status. Do this only if you approved by mistake.",
-                    },
-                    {
-                      q: "How do I add multiple members at once?",
-                      a: "Use the Import feature. Go to Settings → Import, download the CSV template, fill it in, and upload it. All records will be created in one go.",
-                    },
-                    {
-                      q: "A member says they never got a notification — what should I check?",
-                      a: "Check if the notification was sent to the right audience (All vs Members only). Then ask the member to check their browser push notification permissions in the Notifications page.",
-                    },
-                    {
-                      q: "How do I see which members haven't paid this month?",
-                      a: "Go to Reports → Member Activity. Filter by the current month — members with no approved challans for that month will appear as outstanding.",
-                    },
-                    {
-                      q: "How do I change a member's monthly amount?",
-                      a: "Go to Members, open the member's record, click Edit, and update the Monthly Amount field. New challans for that member will use the updated amount.",
-                    },
-                    {
-                      q: "What's the difference between bulk-rejecting and bulk-deleting challans?",
-                      a: "Rejecting keeps the challan records with a Rejected status — they stay visible for audit purposes and the member can re-upload proof. Deleting removes the records entirely. Always prefer Reject over Delete so there's a paper trail.",
-                    },
-                    {
-                      q: "How do I suspend or deactivate a member?",
-                      a: "Go to Members, open the member's record, click Edit, and change their status to Inactive or Suspended. Suspended members cannot log in; Inactive members can still log in but won't be prompted for challans.",
-                    },
-                    {
-                      q: "Can I generate a challan on behalf of a member?",
-                      a: "Yes. On the Challans page, click Generate Challan, choose the member from the dropdown, fill in the details, and submit. The challan will appear under that member's account.",
-                    },
-                  ].map(({ q, a }) => (
-                    <div key={q} className="space-y-1.5 pt-4 first:pt-0">
-                      <div className="flex items-start gap-2">
-                        <HelpCircle className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                        <p className="font-semibold text-slate-800">{q}</p>
-                      </div>
-                      <p className="text-slate-600 pl-6">{a}</p>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              {/* Admin contact card */}
-              <Card className="border-2 border-blue-200 bg-blue-50/40">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-blue-700">
-                    <MessageSquare className="w-5 h-5" />
-                    Still Have a Question?
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-slate-700 space-y-2">
-                  <p>For platform issues or feature requests, contact your system administrator or refer to the technical documentation.</p>
-                  <p className="text-slate-500 pt-1 text-xs">{APP_BRAND.NAME} v2.0 · Admin Guide · Last updated April 2026</p>
-                </CardContent>
-              </Card>
-            </>
+          {groups.length === 0 ? (
+            <p className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-slate-500">{T.noResults}</p>
           ) : (
-            /* ── Member view: single FAQ card ── */
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <HelpCircle className="w-5 h-5 text-indigo-600" />
-                    Frequently Asked Questions
-                  </CardTitle>
-                  <p className="text-sm text-slate-500">Can't find what you need? Submit a Request and the admin will help you.</p>
-                </CardHeader>
-                <CardContent className="space-y-5 text-sm divide-y divide-slate-100">
-                  {[
-                    {
-                      q: "I haven't received my invite code — what do I do?",
-                      a: "Contact your admin directly (WhatsApp or phone) and ask them to re-send or regenerate your invite code from Settings → Invites.",
-                    },
-                    {
-                      q: "My challan was rejected — what should I do?",
-                      a: "Open the rejected challan and read the rejection reason. Then re-upload the correct payment proof — make sure the screenshot clearly shows the transaction date, amount, and recipient. You don't need to create a new challan.",
-                    },
-                    {
-                      q: "I made a payment but forgot to upload proof — is it lost?",
-                      a: "No. Find the challan in the Challans page (it will be in Generated or Pending status). Click Upload Proof and attach your receipt.",
-                    },
-                    {
-                      q: "Can I pay multiple months at once?",
-                      a: "Yes. When generating a challan, select multiple months from the month picker. Each month gets a separate challan, but you can upload a single shared proof that covers all of them.",
-                    },
-                    {
-                      q: "Why can't I change the amount on my challan?",
-                      a: "The amount is set by your admin based on your membership fee. If you think it's wrong, submit a Request to the admin and they'll fix it.",
-                    },
-                    {
-                      q: "How do I know if my campaign donation was accepted?",
-                      a: "You'll receive a notification when the admin approves your campaign challan. You can also check the campaign page — your name will appear in the donor list once approved.",
-                    },
-                    {
-                      q: "How do I reset my password?",
-                      a: 'Click "Forgot Password" on the login page. Enter your email and you\'ll receive a reset link. If it doesn\'t arrive, check your spam folder or contact the admin.',
-                    },
-                    {
-                      q: "Why can't I see other members' data?",
-                      a: "For privacy, you can only see your own challans and profile. If you need information about a payment or the organisation, submit a Request to the admin.",
-                    },
-                    {
-                      q: "I completed my profile but the system still says it's incomplete — what do I do?",
-                      a: "Make sure you've filled in all required fields: full name, phone number, and address. After saving, refresh the page. If the prompt keeps appearing, submit a Request.",
-                    },
-                  ].map(({ q, a }) => (
-                    <div key={q} className="space-y-1.5 pt-4 first:pt-0">
-                      <div className="flex items-start gap-2">
-                        <HelpCircle className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-                        <p className="font-semibold text-slate-800">{q}</p>
-                      </div>
-                      <p className="text-slate-600 pl-6">{a}</p>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              {/* Member contact card */}
-              <Card className="border-2 border-emerald-200 bg-emerald-50/40">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-emerald-700">
-                    <MessageSquare className="w-5 h-5" />
-                    Still Need Help?
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-slate-700 space-y-2">
-                  <p>If you can't find an answer here:</p>
-                  <ul className="space-y-1 pl-2">
-                    <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-emerald-500" />Submit a <strong>Request</strong> via the Requests page — admins will respond there</li>
-                    <li className="flex items-center gap-2"><ChevronRight className="w-4 h-4 text-emerald-500" />Contact your admin directly by phone or WhatsApp</li>
-                  </ul>
-                  <p className="text-slate-500 pt-2 text-xs">{APP_BRAND.NAME} v2.0 · Member Guide · Last updated April 2026</p>
-                </CardContent>
-              </Card>
-            </>
+            groups.map(([heading, items]) => (
+              <section key={heading} className="space-y-2">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{heading}</h2>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {items.map((t) => <TaskCard key={t.id} task={t} lang={lang} onOpen={setOpen} />)}
+                </div>
+              </section>
+            ))
           )}
-
-        </TabsContent>
-
-      </Tabs>
+          <p className="text-sm text-slate-500">{T.stillStuck}</p>
+        </>
+      )}
     </div>
   );
 }

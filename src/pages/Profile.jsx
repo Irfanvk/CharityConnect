@@ -1,5 +1,5 @@
-import React, { useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { charityClient } from "@/api/charityClient";
 import { useAuth } from "@/lib/AuthContext";
@@ -163,6 +163,15 @@ export default function Profile() {
   const { logout } = useAuth();
 
   const [cropOpen, setCropOpen] = useState(false);
+  // "Add your photo" (top bar / dashboard) opens the photo picker straight away.
+  const [photoParams, setPhotoParams] = useSearchParams();
+  useEffect(() => {
+    if (photoParams.get("photo") !== "1") return;
+    setCropOpen(true);
+    const next = new URLSearchParams(photoParams);
+    next.delete("photo");
+    setPhotoParams(next, { replace: true });
+  }, [photoParams, setPhotoParams]);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
@@ -220,7 +229,7 @@ export default function Profile() {
 
   const { data: myRequests = [] } = useQuery({
     queryKey: ["requests", "mine", user?.id],
-    queryFn: () => charityClient.requests.list({ limit: 200 }),
+    queryFn: () => charityClient.requests.list({ limit: 200, mine: true }),
     enabled: Boolean(user),
   });
 
@@ -266,10 +275,13 @@ export default function Profile() {
   const recentPayments = payments.slice(0, 3);
 
   // ── Photo ──────────────────────────────────────────────────────────────────
+  // Every photo change is approved by an admin, admins' own too, whenever there is a member
+  // record to attach the request to (the server enforces this).
+  const photoNeedsApproval = isMember || Boolean(memberProfile?.id);
   const handleAvatarSave = async (file) => {
     setUploadingAvatar(true);
     try {
-      if (isMember) {
+      if (photoNeedsApproval) {
         const uploaded = await charityClient.files.uploadAvatar(file);
         const nextAvatarUrl = uploaded?.file_url || uploaded?.url || uploaded?.avatar_url;
         if (!nextAvatarUrl) throw new Error("Photo upload did not return a file URL");
@@ -296,7 +308,7 @@ export default function Profile() {
   const handleRemoveAvatar = async () => {
     setUploadingAvatar(true);
     try {
-      if (isMember) {
+      if (photoNeedsApproval) {
         await charityClient.requests.create({
           request_type: "profile_update",
           subject: "Profile photo removal request",

@@ -1591,6 +1591,21 @@ const charityClient = {
   },
 
   // Audit logs for admin
+  /** Occasion banners (backend app/services/banner_service.py). */
+  banners: {
+    login: () => apiFetch(API_PATHS.banners.login, { method: 'GET' }),
+    forMe: () => apiFetch(API_PATHS.banners.forMe, { method: 'GET' }),
+    list: () => apiFetch(API_PATHS.banners.list, { method: 'GET' }),
+    create: (data) => apiFetch(API_PATHS.banners.list, { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => apiFetch(API_PATHS.banners.byId(id), { method: 'PUT', body: JSON.stringify(data) }),
+    remove: (id) => apiFetch(API_PATHS.banners.byId(id), { method: 'DELETE' }),
+    uploadImage: async (file) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return apiFetch(API_PATHS.banners.image, { method: 'POST', headers: {}, body: formData });
+    },
+  },
+
   /** Relief fund claims (backend app/services/relief_service.py). */
   relief: {
     me: () => apiFetch(API_PATHS.relief.me, { method: 'GET' }),
