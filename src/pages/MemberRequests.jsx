@@ -39,7 +39,7 @@ export default function MemberRequests() {
 
   const { data: requests = [], isLoading } = useQuery({
     queryKey: queryKeys.requests.mine("all"),
-    queryFn: () => charityClient.requests.list({ limit: 200 }),
+    queryFn: () => charityClient.requests.list({ limit: 200, mine: true }),
   });
 
   const cancelMutation = useMutation({

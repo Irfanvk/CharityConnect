@@ -26,7 +26,9 @@ import {
   Wallet,
   Landmark,
   MapPinned,
-  HandHeart
+  HandHeart,
+  Camera,
+  Image as ImageIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,6 +40,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import NotificationManager from "@/components/NotificationManager";
+import UserAvatar from "@/components/UserAvatar";
 import NotificationGate, { NotificationsOffBar } from "@/components/NotificationGate";
 import ActivationWelcome from "@/components/ActivationWelcome";
 import LocationGate from "@/components/LocationGate";
@@ -151,7 +154,6 @@ export default function Layout({ children, currentPageName }) {
     currentUser?.username?.trim() ||
     currentUser?.email?.split('@')[0] ||
     'User';
-  const avatarInitial = displayName?.charAt(0)?.toUpperCase() || 'U';
   const hasRequestsPage = Boolean(pagesConfig?.Pages?.[ROUTE_KEYS.REQUESTS]);
 
   const navigation = [
@@ -163,6 +165,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Bank Details", href: ROUTE_KEYS.BANK_DETAILS, path: PAGE_PATHS.BANK_DETAILS, icon: Landmark, hidden: !bankDetailsEnabled, description: "Official account and QR for payments" },
     { name: "Reports", href: ROUTE_KEYS.REPORTS, path: PAGE_PATHS.REPORTS, icon: FileText, adminOnly: true, description: "Financial summaries and exports" },
     { name: "Audit Logs", href: ROUTE_KEYS.AUDIT_LOGS, path: PAGE_PATHS.AUDIT_LOGS, icon: Settings, adminOnly: true, description: "Who changed what and when" },
+    { name: "Banners", href: ROUTE_KEYS.BANNERS, path: PAGE_PATHS.BANNERS, icon: ImageIcon, adminOnly: true, description: "Pictures for occasions on login and dashboards" },
     { name: "Relief Fund", href: ROUTE_KEYS.RELIEF, path: PAGE_PATHS.RELIEF, icon: HandHeart, description: "Help for members: death, illness, retirement" },
     { name: "Fund Utilization", href: ROUTE_KEYS.FUND_UTILIZATION, path: PAGE_PATHS.FUND_UTILIZATION, icon: Wallet, adminOnly: true, description: "How funds are being used" },
     ...(hasRequestsPage
@@ -372,13 +375,7 @@ export default function Layout({ children, currentPageName }) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors select-none">
-                    <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-semibold">
-                      {currentUser.avatar_url ? (
-                        <img src={currentUser.avatar_url} alt={displayName} className="w-10 h-10 object-cover" />
-                      ) : (
-                        avatarInitial
-                      )}
-                    </div>
+                    <UserAvatar url={currentUser.avatar_url} name={displayName} size="sm" showAdd />
                     <div className="flex-1 text-left">
                       <p className="font-medium text-slate-800 dark:text-white text-sm truncate">{displayName}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{currentUser.role}</p>
@@ -467,6 +464,44 @@ export default function Layout({ children, currentPageName }) {
                   )}
                 </Button>
               </Link>
+              {/* Own photo on every page; tap for the account menu. No photo: initials with a "+". */}
+              {currentUser && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button" className="rounded-full select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" aria-label="Account menu">
+                      <UserAvatar url={currentUser.avatar_url} name={displayName} size="sm" showAdd />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-60">
+                    <div className="flex items-center gap-3 px-2 py-2">
+                      <UserAvatar url={currentUser.avatar_url} name={displayName} size="md" />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{displayName}</p>
+                        <p className="text-xs capitalize text-slate-500">{currentUser.role}</p>
+                      </div>
+                    </div>
+                    {!currentUser.avatar_url && (
+                      <DropdownMenuItem asChild>
+                        <Link to={`${PAGE_PATHS.PROFILE}?photo=1`} className="flex items-center gap-2 font-medium text-emerald-700">
+                          <Camera className="w-4 h-4" />
+                          Add your photo
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem asChild>
+                      <Link to={PAGE_PATHS.PROFILE} className="flex items-center gap-2">
+                        <User className="w-4 h-4" />
+                        My Profile
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => logout()} className="text-rose-600">
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
           </div>
         </header>
