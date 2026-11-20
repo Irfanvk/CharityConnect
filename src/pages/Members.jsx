@@ -41,7 +41,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2, X, Download, ChevronDown, ChevronUp, AlertTriangle, UserPlus, MessageCircle, Copy, CheckCircle2, HandCoins } from "lucide-react";
+import { Plus, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2, X, Download, ChevronDown, ChevronUp, AlertTriangle, UserPlus, MessageCircle, Copy, CheckCircle2, HandCoins, CalendarOff } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import SeasonalDialog from "@/components/members/SeasonalDialog";
+import ExcuseRequestsBar from "@/components/members/ExcuseRequestsBar";
 import { format } from "date-fns";
 import MemberForm from "@/components/members/MemberForm";
 import MembersFilterBar from "@/components/members/MembersFilterBar";
@@ -98,6 +101,8 @@ export default function Members() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [recordMember, setRecordMember] = useState(null);
+  const [seasonalMember, setSeasonalMember] = useState(null);
+  const [linkParams, setLinkParams] = useSearchParams();
   const isSuperAdmin = user?.role === 'superadmin';
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
 
@@ -111,6 +116,14 @@ export default function Members() {
       toast({ title: 'Invite failed', description: err?.message || 'Could not create invite.', variant: 'destructive' });
     },
   });
+
+  // A notification can open a member's excused months / pledge: /Members?member=<id>&tab=seasonal
+  React.useEffect(() => {
+    const id = Number(linkParams.get("member"));
+    if (linkParams.get("tab") !== "seasonal" || !id) return;
+    charityClient.members.get(id).then(setSeasonalMember).catch(() => {});
+    setLinkParams((prev) => { const next = new URLSearchParams(prev); next.delete("member"); next.delete("tab"); return next; }, { replace: true });
+  }, [linkParams, setLinkParams]);
 
   const handleSendInvite = () => {
     if (!inviteDialogMember) return;
@@ -858,6 +871,13 @@ export default function Members() {
         )}
       </div>
 
+      {isAdmin && <ExcuseRequestsBar onReview={setSeasonalMember} />}
+
+      {isAdmin && (
+        <SeasonalDialog member={seasonalMember} open={Boolean(seasonalMember)}
+          onOpenChange={(next) => { if (!next) setSeasonalMember(null); }} />
+      )}
+
       {isAdmin && (
         <AdminRecordPaymentForm
           open={!!recordMember}
@@ -1104,6 +1124,13 @@ export default function Members() {
                             <DropdownMenuItem onClick={() => setRecordMember(member)} className="text-emerald-600">
                               <HandCoins className="w-4 h-4 mr-2" />
                               Record payment
+                            </DropdownMenuItem>
+                          )}
+
+                          {isAdmin && (
+                            <DropdownMenuItem onClick={() => setSeasonalMember(member)}>
+                              <CalendarOff className="w-4 h-4 mr-2" />
+                              Excused months / pledge
                             </DropdownMenuItem>
                           )}
 

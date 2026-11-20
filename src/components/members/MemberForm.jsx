@@ -202,6 +202,11 @@ export default function MemberForm({ open, onOpenChange, member, onSubmit, sugge
               />
             </div>
           </div>
+          {member?.id && member.monthly_member === false && (
+            <p className="rounded-md border border-slate-200 bg-slate-50 p-2 text-sm text-slate-700">
+              Not a monthly member: no monthly fee is owed. To start monthly membership, use “Excused months / pledge” in the member’s menu, then set the fee here.
+            </p>
+          )}
           {member?.id && (
             <FeeHistory memberId={member.id} currentFee={member.monthly_amount} newFee={formData.monthly_amount} />
           )}

@@ -21,6 +21,8 @@ const sum = (rows, state) => {
   return { n: picked.length, amount: picked.reduce((a, r) => a + Number(r.amount || 0), 0) };
 };
 
+const NOT_OWED = ["excused", "pledge", "not_monthly"];
+
 function rowState(row, currentMonth) {
   if (row.ahead && row.state === "paid") return "paid";
   if (row.state === "not_paid" && row.month > currentMonth) return "future";
@@ -55,7 +57,9 @@ function buildDoc(L, data, view, year) {
       [L.t("memberId"), formatMemberId(m.member_code)],
       [L.t("phone"), m.phone || "—"],
       [L.t("livesIn"), [m.city, m.country_name].filter(Boolean).join(", ") || "—"],
-      [L.t("monthlyFee"), m.monthly_amount > 0 ? L.money(m.monthly_amount) : L.t("feeNotSet")],
+      [L.t("monthlyFee"), data.monthly_member === false ? L.t("notMonthly") : m.monthly_amount > 0 ? L.money(m.monthly_amount) : L.t("feeNotSet")],
+      ...(data.totals.pledges || []).map((p) => [`${L.t("pledgeMonth")} ${p.label}`,
+        `${L.money(p.amount)} · ${L.t("paid")} ${L.money(p.paid + p.waiting)} · ${L.t("pledgeLeft")} ${L.money(p.left)}`]),
       [L.t("joined"), L.date(m.join_date)],
       [L.t("period"), period],
       paidLine(L, data.totals),
@@ -82,7 +86,7 @@ function buildDoc(L, data, view, year) {
             cells: {
               month: L.month(r.month),
               status: r.ahead ? L.t("paidAhead") : L.stateLabel(state),
-              amount: L.money(r.amount),
+              amount: NOT_OWED.includes(state) ? "" : L.money(r.amount),
               date: r.paid_on ? L.date(r.paid_on) : r.handed_in_on ? L.date(r.handed_in_on) : "",
               method: r.method ? L.method(r.method) : r.note || "",
             },
@@ -107,6 +111,7 @@ function buildDoc(L, data, view, year) {
       { state: "paid", label: L.t("paid") },
       { state: "waiting", label: L.t("waiting") },
       { state: "not_paid", label: L.t("notPaid") },
+      ...NOT_OWED.filter((st) => view.rows.some((r) => r.state === st)).map((st) => ({ state: st, label: L.stateLabel(st) })),
     ],
   };
 }
@@ -122,7 +127,7 @@ function MonthBox({ L, row, currentMonth }) {
     >
       <span className="text-xs font-semibold">{L.monthOnly(row.month)}</span>
       <span aria-hidden className="text-xl leading-6">{s.icon || "·"}</span>
-      <span className="text-[11px] tabular-nums">{state === "future" ? "" : L.money(row.amount)}</span>
+      <span className="text-[11px] tabular-nums">{state === "future" ? "" : NOT_OWED.includes(state) ? L.stateLabel(state) : L.money(row.amount)}</span>
     </div>
   );
 }

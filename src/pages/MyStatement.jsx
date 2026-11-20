@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { AlertCircle, ArrowLeft, CheckCircle2, Clock, Loader2, Receipt, XCircle } from "lucide-react";
+import { AlertCircle, ArrowLeft, CalendarOff, CheckCircle2, Clock, HandCoins, Loader2, Receipt, XCircle } from "lucide-react";
 import { charityClient } from "@/api/charityClient";
 import { Button } from "@/components/ui/button";
 import ReceiptDialog from "@/components/challans/ReceiptDialog";
+import ExcuseRequestDialog from "@/components/members/ExcuseRequestDialog";
 import { receiptDate } from "@/components/challans/ReceiptCard";
 import { monthName, useT } from "@/lib/appLanguage";
 
@@ -21,6 +22,9 @@ const STATE = {
   not_paid: { label: "Not paid", cls: "border-rose-200 bg-rose-50 text-rose-800", icon: AlertCircle },
   rejected: { label: "Not accepted", cls: "border-rose-200 bg-rose-50 text-rose-800", icon: XCircle },
   ahead: { label: "Later", cls: "border-slate-200 bg-slate-50 text-slate-500", icon: null },
+  excused: { label: "Excused", cls: "border-sky-200 bg-sky-50 text-sky-800", icon: CalendarOff },
+  pledge: { label: "Pledge year", cls: "border-violet-200 bg-violet-50 text-violet-800", icon: HandCoins },
+  not_monthly: { label: "No monthly fee", cls: "border-slate-200 bg-slate-50 text-slate-500", icon: null },
 };
 
 export default function MyStatement() {
@@ -36,6 +40,7 @@ export default function MyStatement() {
   const months_ = (n) => t(n === 1 ? "1 month" : "{n} months", { n });
   const [year, setYear] = useState(null);
   const [receiptFor, setReceiptFor] = useState(null);
+  const [askOpen, setAskOpen] = useState(false);
   const { data, isLoading, error } = useQuery({
     queryKey: ["my-statement", year],
     queryFn: () => charityClient.reports.myStatement(year),
@@ -48,6 +53,10 @@ export default function MyStatement() {
   const paid = months.filter((m) => m.state === "paid");
   const waiting = months.filter((m) => m.state === "waiting");
   const sum = (list) => list.reduce((s, m) => s + Number(m.amount || 0), 0);
+  const pledge = (data?.totals?.pledges || [])[0] || null;   // this year's pledge, if any
+  const monthlyMember = data?.monthly_member !== false;
+  const owedAmount = sum(owed) + Number(pledge?.left || 0);
+  const askable = months.filter((m) => m.state === "not_paid").map((m) => m.month);
   const openReceipt = (r) => setReceiptFor(r.bulk_group_id ? { bulkGroupId: r.bulk_group_id } : { challanId: r.challan_id });
 
   return (
@@ -57,7 +66,7 @@ export default function MyStatement() {
       </div>
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{t("My statement")}</h1>
-        {data?.member && <p className="text-slate-600 dark:text-slate-300">{data.member.name} · {data.member.member_code} · {t("{amount} a month", { amount: inr(data.member.monthly_amount) })}</p>}
+        {data?.member && <p className="text-slate-600 dark:text-slate-300">{data.member.name} · {data.member.member_code} · {monthlyMember ? t("{amount} a month", { amount: inr(data.member.monthly_amount) }) : t("No monthly fee")}</p>}
       </div>
 
       {isLoading ? (
@@ -88,12 +97,24 @@ export default function MyStatement() {
               <p className="text-lg font-bold">{inr(sum(waiting))}</p>
               <p className="text-xs">{months_(waiting.length)}</p>
             </div>
-            <div className={`rounded-2xl border p-3 ${owed.length ? "border-rose-200 bg-rose-50 text-rose-900" : "border-slate-200 bg-white text-slate-700"}`}>
+            <div className={`rounded-2xl border p-3 ${owedAmount > 0 ? "border-rose-200 bg-rose-50 text-rose-900" : "border-slate-200 bg-white text-slate-700"}`}>
               <p className="text-xs font-semibold uppercase">{t("Still owed")}</p>
-              <p className="text-lg font-bold">{inr(sum(owed))}</p>
-              <p className="text-xs">{months_(owed.length)} · {t("up to now")}</p>
+              <p className="text-lg font-bold">{inr(owedAmount)}</p>
+              <p className="text-xs">{pledge ? t("of your pledge") : `${months_(owed.length)} · ${t("up to now")}`}</p>
             </div>
           </div>
+
+          {!monthlyMember && (
+            <p className="rounded-2xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
+              {t("You are not a monthly member, so no monthly fee is owed. Thank you for your contributions.")}
+            </p>
+          )}
+          {pledge && (
+            <div className="rounded-2xl border border-violet-200 bg-violet-50 p-3 text-sm text-violet-900">
+              <p className="font-semibold">{t("Your pledge for {label}: {amount}", { label: pledge.label, amount: inr(pledge.amount) })}</p>
+              <p>{t("Paid {paid} · left {left}. Pay whenever you can, before the end of July.", { paid: inr(pledge.paid + pledge.waiting), left: inr(pledge.left) })}</p>
+            </div>
+          )}
 
           {/* Months of the year */}
           <section className="space-y-2">
@@ -108,7 +129,8 @@ export default function MyStatement() {
                       <span className="font-semibold">{month(m.month)}</span>
                       {Icon && <Icon className="h-4 w-4 shrink-0" />}
                     </div>
-                    <p className="text-sm">{t(s.label)} · {inr(m.amount)}</p>
+                    <p className="text-sm">{t(s.label)}{["excused", "pledge", "not_monthly"].includes(m.state) ? "" : ` · ${inr(m.amount)}`}</p>
+                    {m.state === "excused" && m.note && <p className="text-xs opacity-80">{m.note}</p>}
                     {m.paid_on && <p className="text-xs opacity-80">{t("on {date}", { date: receiptDate(m.paid_on) })}</p>}
                     {m.state === "paid" && m.challan_id && (
                       <button type="button" onClick={() => setReceiptFor({ challanId: m.challan_id })} className="mt-1 text-xs font-semibold underline underline-offset-2">{t("Receipt")}</button>
@@ -117,9 +139,16 @@ export default function MyStatement() {
                 );
               })}
             </ul>
-            {owed.length > 0 && (
-              <Button asChild className="h-11 bg-emerald-600 hover:bg-emerald-700"><Link to="/Challans">{t("Pay what I owe")}</Link></Button>
-            )}
+            <div className="flex flex-wrap gap-2">
+              {owedAmount > 0 && (
+                <Button asChild className="h-11 bg-emerald-600 hover:bg-emerald-700"><Link to="/Challans">{t("Pay what I owe")}</Link></Button>
+              )}
+              {monthlyMember && !pledge && askable.length > 0 && (
+                <Button variant="outline" className="h-11 gap-1.5 bg-white" onClick={() => setAskOpen(true)}>
+                  <CalendarOff className="h-4 w-4" />{t("Ask to be excused")}
+                </Button>
+              )}
+            </div>
           </section>
 
           {/* Every payment */}
@@ -164,6 +193,7 @@ export default function MyStatement() {
       ) : null}
 
       <ReceiptDialog target={receiptFor} onOpenChange={(v) => { if (!v) setReceiptFor(null); }} />
+      <ExcuseRequestDialog open={askOpen} onOpenChange={setAskOpen} months={askable} />
     </div>
   );
 }

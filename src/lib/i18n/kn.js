@@ -127,6 +127,28 @@ const kn = {
   "Change photo": "ಫೋಟೋ ಬದಲಿಸಿ",
   "Remove photo": "ಫೋಟೋ ತೆಗೆದುಹಾಕಿ",
   "Rejected": "ತಿರಸ್ಕರಿಸಲಾಗಿದೆ",
+  // excused months and pledges
+  "Excused": "ವಿನಾಯಿತಿ",
+  "Pledge year": "ವಾರ್ಷಿಕ ವಾಗ್ದಾನ",
+  "No monthly fee": "ಮಾಸಿಕ ಶುಲ್ಕ ಇಲ್ಲ",
+  "of your pledge": "ನಿಮ್ಮ ವಾಗ್ದಾನದಲ್ಲಿ",
+  "You are not a monthly member, so no monthly fee is owed. Thank you for your contributions.": "ನೀವು ಮಾಸಿಕ ಸದಸ್ಯರಲ್ಲ, ಆದ್ದರಿಂದ ಮಾಸಿಕ ಶುಲ್ಕ ಬಾಕಿ ಇಲ್ಲ. ನಿಮ್ಮ ಕೊಡುಗೆಗಳಿಗೆ ಧನ್ಯವಾದಗಳು.",
+  "Your pledge for {label}: {amount}": "{label} ವರ್ಷದ ನಿಮ್ಮ ವಾಗ್ದಾನ: {amount}",
+  "Paid {paid} · left {left}. Pay whenever you can, before the end of July.": "ಪಾವತಿಸಿದ್ದು {paid} · ಬಾಕಿ {left}. ಜುಲೈ ಅಂತ್ಯದೊಳಗೆ ಸಾಧ್ಯವಾದಾಗ ಪಾವತಿಸಿ.",
+  "Ask to be excused": "ವಿನಾಯಿತಿ ಕೇಳಿ",
+  "If you cannot pay some months (for example, no work), ask the committee. If they agree, nothing is owed for those months.": "ಕೆಲವು ತಿಂಗಳು ಪಾವತಿಸಲು ಸಾಧ್ಯವಾಗದಿದ್ದರೆ (ಉದಾ. ಕೆಲಸವಿಲ್ಲ), ಸಮಿತಿಯನ್ನು ಕೇಳಿ. ಅವರು ಒಪ್ಪಿದರೆ ಆ ತಿಂಗಳುಗಳಿಗೆ ಏನೂ ಬಾಕಿ ಇರುವುದಿಲ್ಲ.",
+  "There is no month to ask for in this year.": "ಈ ವರ್ಷ ಕೇಳಲು ಯಾವ ತಿಂಗಳೂ ಇಲ್ಲ.",
+  "Which months?": "ಯಾವ ತಿಂಗಳುಗಳು?",
+  "Why?": "ಏಕೆ?",
+  "e.g. No work these months": "ಉದಾ. ಈ ತಿಂಗಳುಗಳಲ್ಲಿ ಕೆಲಸವಿಲ್ಲ",
+  "Send request": "ವಿನಂತಿ ಕಳುಹಿಸಿ",
+  "Waiting for the committee": "ಸಮಿತಿಯ ಉತ್ತರಕ್ಕೆ ಕಾಯಲಾಗುತ್ತಿದೆ",
+  "Not approved": "ಅನುಮೋದಿಸಲಾಗಿಲ್ಲ",
+  "Withdraw": "ಹಿಂಪಡೆಯಿರಿ",
+  "Not sent": "ಕಳುಹಿಸಲಾಗಿಲ್ಲ",
+  "Please try again.": "ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+  "Request sent": "ವಿನಂತಿ ಕಳುಹಿಸಲಾಗಿದೆ",
+  "The committee will answer you here.": "ಸಮಿತಿ ಇಲ್ಲಿ ಉತ್ತರಿಸುತ್ತದೆ.",
 };
 
 export default kn;
