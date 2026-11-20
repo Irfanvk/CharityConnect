@@ -849,11 +849,15 @@ const charityClient = {
       }
     },
 
-    delete: async (id) => {
+    delete: async (id, reason) => {
       return apiFetch(API_PATHS.challans.byId(id), {
         method: 'DELETE',
-      });
+      }, reason ? { reason } : undefined);
     },
+
+    // Payments members started without proof (admins: open 48+ hours by default).
+    unfinished: async (query = {}) => apiFetch(API_PATHS.challans.unfinished, { method: 'GET' }, query),
+    remind: async (id) => apiFetch(API_PATHS.challans.remind(id), { method: 'POST' }),
 
     uploadProof: async (id, file) => {
       const formData = new FormData();

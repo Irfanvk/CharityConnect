@@ -42,6 +42,8 @@ export const API_PATHS = {
     outstanding: '/challans/outstanding',
     communityStats: '/challans/community-stats',
     payableMonths: '/challans/payable-months',
+    unfinished: '/challans/unfinished',
+    remind: (id) => `/challans/${id}/remind`,
     adminRecord: '/challans/admin-record',
     cashCollected: '/admin/reports/cash-collected',
     importHistory: '/challans/import/history',
