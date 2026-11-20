@@ -57,6 +57,7 @@ import Dashboard from './pages/Dashboard';
 import FundUtilization from './pages/FundUtilization';
 import Relief from './pages/Relief';
 import Banners from './pages/Banners';
+import Unfinished from './pages/Unfinished';
 import Documentation from './pages/Documentation';
 import Import from './pages/Import';
 import MemberRequests from './pages/MemberRequests';
@@ -87,6 +88,7 @@ export const PAGES = {
     "FundUtilization": FundUtilization,
     "Relief": Relief,
     "Banners": Banners,
+    "Unfinished": Unfinished,
     "Documentation": Documentation,
     "Import": Import,
     "MemberRequests": MemberRequests,

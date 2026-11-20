@@ -28,7 +28,8 @@ import {
   MapPinned,
   HandHeart,
   Camera,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Hourglass
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -161,6 +162,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Community", href: ROUTE_KEYS.COMMUNITY, path: PAGE_PATHS.COMMUNITY, icon: Users2, description: "Members, collections, and spending" },
     { name: "Members", href: ROUTE_KEYS.MEMBERS, path: PAGE_PATHS.MEMBERS, icon: Users, adminOnly: true, description: "Who is part of the organisation" },
     { name: "Challans", href: ROUTE_KEYS.CHALLANS, path: PAGE_PATHS.CHALLANS, icon: Receipt, description: "Payments, receipts, and proof uploads" },
+    { name: "Unfinished payments", href: ROUTE_KEYS.UNFINISHED, path: PAGE_PATHS.UNFINISHED, icon: Hourglass, adminOnly: true, description: "Payments members started without proof" },
     { name: "Campaigns", href: ROUTE_KEYS.CAMPAIGNS, path: PAGE_PATHS.CAMPAIGNS, icon: Heart, description: "Causes you can support and track" },
     { name: "Bank Details", href: ROUTE_KEYS.BANK_DETAILS, path: PAGE_PATHS.BANK_DETAILS, icon: Landmark, hidden: !bankDetailsEnabled, description: "Official account and QR for payments" },
     { name: "Reports", href: ROUTE_KEYS.REPORTS, path: PAGE_PATHS.REPORTS, icon: FileText, adminOnly: true, description: "Financial summaries and exports" },

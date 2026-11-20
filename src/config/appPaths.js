@@ -26,6 +26,7 @@ export const ROUTE_KEYS = {
   BANK_DETAILS: 'BankDetails',
   RELIEF: 'Relief',
   BANNERS: 'Banners',
+  UNFINISHED: 'Unfinished',
 };
 
 export const APP_PATHS = {
@@ -54,6 +55,7 @@ export const PAGE_PATHS = {
   FUND_UTILIZATION: createPageUrl(ROUTE_KEYS.FUND_UTILIZATION),
   RELIEF: createPageUrl(ROUTE_KEYS.RELIEF),
   BANNERS: createPageUrl(ROUTE_KEYS.BANNERS),
+  UNFINISHED: createPageUrl(ROUTE_KEYS.UNFINISHED),
   BANK_DETAILS: createPageUrl(ROUTE_KEYS.BANK_DETAILS),
 };
 

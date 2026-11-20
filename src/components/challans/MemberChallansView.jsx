@@ -15,6 +15,11 @@ import { formatMonth, isNotPaidYet } from "@/lib/challanStatus";
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 
+/** Started by the member but nothing handed in yet: they can upload the proof or cancel it. */
+export const isUnfinished = (c) =>
+  Boolean(c) && !c.is_bulk_group && c.entry_source === "self" && c.status !== "rejected"
+  && (c.status === "generated" || isNotPaidYet(c));
+
 /** to_pay | waiting | paid */
 export function memberBucket(challan) {
   if (challan.status === "approved") return "paid";
@@ -88,7 +93,7 @@ function PaymentCard({ challan, onUpload, onViewProof, onDelete, canDelete, hasP
         )}
         {canDelete && (
           <Button variant="ghost" onClick={() => onDelete(challan)} className="h-11 gap-1.5 text-slate-500 hover:text-rose-600">
-            <Trash2 className="h-4 w-4" />Remove
+            <Trash2 className="h-4 w-4" />Cancel
           </Button>
         )}
       </div>
@@ -147,6 +152,7 @@ export default function MemberChallansView({
   const visible = Math.max(shown, linked && linked.key === tab ? linked.index + 1 : 0);
 
   const list = groups[tab];
+  const unfinished = groups.to_pay.filter(isUnfinished);
   return (
     <div className="space-y-4">
       {/* The answer first */}
@@ -166,6 +172,18 @@ export default function MemberChallansView({
           <p className="flex items-center gap-2 text-lg font-bold"><CheckCircle2 className="h-6 w-6 shrink-0" />You are paid up</p>
           {lastPaid && <p className="mt-1 text-sm">Paid up to {formatMonth(lastPaid)}. You can also pay ahead.</p>}
           <Button onClick={onPay} variant="outline" className="mt-3 h-11 border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100">Pay ahead or donate</Button>
+        </div>
+      )}
+      {unfinished.length > 0 && (
+        <div className={`rounded-xl border px-3 py-2 text-sm ${params.get("unfinished") ? "border-rose-300 bg-rose-50 text-rose-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+          <p className="flex items-center gap-2 font-semibold">
+            <Upload className="h-4 w-4 shrink-0" />
+            {unfinished.length === 1 ? "1 payment is not finished" : `${unfinished.length} payments are not finished`}
+          </p>
+          <p className="mt-0.5">
+            You started {unfinished.length === 1 ? "it" : "them"} but no proof was uploaded: {unfinished.slice(0, 4).map(whatFor).join(", ")}
+            {unfinished.length > 4 ? ` and ${unfinished.length - 4} more` : ""}. Tap <b>Upload proof</b> below, or <b>Cancel</b> if you started {unfinished.length === 1 ? "it" : "them"} by mistake.
+          </p>
         </div>
       )}
       {groups.waiting.length > 0 && (
@@ -221,8 +239,8 @@ export default function MemberChallansView({
                 onViewProof={onViewProof}
                 onDelete={onDelete}
                 hasProof={Boolean(getProofUrl(c)) || (c.is_bulk_group && memberBucket(c) !== "to_pay")}
-                // Only a challan the member made themself and has not paid yet can be removed.
-                canDelete={!c.is_bulk_group && c.status === "generated" && c.entry_source !== "admin" && c.entry_source !== "import"}
+                // Only a payment the member started themself, with no proof yet, can be cancelled.
+                canDelete={isUnfinished(c) || (!c.is_bulk_group && c.status === "generated" && c.entry_source !== "admin" && c.entry_source !== "import")}
               />
             ))}
           </ul>

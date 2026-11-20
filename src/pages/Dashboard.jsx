@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import UserAvatar from "@/components/UserAvatar";
 import BannerCarousel from "@/components/banners/BannerCarousel";
+import UnfinishedNotice from "@/components/dashboard/UnfinishedNotice";
 import { formatMemberId } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
 import { Users, Heart, TrendingUp, Calendar, Clock, Bell, BookOpen, LogOut, MapPinned, Receipt, User, Wallet } from "lucide-react";
@@ -447,6 +448,8 @@ export default function Dashboard() {
             </div>
           </div>
 
+          <UnfinishedNotice isAdmin />
+
           {showWayfinding ? <HomeMapSection /> : null}
 
           <SuperAdminDashboard
@@ -493,6 +496,8 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
+          <UnfinishedNotice isAdmin={false} />
 
           {showWayfinding ? <HomeMapSection /> : null}
 
@@ -548,6 +553,8 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        <UnfinishedNotice isAdmin />
 
         {showWayfinding ? <HomeMapSection /> : null}
 
