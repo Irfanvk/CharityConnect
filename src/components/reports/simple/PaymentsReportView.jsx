@@ -80,6 +80,8 @@ function YearChartDialog({ L, open, onOpenChange }) {
       const legend = [
         { state: "paid", label: L.t("paid") }, { state: "waiting", label: L.t("waiting") },
         { state: "not_paid", label: L.t("notPaid") }, { state: "before_join", label: L.t("beforeJoin") },
+        ...["excused", "pledge", "not_monthly"].filter((st) => grid.rows.some((r) => r.months.includes(st)))
+          .map((st) => ({ state: st, label: L.stateLabel(st) })),
       ];
       if (kind === "excel") {
         await downloadExcel({

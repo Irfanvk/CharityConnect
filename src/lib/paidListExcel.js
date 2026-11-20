@@ -9,7 +9,9 @@
  * one column per campaign given to that year | Total Campaigns | Grand Total.
  * The last row "Received Amount (Net Total)" sums every money column.
  * Paid months hold "P" in Wingdings 2 (shows as ✓) so =COUNTIF(…,"P") works as in their sheet;
- * W (waiting for approval) and "-" (before joining) are in Calibri.
+ * W (waiting for approval), E (excused: nothing owed) and "-" (before joining, or not a monthly
+ * member) are in Calibri. A yearly pledge is noted after the name; its pending amount is what
+ * is left of the pledge.
  */
 
 const BLUE = "FF0070C0";
@@ -163,7 +165,11 @@ export async function downloadPaidListExcel(data) {
       if (numFmt) c.numFmt = numFmt;
     };
     set(1, r.member_number ?? r.member_code, { align: "center" });
-    set(2, `${r.name}${r.status && r.status !== "active" ? " (inactive)" : ""}`, { font: calibri(14, false) });
+    const notes = [r.status && r.status !== "active" ? "inactive" : null,
+      r.monthly_member === false ? "not a monthly member" : null,
+      r.pledge ? `pledge ₹${Number(r.pledge.amount).toLocaleString("en-IN")}` : null].filter(Boolean);
+    set(2, `${r.name}${notes.length ? ` (${notes.join(", ")})` : ""}`, { font: calibri(14, false) });
+    const realSums = r.fee_varies || r.pledge || r.monthly_member === false;
     set(3, r.monthly_amount || 0, { numFmt: "0.00" });
     r.months.forEach((mark, i) => {
       const font = mark === "P" ? { name: "Wingdings 2", size: 14, bold: true, charset: 2, color: { argb: "FF000000" } } : calibri(14);
@@ -171,9 +177,9 @@ export async function downloadPaidListExcel(data) {
     });
     set(16, { formula: `COUNTIF(D${n}:O${n},"P")` }, { align: "center", color: GREEN_LIGHT });
     // The fee changed during this year: months x fee would be wrong, so write the real sums.
-    set(17, r.fee_varies ? r.received_amount : { formula: `SUM(P${n}*C${n})` }, { color: GREEN_LIGHT, numFmt: "0.00" });
+    set(17, realSums ? r.received_amount : { formula: `SUM(P${n}*C${n})` }, { color: GREEN_LIGHT, numFmt: "0.00" });
     set(PEND_M, r.pending_months || 0, { align: "center", color: ROSE });
-    set(PEND_A, r.fee_varies ? r.pending_amount : { formula: `SUM(${colName(PEND_M)}${n}*C${n})` }, { color: ROSE, numFmt: "0.00" });
+    set(PEND_A, realSums ? r.pending_amount : { formula: `SUM(${colName(PEND_M)}${n}*C${n})` }, { color: ROSE, numFmt: "0.00" });
     if (campaigns.length) {
       campaigns.forEach((cmp, i) => {
         const amount = r.campaigns?.[String(cmp.id)];

@@ -64,7 +64,7 @@ export default function DuesReportView({ L, onOpenMember }) {
     months: r.months_due,
     amount: r.amount_due,
     upto: r.paid_up_to ? L.month(r.paid_up_to) : r.last_paid_month ? `${L.t("lastMonthPaid")}: ${L.month(r.last_paid_month)}` : L.t("nothingPaidYet"),
-    list: r.due_months.map(L.month).join(", "),
+    list: [r.due_months.map(L.month).join(", "), r.pledge_left > 0 ? `${L.t("pledgeLeft")} ${L.money(r.pledge_left)}` : ""].filter(Boolean).join(" + "),
   }));
   const fileName = `${L.t("duesTitle")}-${data?.current_month || ""}`;
   const doc = () => ({
@@ -188,6 +188,7 @@ export default function DuesReportView({ L, onOpenMember }) {
                       {r.paid_up_to || !r.last_paid_month ? L.t("paidUpTo") : L.t("lastMonthPaid")}:{" "}
                       <b>{r.paid_up_to ? L.month(r.paid_up_to) : r.last_paid_month ? L.month(r.last_paid_month) : L.t("nothingPaidYet")}</b>
                       {" · "}{L.t("monthsNotPaid")}: {L.monthList(r.due_months)}
+                      {r.pledge_left > 0 && <span className="ml-1 font-semibold text-violet-700">+ {L.t("pledgeLeft")} {L.money(r.pledge_left)}</span>}
                       {r.monthly_amount <= 0 && <span className="ml-1 font-semibold text-amber-700">({L.t("feeNotSet")})</span>}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">

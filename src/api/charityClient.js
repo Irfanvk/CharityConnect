@@ -693,6 +693,28 @@ const charityClient = {
     // The member's monthly fee over time (admins).
     feeHistory: async (id) => apiFetch(`${API_PATHS.members.byId(id)}/fees`, { method: 'GET' }),
 
+    // Excused months, yearly pledges and monthly membership (admins; see backend seasonal.py).
+    seasonal: async (id) => apiFetch(`${API_PATHS.members.byId(id)}/seasonal`, { method: 'GET' }),
+    excuseMonths: async (id, { months, reason }) =>
+      apiFetch(`${API_PATHS.members.byId(id)}/excused`, { method: 'POST', body: JSON.stringify({ months, reason }) }),
+    decideExcused: async (id, excusedId, { approve, note }) =>
+      apiFetch(`${API_PATHS.members.byId(id)}/excused/${excusedId}/decide`, { method: 'POST', body: JSON.stringify({ approve, note: note || null }) }),
+    removeExcused: async (id, excusedId) =>
+      apiFetch(`${API_PATHS.members.byId(id)}/excused/${excusedId}`, { method: 'DELETE' }),
+    setPledge: async (id, { year, amount, note }) =>
+      apiFetch(`${API_PATHS.members.byId(id)}/pledges`, { method: 'PUT', body: JSON.stringify({ year, amount, note: note || null }) }),
+    removePledge: async (id, pledgeId) =>
+      apiFetch(`${API_PATHS.members.byId(id)}/pledges/${pledgeId}`, { method: 'DELETE' }),
+    setMonthlyMember: async (id, monthlyMember) =>
+      apiFetch(`${API_PATHS.members.byId(id)}/monthly-member`, { method: 'PUT', body: JSON.stringify({ monthly_member: Boolean(monthlyMember) }) }),
+    excuseRequests: async () => apiFetch('/excused/requests', { method: 'GET' }),
+    // The signed-in member's own
+    mySeasonal: async () => apiFetch('/members/me/seasonal', { method: 'GET' }),
+    requestExcused: async ({ months, reason }) =>
+      apiFetch('/members/me/excused-requests', { method: 'POST', body: JSON.stringify({ months, reason }) }),
+    cancelExcusedRequest: async (excusedId) =>
+      apiFetch(`/members/me/excused-requests/${excusedId}`, { method: 'DELETE' }),
+
     getByCode: async (code) => normalizeMember(await apiFetch(API_PATHS.members.byCode(code), { method: 'GET' })),
 
     create: async (data) =>
