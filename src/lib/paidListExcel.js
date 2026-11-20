@@ -170,9 +170,10 @@ export async function downloadPaidListExcel(data) {
       set(4 + i, mark || null, { align: "center", font });
     });
     set(16, { formula: `COUNTIF(D${n}:O${n},"P")` }, { align: "center", color: GREEN_LIGHT });
-    set(17, { formula: `SUM(P${n}*C${n})` }, { color: GREEN_LIGHT, numFmt: "0.00" });
+    // The fee changed during this year: months x fee would be wrong, so write the real sums.
+    set(17, r.fee_varies ? r.received_amount : { formula: `SUM(P${n}*C${n})` }, { color: GREEN_LIGHT, numFmt: "0.00" });
     set(PEND_M, r.pending_months || 0, { align: "center", color: ROSE });
-    set(PEND_A, { formula: `SUM(${colName(PEND_M)}${n}*C${n})` }, { color: ROSE, numFmt: "0.00" });
+    set(PEND_A, r.fee_varies ? r.pending_amount : { formula: `SUM(${colName(PEND_M)}${n}*C${n})` }, { color: ROSE, numFmt: "0.00" });
     if (campaigns.length) {
       campaigns.forEach((cmp, i) => {
         const amount = r.campaigns?.[String(cmp.id)];

@@ -1,7 +1,7 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { ArrowLeft, ClipboardList, FileText, HandCoins, UserRound, Wallet } from "lucide-react";
+import { ArrowLeft, ClipboardList, FileText, HandCoins, Receipt, UserRound, Wallet } from "lucide-react";
 import { charityClient } from "@/api/charityClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import MemberStatementView from "@/components/reports/simple/MemberStatementView
 import PaymentsReportView from "@/components/reports/simple/PaymentsReportView";
 import DuesReportView from "@/components/reports/simple/DuesReportView";
 import MoneySummaryView from "@/components/reports/simple/MoneySummaryView";
+import ReceiptsReportView from "@/components/reports/simple/ReceiptsReportView";
 
 /*
  * Reports for admins: four big buttons, each opening one plain report.
@@ -23,6 +24,7 @@ const VIEWS = {
   payments: { icon: ClipboardList, tone: "sky", title: "paymentsCard", sub: "paymentsCardSub" },
   dues: { icon: HandCoins, tone: "rose", title: "duesCard", sub: "duesCardSub" },
   summary: { icon: Wallet, tone: "violet", title: "summaryCard", sub: "summaryCardSub" },
+  receipts: { icon: Receipt, tone: "emerald", title: "receiptsCard", sub: "receiptsCardSub" },
 };
 
 export default function Reports() {
@@ -90,6 +92,7 @@ export default function Reports() {
       {view === "payments" && <PaymentsReportView L={L} onOpenMember={openMember} initialCampaign={legacyCampaign} />}
       {view === "dues" && <DuesReportView L={L} onOpenMember={openMember} />}
       {view === "summary" && <MoneySummaryView L={L} onOpenDues={() => go("dues")} />}
+      {view === "receipts" && <ReceiptsReportView />}
     </div>
   );
 }

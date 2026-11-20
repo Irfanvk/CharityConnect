@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { PAGE_PATHS } from "@/config/appPaths";
 import { usePublicSettings } from "@/lib/usePublicSettings";
 import { formatMemberId } from "@/lib/utils";
+import { AppLanguageSwitch, useT } from "@/lib/appLanguage";
 import { format } from "@/lib/dateTime";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import {
-  AtSign, BellRing, Camera, Globe, CheckCircle, ChevronRight, Inbox, Landmark, Loader2, LogOut, Mail, MapPin,
+  AtSign, BellRing, Camera, Globe, CheckCircle, ChevronRight, FileText, Inbox, Landmark, Loader2, LogOut, Mail, MapPin,
   MessageSquare, Phone, UserCircle, X, XCircle,
 } from "lucide-react";
 import AvatarCropUpload from "@/components/profile/AvatarCropUpload";
@@ -158,6 +159,7 @@ function LocationDialog({ open, onOpenChange, memberProfile }) {
 
 export default function Profile() {
   const { toast } = useToast();
+  const { t } = useT();
   const queryClient = useQueryClient();
   const bankDetailsEnabled = usePublicSettings().bank_details_enabled !== false;
   const { logout } = useAuth();
@@ -521,7 +523,7 @@ export default function Profile() {
               onClick={() => setCropOpen(true)}
               disabled={uploadingAvatar || photoPending}
               className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md transition hover:bg-emerald-700 disabled:opacity-50"
-              aria-label="Change photo"
+              aria-label={t("Change photo")}
               title={photoPending ? "Your new photo is waiting for approval." : "Change photo"}
             >
               {uploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
@@ -532,7 +534,7 @@ export default function Profile() {
                 onClick={handleRemoveAvatar}
                 disabled={uploadingAvatar}
                 className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-slate-500 shadow ring-1 ring-slate-200 transition hover:text-rose-600 disabled:opacity-50"
-                aria-label="Remove photo"
+                aria-label={t("Remove photo")}
                 title="Remove photo"
               >
                 <X className="h-3.5 w-3.5" />
@@ -566,26 +568,54 @@ export default function Profile() {
 
       <LocationDialog open={locationOpen} onOpenChange={setLocationOpen} memberProfile={memberProfile} />
 
+      {/* ── App language ── */}
+      <section>
+        <h2 className="mb-2 px-1 text-sm font-semibold text-slate-700 dark:text-slate-300">{t("Language")}</h2>
+        <Card className="border-0 p-4 shadow-sm">
+          <AppLanguageSwitch />
+          <p className="mt-2 text-xs text-slate-500">{t("The app shows in this language on all your devices.")}</p>
+        </Card>
+      </section>
+
+      {/* ── My payments: statement for anyone with a member record (admins too) ── */}
+      {memberProfile?.id && (
+        <section>
+          <h2 className="mb-2 px-1 text-sm font-semibold text-slate-700 dark:text-slate-300">{t("My payments")}</h2>
+          <Card className="overflow-hidden border-0 shadow-sm">
+            <Link to="/MyStatement" className="flex items-center gap-3 p-4 hover:bg-slate-50 dark:hover:bg-slate-800">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                <FileText className="h-5 w-5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold text-slate-900 dark:text-white">{t("My statement")}</span>
+                <span className="block text-sm text-slate-500">{t("Months paid and not paid, all my payments and receipts")}</span>
+              </span>
+              <ChevronRight className="h-5 w-5 text-slate-400" />
+            </Link>
+          </Card>
+        </section>
+      )}
+
       {/* ── My details ── */}
       <section>
-        <h2 className="mb-2 px-1 text-sm font-semibold text-slate-700 dark:text-slate-300">My details</h2>
+        <h2 className="mb-2 px-1 text-sm font-semibold text-slate-700 dark:text-slate-300">{t("My details")}</h2>
         <Card className="overflow-hidden border-0 shadow-sm">
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            <DetailRow icon={UserCircle} label="Full name" value={user.full_name} pending={pendingFields.has("full_name")} onClick={() => openEdit("full_name")} />
-            <DetailRow icon={Phone} label="Phone" value={user.phone || memberProfile?.phone} pending={pendingFields.has("phone")} onClick={() => openEdit("phone")} />
-            <DetailRow icon={Mail} label="Email" value={user.email} pending={pendingFields.has("email")} onClick={() => openEdit("email")} />
+            <DetailRow icon={UserCircle} label={t("Full name")} value={user.full_name} pending={pendingFields.has("full_name")} onClick={() => openEdit("full_name")} />
+            <DetailRow icon={Phone} label={t("Phone")} value={user.phone || memberProfile?.phone} pending={pendingFields.has("phone")} onClick={() => openEdit("phone")} />
+            <DetailRow icon={Mail} label={t("Email")} value={user.email} pending={pendingFields.has("email")} onClick={() => openEdit("email")} />
             {memberProfile && (
-              <DetailRow icon={MapPin} label="Address" value={memberProfile.address} pending={pendingFields.has("address")} onClick={() => openEdit("address")} />
+              <DetailRow icon={MapPin} label={t("Address")} value={memberProfile.address} pending={pendingFields.has("address")} onClick={() => openEdit("address")} />
             )}
             {memberProfile?.id && (
               <DetailRow
                 icon={Globe}
-                label="Lives in"
+                label={t("Lives in")}
                 value={isLocationComplete(memberProfile) ? formatLocation(memberProfile) : ""}
                 onClick={() => setLocationOpen(true)}
               />
             )}
-            <DetailRow icon={AtSign} label="Username" value={user.username} pending={pendingFields.has("username")} onClick={() => openEdit("username")} />
+            <DetailRow icon={AtSign} label={t("Username")} value={user.username} pending={pendingFields.has("username")} onClick={() => openEdit("username")} />
           </div>
         </Card>
         {isMember && (
@@ -598,7 +628,7 @@ export default function Profile() {
       {/* ── My contribution ── */}
       {memberProfile && (
         <section>
-          <h2 className="mb-2 px-1 text-sm font-semibold text-slate-700 dark:text-slate-300">My contribution</h2>
+          <h2 className="mb-2 px-1 text-sm font-semibold text-slate-700 dark:text-slate-300">{t("My contribution")}</h2>
           <Card className="border-0 shadow-sm">
             <CardContent className="space-y-4 p-4">
               <div className="flex items-start justify-between gap-3">
@@ -665,26 +695,26 @@ export default function Profile() {
 
       {/* ── Help ── */}
       <section>
-        <h2 className="mb-2 px-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Help</h2>
+        <h2 className="mb-2 px-1 text-sm font-semibold text-slate-700 dark:text-slate-300">{t("Help")}</h2>
         <Card className="overflow-hidden border-0 shadow-sm">
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {isMember && (
-              <ActionRow icon={MessageSquare} label="Ask the admins" hint="Questions, suggestions or complaints" onClick={() => setHelpOpen(true)} />
+              <ActionRow icon={MessageSquare} label={t("Ask the admins")} hint="Questions, suggestions or complaints" onClick={() => setHelpOpen(true)} />
             )}
             {reminder?.applies && (
               <ActionRow
                 icon={BellRing}
-                label="Payment reminder"
+                label={t("Payment reminder")}
                 hint={!reminder.organisation_enabled ? "Paused by the admins" : reminder.enabled ? `${ordinal(reminder.day)} of every month` : "Off"}
                 onClick={() => setReminderOpen(true)}
               />
             )}
             {bankDetailsEnabled && (
-              <ActionRow icon={Landmark} label="Bank details" hint="Official account and QR for payments" to={PAGE_PATHS.BANK_DETAILS} />
+              <ActionRow icon={Landmark} label={t("Bank details")} hint="Official account and QR for payments" to={PAGE_PATHS.BANK_DETAILS} />
             )}
             <ActionRow
               icon={Inbox}
-              label="My requests"
+              label={t("My requests")}
               hint={pendingRequests.length ? `${pendingRequests.length} waiting for an admin` : "See the status of your requests"}
               to={PAGE_PATHS.REQUESTS}
             />
@@ -710,7 +740,7 @@ export default function Profile() {
         </div>
       )}
 
-      <p className="pb-2 text-center text-[11px] text-slate-400" aria-label="App version">
+      <p className="pb-2 text-center text-[11px] text-slate-400" aria-label={t("App version")}>
         App version {APP_VERSION}
       </p>
 

@@ -162,3 +162,35 @@ main {
     /* Ensure fixed elements respect safe area */
   }
 }
+
+/* ── Malayalam and Kannada: Noto Sans, bundled with the app ─────────────────────
+   Only the Malayalam / Kannada letters use these files (unicode-range), so English text
+   and the ₹ sign keep the usual font; the browser downloads a file only when those letters
+   are on screen. size-adjust makes them sit level with English text at the same size
+   (Noto's Indic letters are drawn larger). */
+@font-face {
+  font-family: "App Malayalam";
+  src: url("../node_modules/@fontsource-variable/noto-sans-malayalam/files/noto-sans-malayalam-malayalam-wght-normal.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-display: swap;
+  size-adjust: 92%;
+  unicode-range: U+0307, U+0323, U+0951-0952, U+0964-0965, U+0D00-0D7F, U+1CDA, U+1CF2, U+200C-200D, U+25CC, U+A830-A832;
+}
+@font-face {
+  font-family: "App Kannada";
+  src: url("../node_modules/@fontsource-variable/noto-sans-kannada/files/noto-sans-kannada-kannada-wght-normal.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-display: swap;
+  size-adjust: 92%;
+  unicode-range: U+0951-0952, U+0964-0965, U+0C80-0CF3, U+1CD0, U+1CD2-1CD3, U+1CDA, U+1CF2, U+1CF4, U+200C-200D, U+25CC, U+A830-A835;
+}
+@layer base {
+  html, body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+      "App Malayalam", "App Kannada", "Noto Sans Malayalam", "Noto Sans Kannada", "Nirmala UI",
+      sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji";
+  }
+  /* Malayalam and Kannada letters stack above and below the line: a little more room. */
+  html:lang(ml) body, html:lang(kn) body { line-height: 1.6; }
+  html:lang(ml) .truncate, html:lang(kn) .truncate { padding-block: 0.08em; }
+}

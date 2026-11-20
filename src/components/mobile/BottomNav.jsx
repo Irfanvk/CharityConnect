@@ -3,8 +3,10 @@ import ReactDOM from "react-dom";
 import { Link, useLocation } from "react-router-dom";
 import { PAGE_PATHS, ROUTE_KEYS } from "@/config/appPaths";
 import { LayoutDashboard, Receipt, Heart, User } from "lucide-react";
+import { useT } from "@/lib/appLanguage";
 
 export default function BottomNav() {
+  const { t } = useT();
   const location = useLocation();
 
   const navItems = [
@@ -38,7 +40,7 @@ export default function BottomNav() {
               }`}
             >
               <item.icon className={`w-5 h-5 transition-transform ${active ? 'scale-110' : ''}`} />
-              <span className="text-[10px] font-medium">{item.name}</span>
+              <span className="text-[10px] font-medium">{t(item.name)}</span>
             </Link>
           );
         })}

@@ -56,6 +56,7 @@ export const API_PATHS = {
     reject: (id) => `/challans/${id}/reject`,
     revert: (id) => `/challans/${id}/revert`,
     bulkCreate: '/challans/bulk-create',
+    payTogether: '/challans/pay-together',
     multi: '/challans/multi',
   },
   bulk: {
@@ -122,8 +123,15 @@ export const API_PATHS = {
     byId: (id) => `/invites/${id}`,
     validate: '/invites/validate',
   },
+  receipts: {
+    list: '/receipts',
+    challan: (id) => `/receipts/challan/${id}`,
+    bulk: (id) => `/receipts/bulk/${encodeURIComponent(id)}`,
+    verify: (token) => `/receipts/verify/${encodeURIComponent(token)}`,
+  },
   files: {
     upload: '/files/upload',
+    proofLink: '/files/proof-link',
     uploadAvatar: '/files/upload/avatar',
     uploadBranding: '/files/upload/branding',
     deleteFile: '/files/delete',
@@ -144,6 +152,7 @@ export const API_PATHS = {
   },
   reports: {
     memberStatement: (memberId) => `/reports/member-statement/${memberId}`,
+    myStatement: '/reports/my-statement',
     dues: '/reports/dues',
     payments: '/reports/payments',
     yearGrid: '/reports/year-grid',

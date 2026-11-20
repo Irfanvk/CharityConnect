@@ -136,6 +136,7 @@ export default function Unfinished() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-base font-bold text-slate-900 dark:text-white">{item.what}</p>
+                  {item.challan_no && <p className="font-mono text-xs text-slate-500">{item.challan_no}</p>}
                   <p className="text-sm text-slate-600 dark:text-slate-300">
                     <span className="font-semibold">{item.member_code}</span> · {item.member_name || "Member"}
                     {item.phone && (

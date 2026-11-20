@@ -22,6 +22,7 @@ import MemberActivationsPanel, { ACTIVATIONS_QUERY_KEY } from "@/components/admi
 import { format } from "@/lib/dateTime";
 import { useMemo } from "react";
 import { emitNotificationsChanged } from "@/lib/notificationState";
+import ApprovePaymentDialog, { toApprovalPayment } from "@/components/challans/ApprovePaymentDialog";
 
 const typeLabel = {
   monthly_amount_change: "Monthly Change",
@@ -144,7 +145,6 @@ export default function AdminRequests() {
   const [challanReviewOpen, setChallanReviewOpen] = useState(false);
   const [selectedChallanItem, setSelectedChallanItem] = useState(null);
   const [challanRejectReason, setChallanRejectReason] = useState("");
-  const [approvingChallanKey, setApprovingChallanKey] = useState(null);
 
   // Sanitise any backend-generated URL that may contain a localhost origin
   const fixWhatsAppUrl = sanitizeShareUrl;
@@ -229,21 +229,8 @@ export default function AdminRequests() {
     queryClient.invalidateQueries({ queryKey: ["admin", "pending-bulk"] });
   };
 
-  const approveChallanMutation = useMutation({
-    mutationFn: (item) =>
-      item.is_bulk_group
-        ? charityClient.bulkOperations.approve(item.bulk_group_id, { approved: true })
-        : charityClient.challans.approve(item.id),
-    onSuccess: () => {
-      invalidatePendingChallans();
-      emitNotificationsChanged('updated');
-      toast({ title: "Challan approved." });
-    },
-    onError: (error) => {
-      toast({ title: "Approval failed", description: error?.message || "Please try again.", variant: "destructive" });
-    },
-    onSettled: () => setApprovingChallanKey(null),
-  });
+  // Approving opens the bank check screen (date, reference, amount received).
+  const [approvalPayment, setApprovalPayment] = useState(null);
 
   const rejectChallanMutation = useMutation({
     mutationFn: ({ item, reason }) =>
@@ -263,11 +250,7 @@ export default function AdminRequests() {
     },
   });
 
-  const handleApproveChallanItem = (item) => {
-    if (approvingChallanKey) return;
-    setApprovingChallanKey(item.key);
-    approveChallanMutation.mutate(item);
-  };
+  const handleApproveChallanItem = (item) => setApprovalPayment(toApprovalPayment(item));
 
   const approveMutation = useMutation({
     mutationFn: ({ requestId, notes }) => charityClient.requests.approve(requestId, notes),
@@ -776,10 +759,9 @@ export default function AdminRequests() {
                         <Button
                           size="sm"
                           className="bg-emerald-600 hover:bg-emerald-700"
-                          disabled={approvingChallanKey === item.key}
                           onClick={() => handleApproveChallanItem(item)}
                         >
-                          {approvingChallanKey === item.key ? <Loader2 className="w-4 h-4 animate-spin" /> : "Approve"}
+                          Approve
                         </Button>
                         <Button
                           variant="outline"
@@ -1073,6 +1055,11 @@ export default function AdminRequests() {
           </div>
         </DialogContent>
       </Dialog>
+      <ApprovePaymentDialog
+        payment={approvalPayment}
+        onOpenChange={(open) => { if (!open) setApprovalPayment(null); }}
+        onApproved={() => { invalidatePendingChallans(); emitNotificationsChanged("updated"); }}
+      />
     </div>
   );
 }

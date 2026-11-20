@@ -198,6 +198,8 @@ function normalizeChallan(challan) {
     amount: normalizeAmount(normalized.amount),
     proof_url: normalized.proof_url || normalized.proof_path || null,
     proof_path: normalized.proof_path || normalized.proof_url || null,
+    // The real payment number (PG-2526-0042); older rows show CH-<id>.
+    challan_number: normalized.challan_no || normalized.challan_number || (normalized.id != null ? `CH-${normalized.id}` : undefined),
     created_date:
       normalized.approved_at ||
       normalized.proof_uploaded_at ||
@@ -555,6 +557,9 @@ function extractTotal(data, fallback = 0) {
 
 const charityClient = {
   auth: {
+    // App language for this account (en | ml | kn).
+    setLanguage: async (language) => apiFetch('/auth/me/language', { method: 'PUT', body: JSON.stringify({ language }) }),
+
     me: async () => {
       try {
         return await apiFetch(API_PATHS.auth.me);
@@ -685,6 +690,8 @@ const charityClient = {
     countryStats: async () => apiFetch(API_PATHS.members.countryStats, { method: 'GET' }),
 
     get: async (id) => normalizeMember(await apiFetch(API_PATHS.members.byId(id), { method: 'GET' })),
+    // The member's monthly fee over time (admins).
+    feeHistory: async (id) => apiFetch(`${API_PATHS.members.byId(id)}/fees`, { method: 'GET' }),
 
     getByCode: async (code) => normalizeMember(await apiFetch(API_PATHS.members.byCode(code), { method: 'GET' })),
 
@@ -790,6 +797,8 @@ const charityClient = {
         current_month_payable: Boolean(data?.current_month_payable),
         upcoming_months: Array.isArray(data?.upcoming_months) ? data.upcoming_months : [],
         all_months: Array.isArray(data?.all_months) ? data.all_months : [],
+        // each listed month's fee (an older unpaid month keeps the fee of that time)
+        month_fees: data?.month_fees && typeof data.month_fees === 'object' ? data.month_fees : {},
         business_timezone: data?.business_timezone || 'Asia/Kolkata',
       };
     },
@@ -926,12 +935,14 @@ const charityClient = {
 
     // Several months, each with its own proof later: created together in one step,
     // so a dropped connection never leaves only some of the months created.
-    createMonths: async ({ months, member_id, payment_method, notes } = {}) => {
+    // sameNumber: one payment (one number) whose single proof comes later.
+    createMonths: async ({ months, member_id, payment_method, notes, sameNumber = false } = {}) => {
       const payload = {
         months: Array.isArray(months) ? months : [],
         amount: 0, // the server uses the member's own monthly fee
         type: 'monthly',
         proof_type: 'individual',
+        same_number: Boolean(sameNumber),
         payment_method: payment_method || undefined,
         notes: notes || undefined,
       };
@@ -941,6 +952,14 @@ const charityClient = {
         body: JSON.stringify(payload),
       });
     },
+
+    // Your own open months (no proof yet) paid with one proof: one bulk payment.
+    payTogether: async ({ challan_ids, proof_file_id, notes } = {}) => normalizeBulkOperation(
+      await apiFetch(API_PATHS.challans.payTogether, {
+        method: 'POST',
+        body: JSON.stringify({ challan_ids, proof_file_id, notes: notes || undefined }),
+      }),
+    ),
 
     bulkCreate: async (data) => {
       const payload = {
@@ -1509,7 +1528,19 @@ const charityClient = {
       apiFetch(API_PATHS.invites.byId(id), { method: 'DELETE' }),
   },
 
+  // Receipts for approved payments; verify = the public "is this receipt genuine?" check.
+  receipts: {
+    list: async (query = {}) => apiFetch(API_PATHS.receipts.list, { method: 'GET' }, query),
+    forChallan: async (id) => apiFetch(API_PATHS.receipts.challan(id), { method: 'GET' }),
+    forBulk: async (bulkGroupId) => apiFetch(API_PATHS.receipts.bulk(bulkGroupId), { method: 'GET' }),
+    verify: async (token) => apiFetch(API_PATHS.receipts.verify(token), { method: 'GET' }),
+  },
+
   files: {
+    // A fresh short-lived link to a payment's proof (proofs are stored privately).
+    proofLink: async ({ challanId, bulkGroupId } = {}) => apiFetch(API_PATHS.files.proofLink, { method: 'GET' },
+      bulkGroupId ? { bulk_group_id: bulkGroupId } : { challan_id: challanId }),
+
     upload: async (file) => {
       const formData = new FormData();
       formData.append('file', file);
@@ -1625,6 +1656,8 @@ const charityClient = {
 
   /** Admin reports (see backend app/services/report_service.py). */
   reports: {
+    // Your own statement (members, and admins who are members); year = Aug-Jul start year.
+    myStatement: (year) => apiFetch(API_PATHS.reports.myStatement, { method: 'GET' }, year ? { year } : {}),
     memberStatement: (memberId, query = {}) =>
       apiFetch(API_PATHS.reports.memberStatement(memberId), { method: 'GET' }, query),
     dues: (query = {}) => apiFetch(API_PATHS.reports.dues, { method: 'GET', timeoutMs: 60000 }, query),

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { charityClient } from "@/api/charityClient";
+import { useT } from "@/lib/appLanguage";
 import { useAuth } from "@/lib/AuthContext";
 import { usePublicSettings } from "@/lib/usePublicSettings";
 import { APP_IMAGES, PAGE_PATHS, ROUTE_KEYS } from "@/config/appPaths";
@@ -75,6 +76,17 @@ export default function Layout({ children, currentPageName }) {
   const currentUserRole = currentUser?.role ?? null;
   const wayfindingUserKey = currentUser?.id || currentUser?.email || null;
   const { unreadCount } = useNotifications();
+  const language = useT();
+
+  // App language: the account's choice wins on sign-in; a change is saved to the account.
+  useEffect(() => {
+    if (!currentUserId || !language.setSaveToAccount) return;
+    language.setSaveToAccount((code) => charityClient.auth.setLanguage(code).catch(() => {}));
+    const saved = currentUser?.preferred_language;
+    if (saved && saved !== language.lang) language.setLangQuietly(saved);
+    else if (!saved && language.lang !== "en") charityClient.auth.setLanguage(language.lang).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId]);
 
   const loadPendingRequestsCount = useCallback(async () => {
     try {
@@ -353,10 +365,10 @@ export default function Layout({ children, currentPageName }) {
                 >
                   <item.icon className={`w-5 h-5 ${isActive ? 'text-emerald-600' : ''}`} />
                   <div className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{item.name}</span>
+                    <span className="block truncate font-medium">{language.t(item.name)}</span>
                     {showWayfinding && item.description ? (
                       <span className={`block truncate text-xs ${isActive ? 'text-emerald-600/80 dark:text-emerald-300/80' : 'text-slate-400 dark:text-slate-500'}`}>
-                        {item.description}
+                        {language.t(item.description)}
                       </span>
                     ) : null}
                   </div>
@@ -389,7 +401,7 @@ export default function Layout({ children, currentPageName }) {
                   <DropdownMenuItem asChild>
                     <Link to={PAGE_PATHS.PROFILE} onClick={() => setSidebarOpen(false)} className="flex items-center gap-2">
                       <User className="w-4 h-4" />
-                      My Profile
+                      {language.t("My Profile")}
                     </Link>
                   </DropdownMenuItem>
                   {isAdmin && (
@@ -408,7 +420,7 @@ export default function Layout({ children, currentPageName }) {
                     className="text-rose-600"
                   >
                     <LogOut className="w-4 h-4 mr-2" />
-                    Logout
+                    {language.t("Logout")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -453,7 +465,7 @@ export default function Layout({ children, currentPageName }) {
                   className="hidden sm:inline-flex"
                 >
                   <LogOut className="w-4 h-4 mr-2" />
-                  Logout
+                  {language.t("Logout")}
                 </Button>
               )}
               <Link to={PAGE_PATHS.NOTIFICATIONS}>
@@ -486,20 +498,20 @@ export default function Layout({ children, currentPageName }) {
                       <DropdownMenuItem asChild>
                         <Link to={`${PAGE_PATHS.PROFILE}?photo=1`} className="flex items-center gap-2 font-medium text-emerald-700">
                           <Camera className="w-4 h-4" />
-                          Add your photo
+                          {language.t("Add your photo")}
                         </Link>
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuItem asChild>
                       <Link to={PAGE_PATHS.PROFILE} className="flex items-center gap-2">
                         <User className="w-4 h-4" />
-                        My Profile
+                        {language.t("My Profile")}
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => logout()} className="text-rose-600">
                       <LogOut className="w-4 h-4 mr-2" />
-                      Logout
+                      {language.t("Logout")}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

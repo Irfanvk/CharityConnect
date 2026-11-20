@@ -64,17 +64,30 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { format } from "@/lib/dateTime";
-import { currentBusinessMonth, formatBusinessDate } from "@/lib/businessTime";
+import { formatBusinessDate } from "@/lib/businessTime";
 import ChallanForm from "@/components/challans/ChallanForm";
 import BulkGroupDialog from "@/components/dashboard/BulkGroupDialog";
 import MemberChallansView from "@/components/challans/MemberChallansView";
 import AdminRecordPaymentForm from "@/components/challans/AdminRecordPaymentForm";
 import ProofUpload from "@/components/challans/ProofUpload";
+import PayTogetherDialog from "@/components/challans/PayTogetherDialog";
+import ApprovePaymentDialog, { toApprovalPayment } from "@/components/challans/ApprovePaymentDialog";
+import ReceiptDialog from "@/components/challans/ReceiptDialog";
+import { useT } from "@/lib/appLanguage";
+import PaymentStartedDialog from "@/components/challans/PaymentStartedDialog";
+import { formatMonth } from "@/lib/challanStatus";
 import PullToRefresh from "@/components/mobile/PullToRefresh";
 import { isNotPaidYet } from "@/lib/challanStatus";
 import UserProfilePopover from "@/components/UserProfilePopover";
 import { useToast } from "@/components/ui/use-toast";
 import { saveBulkGroup, loadBulkGroups, updateBulkGroupStatus } from "@/lib/bulkGroupStore";
+
+// "Sep 2026" or "Sep 2026 – Nov 2026" for a list of yyyy-MM months.
+function monthRange(months = []) {
+  const list = [...months].filter(Boolean).sort();
+  if (!list.length) return "";
+  return list.length === 1 ? formatMonth(list[0]) : `${formatMonth(list[0])} – ${formatMonth(list[list.length - 1])}`;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants & pure helpers
@@ -175,7 +188,14 @@ const CHALLAN_DEEP_LINK_PARAMS = ["challan", "bulk"];
 
 export default function Challans() {
   // ── UI state ──────────────────────────────────────────────────────────────
-  const [linkParams] = useSearchParams();
+  const [linkParams, setLinkParams] = useSearchParams();
+  const { t: tr } = useT();
+  // Shown after a payment is saved: its real number, amount and "Upload proof now".
+  const [startedInfo, setStartedInfo] = useState(null);
+  // Several open months paid with one proof.
+  const [together, setTogether] = useState(null); // { candidates, initialIds }
+  const [approvalPayment, setApprovalPayment] = useState(null); // the bank check screen
+  const [receiptFor, setReceiptFor] = useState(null); // { challanId } or { bulkGroupId }
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(() => (linkParams.get("status") === "pending" ? "pending" : "all"));
   const [entryFilter, setEntryFilter] = useState("all");
@@ -487,7 +507,7 @@ export default function Challans() {
         is_bulk_group: true,
         bulk_group_id: groupId,
         challan_ids: rows.map((entry) => entry.id),
-        challan_number: /^BCH-/i.test(groupId) ? groupId : `BULK-${groupId.slice(0, 8).toUpperCase()}`,
+        challan_number: first.challan_no || (/^BCH-/i.test(groupId) ? groupId : `BULK-${groupId.slice(0, 8).toUpperCase()}`),
         member_name:
           meta.member_name || first.member_name || `Member ${formatMemberId(first.member_code || "")}`,
         amount: rows.reduce((sum, entry) => sum + parseAmount(entry.amount), 0),
@@ -616,9 +636,11 @@ export default function Challans() {
             notes: payload?.notes,
           });
 
-          toast({
-            title: "Bulk challan created",
-            description: `One shared proof was attached for ${months.length} months.`,
+          setStartedInfo({
+            numbers: [result?.challan_no || result?.bulk_group_id],
+            what: `${monthRange(months)} · ${months.length} months`,
+            amount: result?.total_amount ?? amountPerMonth * months.length,
+            sent: true,
           });
 
           // Persist bulk group info so the Challans list can group these rows.
@@ -632,17 +654,27 @@ export default function Challans() {
           return result;
         }
 
+        const together = proofMode === "shared_later";
         const created = await charityClient.challans.createMonths({
           months,
           member_id: isAdmin ? payload?.member_id : undefined,
           payment_method: payload?.payment_method,
           notes: payload?.notes,
+          sameNumber: together,
         });
-
-        toast({
-          title: "Monthly challans created",
-          description:
-            `${created?.created_count ?? months.length} challans created. Upload proof on each challan if required.`,
+        const ids = created?.challan_ids || [];
+        setStartedInfo({
+          numbers: created?.challan_numbers || [],
+          what: `${monthRange(months)} · ${months.length} months`,
+          amount: created?.total_amount ?? amountPerMonth * months.length,
+          sent: false,
+          note: together
+            ? "One payment for all these months. Upload one proof for all of them."
+            : "Each month has its own number. Upload the proof on each month in the list.",
+          uploadLabel: "Upload one proof now",
+          upload: together && ids.length > 1
+            ? { kind: "together", candidates: ids.map((id, i) => ({ id, month: months[i], amount: amountPerMonth })) }
+            : null,
         });
 
         return {
@@ -654,13 +686,23 @@ export default function Challans() {
       // Single payment: create the challan, then attach the proof if one was chosen.
       const { proof_file: proofFile, shared_proof_file: _shared, ...createData } = payload;
       const created = await charityClient.challans.create(createData);
+      const campaignTitle = payload?.campaign_name;
+      const startedWhat = payload?.type === "monthly"
+        ? `Monthly fee · ${formatMonth(payload?.month)}`
+        : `Donation${campaignTitle ? ` · ${campaignTitle}` : ""}`;
       if (!proofFile) {
-        toast({ title: "Challan generated", description: "Upload the payment proof from the list after paying." });
+        setStartedInfo({
+          numbers: [created?.challan_number],
+          what: startedWhat,
+          amount: created?.amount ?? payload?.amount,
+          sent: false,
+          upload: { kind: "single", challan: created },
+        });
         return created;
       }
       try {
         const submitted = await charityClient.challans.uploadProof(created.id, proofFile);
-        toast({ title: "Payment submitted", description: "The challan and its proof were sent for review." });
+        setStartedInfo({ numbers: [created?.challan_number], what: startedWhat, amount: created?.amount ?? payload?.amount, sent: true });
         return submitted;
       } catch (error) {
         // The challan exists; only the proof failed, so it can be uploaded from the list.
@@ -748,37 +790,10 @@ export default function Challans() {
   // ── Approve ───────────────────────────────────────────────────────────────
   // FIX: try/catch added — original silently dropped errors.
   // FIX: approvingId guard prevents double-firing on rapid taps.
-  const handleApprove = async (challan) => {
+  // Approving opens the bank check screen (date, reference, amount received).
+  const handleApprove = (challan) => {
     if (approvingId) return;
-    setApprovingId(challan.id);
-    try {
-      if (challan.is_bulk_group && challan.bulk_group_id) {
-        await charityClient.bulkOperations.approve(challan.bulk_group_id, {
-          approved: true,
-          admin_notes: "Approved from challans list",
-        });
-        updateBulkGroupStatus(challan.bulk_group_id, 'approved');
-
-        await refreshChallanData();
-        emitNotificationsChanged('updated');
-        toast({ title: "Bulk challan approved successfully." });
-        return;
-      }
-
-      await charityClient.challans.approve(challan.id, {});
-
-      await refreshChallanData();
-      emitNotificationsChanged('updated');
-      toast({ title: "Challan approved successfully." });
-    } catch (error) {
-      toast({
-        title: "Approval failed",
-        description: error?.message || "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setApprovingId(null);
-    }
+    setApprovalPayment(toApprovalPayment(challan));
   };
 
   // ── Reject ────────────────────────────────────────────────────────────────
@@ -849,12 +864,6 @@ export default function Challans() {
   };
 
   // ── Misc helpers ──────────────────────────────────────────────────────────
-  const getSuggestedNumber = () => {
-    const prefix = "CHN";
-    const year = currentBusinessMonth().slice(2, 4);
-    const count = normalisedSourceChallans.length + 1;
-    return `${prefix}${year}-${String(count).padStart(4, "0")}`;
-  };
 
   const handleRefresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["challans"] });
@@ -882,7 +891,15 @@ export default function Challans() {
     async (challan) => {
       if (!challan) return;
 
-      let proofUrl = getEffectiveProofUrl(challan);
+      let proofUrl = null;
+      try {
+        const link = await charityClient.files.proofLink(
+          challan.bulk_group_id ? { bulkGroupId: challan.bulk_group_id } : { challanId: challan.id },
+        );
+        proofUrl = link?.url || null;
+      } catch {
+        proofUrl = getEffectiveProofUrl(challan);
+      }
       if (!proofUrl && challan.bulk_group_id) {
         try {
           const details = await charityClient.bulkOperations.get(challan.bulk_group_id);
@@ -956,10 +973,10 @@ export default function Challans() {
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-              {isAdmin ? "Challans" : "My payments"}
+              {isAdmin ? "Challans" : tr("My payments")}
             </h1>
             <p className="text-slate-500 dark:text-slate-400">
-              {isAdmin ? "Manage payment challans and approvals" : "What you owe, and what you have paid"}
+              {isAdmin ? "Manage payment challans and approvals" : tr("What you owe, and what you have paid")}
             </p>
           </div>
           {/* Members have "Pay now" in the summary box below. */}
@@ -1029,6 +1046,8 @@ export default function Challans() {
             onViewProof={openProofViewer}
             onDelete={setDeleteTarget}
             getProofUrl={getEffectiveProofUrl}
+            onPayTogether={(candidates, initialIds) => setTogether({ candidates, initialIds })}
+            onReceipt={(c) => setReceiptFor(c.is_bulk_group && c.bulk_group_id ? { bulkGroupId: c.bulk_group_id } : { challanId: c.id })}
           />
         ) : (
         <>
@@ -1158,7 +1177,7 @@ export default function Challans() {
                           <div className="flex items-center gap-2">
                             <Receipt className="w-4 h-4 text-slate-400" />
                             <span className="font-medium">
-                              {challan.is_bulk_group ? `Bulk ${challan.bulk_group_id}` : challan.challan_number}
+                              {challan.is_bulk_group ? `${challan.challan_no ? `${challan.challan_no} · ` : ""}Bulk ${challan.bulk_group_id}` : challan.challan_number}
                             </span>
                           </div>
                         </TableCell>
@@ -1301,6 +1320,15 @@ export default function Challans() {
                                 >
                                   <Eye className="w-4 h-4 mr-2" />
                                   {challan.proof_url ? "View Proof" : "View Bulk Proof"}
+                                </DropdownMenuItem>
+                              )}
+
+                              {challan.status === "approved" && (
+                                <DropdownMenuItem
+                                  onClick={() => setReceiptFor(challan.bulk_group_id ? { bulkGroupId: challan.bulk_group_id } : { challanId: challan.id })}
+                                >
+                                  <Receipt className="w-4 h-4 mr-2" />
+                                  Receipt (download / WhatsApp)
                                 </DropdownMenuItem>
                               )}
 
@@ -1500,8 +1528,42 @@ export default function Challans() {
           members={membersForForm}
           campaigns={campaigns}
           existingChallans={normalisedSourceChallans}
-          suggestedNumber={getSuggestedNumber()}
           currentUser={user}
+          onOpenStarted={() => {
+            setFormOpen(false);
+            setLinkParams((prev) => { const next = new URLSearchParams(prev); next.set("unfinished", "1"); return next; });
+          }}
+        />
+
+        <PaymentStartedDialog
+          info={startedInfo}
+          onOpenChange={(open) => { if (!open) setStartedInfo(null); }}
+          onUploadNow={startedInfo?.upload ? () => {
+            const up = startedInfo.upload;
+            setStartedInfo(null);
+            if (up.kind === "single") { setSelectedChallan(up.challan); setUploadOpen(true); }
+            else setTogether({ candidates: up.candidates, initialIds: up.candidates.map((c) => c.id) });
+          } : undefined}
+        />
+
+        <ApprovePaymentDialog
+          payment={approvalPayment}
+          onOpenChange={(open) => { if (!open) setApprovalPayment(null); }}
+          onApproved={async (_, payment) => {
+            if (payment.kind === "bulk" && payment.bulkGroupId) updateBulkGroupStatus(payment.bulkGroupId, "approved");
+            await refreshChallanData();
+            emitNotificationsChanged("updated");
+          }}
+        />
+
+        <ReceiptDialog target={receiptFor} onOpenChange={(open) => { if (!open) setReceiptFor(null); }} isAdmin={isAdmin} />
+
+        <PayTogetherDialog
+          open={Boolean(together)}
+          onOpenChange={(open) => { if (!open) setTogether(null); }}
+          candidates={together?.candidates || []}
+          initialIds={together?.initialIds || []}
+          onDone={() => { invalidateAll(); emitNotificationsChanged("updated"); }}
         />
 
         {/* Edit Challan */}

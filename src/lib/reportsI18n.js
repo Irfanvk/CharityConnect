@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
+import { LanguageContext } from "@/lib/languageContext";
 
 /*
  * Words for the Reports screens and the files they make, in English, Malayalam and Kannada.
@@ -27,6 +28,8 @@ const en = {
   duesCardSub: "Members with months not paid",
   summaryCard: "Money summary",
   summaryCardSub: "Money in, money out, balance",
+  receiptsCard: "Receipts",
+  receiptsCardSub: "Every approved payment: search, open, share",
   paid: "Paid",
   waiting: "Waiting for approval",
   waitingShort: "Waiting",
@@ -160,6 +163,8 @@ const ml = {
   duesCardSub: "അടയ്ക്കാത്ത മാസങ്ങളുള്ള അംഗങ്ങൾ",
   summaryCard: "പണത്തിന്റെ സംഗ്രഹം",
   summaryCardSub: "വരവ്, ചെലവ്, ബാക്കി",
+  receiptsCard: "രസീതുകൾ",
+  receiptsCardSub: "അംഗീകരിച്ച പണമടയ്ക്കലുകൾ: തിരയുക, തുറക്കുക, പങ്കിടുക",
   paid: "അടച്ചു",
   waiting: "അംഗീകാരത്തിനായി കാത്തിരിക്കുന്നു",
   waitingShort: "കാത്തിരിക്കുന്നു",
@@ -293,6 +298,8 @@ const kn = {
   duesCardSub: "ಪಾವತಿಸದ ತಿಂಗಳುಗಳಿರುವ ಸದಸ್ಯರು",
   summaryCard: "ಹಣದ ಸಾರಾಂಶ",
   summaryCardSub: "ಬಂದ ಹಣ, ಖರ್ಚು, ಉಳಿಕೆ",
+  receiptsCard: "ರಸೀದಿಗಳು",
+  receiptsCardSub: "ಅನುಮೋದಿತ ಪಾವತಿಗಳು: ಹುಡುಕಿ, ತೆರೆಯಿರಿ, ಹಂಚಿಕೊಳ್ಳಿ",
   paid: "ಪಾವತಿಸಲಾಗಿದೆ",
   waiting: "ಅನುಮೋದನೆಗಾಗಿ ಕಾಯುತ್ತಿದೆ",
   waitingShort: "ಕಾಯುತ್ತಿದೆ",
@@ -474,11 +481,15 @@ export function reportsText(lang) {
 
 /** The chosen language, remembered on this device. */
 export function useReportsLanguage() {
+  // Inside the app the language is the app's own choice (appLanguage.jsx), so every screen agrees.
+  const app = useContext(LanguageContext);
   const [lang, setLangState] = useState(readStoredLanguage);
   useEffect(() => {
+    if (app) return;
     try { window.localStorage.setItem(STORAGE_KEY, lang); } catch { /* optional */ }
-  }, [lang]);
+  }, [lang, app]);
   const setLang = useCallback((value) => setLangState(DICTIONARIES[value] ? value : "en"), []);
+  if (app) return { ...reportsText(DICTIONARIES[app.lang] ? app.lang : "en"), setLang: app.setLang };
   return { ...reportsText(lang), setLang };
 }
 

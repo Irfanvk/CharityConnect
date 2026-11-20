@@ -23,7 +23,9 @@ import { format, parseISO } from "@/lib/dateTime";
 import { addBusinessMonths, currentBusinessMonth } from "@/lib/businessTime";
 import { usePublicSettings } from "@/lib/usePublicSettings";
 import PaymentInstructions from "@/components/branding/PaymentInstructions";
-import { Loader2, CheckSquare, Square, Upload, FileText, Image as ImageIcon, X } from "lucide-react";
+import ProofPicker, { proofFileProblem } from "@/components/challans/ProofPicker";
+import { formatMonth as formatMonthLabel, isNotPaidYet } from "@/lib/challanStatus";
+import { Loader2, CheckSquare, Square, ChevronDown, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const PLATFORM_START_MONTH = "2024-08";
@@ -63,54 +65,6 @@ function buildStartMonthOptions(currentMonth = currentBusinessMonth()) {
   return options.reverse(); // newest first
 }
 
-const PROOF_TYPES = ["image/jpeg", "image/jpg", "image/png", "application/pdf"];
-
-// Checks a chosen proof file; returns an error sentence, or "" when it is fine.
-function proofFileProblem(file, maxUploadMb) {
-  if (!PROOF_TYPES.includes(file.type)) return "Please choose a JPG, PNG or PDF file.";
-  if (file.size > maxUploadMb * 1024 * 1024) return `This file is too large. The limit is ${maxUploadMb}MB.`;
-  return "";
-}
-
-// File picker for a payment proof, or the chosen file with a remove button.
-function ProofPicker({ file, onPick, onClear, prompt, maxUploadMb, error }) {
-  return (
-    <>
-      {!file ? (
-        <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white px-4 py-6 text-center hover:border-emerald-400 hover:bg-emerald-50/30 transition-colors">
-          <Upload className="w-8 h-8 text-slate-400 mb-2" />
-          <span className="text-sm text-slate-700 font-medium">{prompt}</span>
-          <span className="text-xs text-slate-400 mt-1">JPG, PNG, PDF up to {maxUploadMb}MB</span>
-          <input
-            type="file"
-            accept={PROOF_TYPES.join(",")}
-            onChange={(e) => { onPick(e.target.files?.[0] || null); e.target.value = ""; }}
-            className="hidden"
-          />
-        </label>
-      ) : (
-        <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2">
-          <div className="flex items-center gap-3 min-w-0">
-            {file.type === "application/pdf" ? (
-              <FileText className="w-4 h-4 text-rose-500 shrink-0" />
-            ) : (
-              <ImageIcon className="w-4 h-4 text-emerald-600 shrink-0" />
-            )}
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
-              <p className="text-xs text-slate-500">{Math.max(1, Math.round(file.size / 1024))} KB</p>
-            </div>
-          </div>
-          <Button type="button" variant="ghost" size="icon" aria-label="Remove file" onClick={onClear}>
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
-      )}
-      {error && <p role="alert" className="text-xs text-rose-600">{error}</p>}
-    </>
-  );
-}
-
 export default function ChallanForm({
   open,
   onOpenChange,
@@ -118,8 +72,8 @@ export default function ChallanForm({
   members,
   campaigns,
   existingChallans,
-  suggestedNumber,
   currentUser,
+  onOpenStarted,
 }) {
   const isAdmin = currentUser?.role === "admin" || currentUser?.role === "superadmin";
   const normalizeId = (v) => (v === null || v === undefined ? "" : String(v));
@@ -154,6 +108,11 @@ export default function ChallanForm({
   const [proofLater, setProofLater] = useState(false);
   const [proofError, setProofError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Several months with one proof: the proof can also come later (one payment number for all).
+  const [sharedLater, setSharedLater] = useState(false);
+  // "Start from" and "Pay ahead" live under "More options".
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [aheadPick, setAheadPick] = useState(0); // "+3 ahead": select that many future months once listed
 
   // Admin member search combobox; pickedMember is the record chosen from the search results.
   const [pickedMember, setPickedMember] = useState(null);
@@ -174,6 +133,9 @@ export default function ChallanForm({
     setProofFile(null);
     setProofLater(false);
     setProofError("");
+    setSharedLater(false);
+    setMoreOpen(false);
+    setAheadPick(0);
   }, [open, formData.member_id]);
 
   // Re-seed member_id when myMember resolves asynchronously
@@ -264,7 +226,36 @@ export default function ChallanForm({
 
   const selectAll = () => setSelectedMonths(selectableMonths.slice(0, maxMonthsPerPayment));
   const clearAll = () => setSelectedMonths([]);
+  const currentMonthValue = payableMonthsData?.current_month || currentBusinessMonth();
+  const owedMonths = selectableMonths.filter((m) => m <= currentMonthValue);
+  const selectOwed = () => setSelectedMonths(owedMonths.slice(0, maxMonthsPerPayment));
+  const selectThisMonth = () => {
+    if (selectableMonths.includes(currentMonthValue)) setSelectedMonths([currentMonthValue]);
+  };
+  const aheadStep = Math.min(3, upcomingLimit || 0);
+  const addAhead = () => {
+    setAheadCount((n) => Math.max(n, aheadStep));
+    setAheadPick(aheadStep);
+  };
+  // Once the future months are listed, add them to the choice.
+  useEffect(() => {
+    const upcoming = payableMonthsData?.upcoming_months;
+    if (!aheadPick || !Array.isArray(upcoming) || upcoming.length === 0) return;
+    setSelectedMonths((prev) => [...new Set([...prev, ...upcoming.slice(0, aheadPick)])].sort().slice(0, maxMonthsPerPayment));
+    setAheadPick(0);
+  }, [aheadPick, payableMonthsData?.upcoming_months?.join("|")]);
+  // Months already in the member's list but not paid yet (started without proof, or imported):
+  // they are paid from My payments, so point there instead of failing.
+  const alreadyStarted = useMemo(() => [...new Set(
+    existingChallans
+      .filter((c) => areSameId(c.member_id, formData.member_id) && c.type === "monthly" && !c.bulk_group_id
+        && c.status !== "rejected" && (c.status === "generated" || isNotPaidYet(c)))
+      .map((c) => c.month)
+      .filter(Boolean),
+  )].sort(), [existingChallans, formData.member_id]);
   const usesSharedBulkProof = formData.type === "monthly" && selectedMonths.length > 1 && proofMode === "shared";
+  const sharedProofNeeded = usesSharedBulkProof && !sharedLater;
+  const showMore = moreOpen || Boolean(fromMonth) || aheadCount > 0;
 
   // One month or a donation: a single challan that can carry its proof right away.
   const isSinglePayment =
@@ -299,6 +290,9 @@ export default function ChallanForm({
   const joinMonth = String(activeMember?.join_date || "").slice(0, 7);
   const autoStartMonth = /^\d{4}-\d{2}$/.test(joinMonth) && joinMonth > PLATFORM_START_MONTH ? joinMonth : PLATFORM_START_MONTH;
   const feeMissing = formData.type === "monthly" && Boolean(formData.member_id) && monthlyAmount <= 0;
+  // Each month's own fee (fee history): an older unpaid month keeps the fee of that time.
+  const feeOfMonth = (m) => Number(payableMonthsData?.month_fees?.[m] ?? monthlyAmount);
+  const selectedFeesVary = new Set(selectedMonths.map(feeOfMonth)).size > 1;
   const activeCampaigns = campaigns.filter((c) => c.status === "active");
   const startMonthOptions = useMemo(
     () => buildStartMonthOptions(payableMonthsData?.current_month || currentBusinessMonth()),
@@ -311,7 +305,7 @@ export default function ChallanForm({
     const campaign = campaigns.find((c) => areSameId(c.id, formData.campaign_id));
     const monthsToPay = selectedMonths.length > 0 ? selectedMonths : [];
     const totalAmount =
-      formData.type === "monthly" ? monthlyAmount * monthsToPay.length : Number(formData.amount);
+      formData.type === "monthly" ? monthsToPay.reduce((s, m) => s + feeOfMonth(m), 0) : Number(formData.amount);
     try {
       await onSubmit({
         ...formData,
@@ -320,7 +314,6 @@ export default function ChallanForm({
           formData.campaign_id !== "" && formData.campaign_id !== "__no_campaign"
             ? parseInt(formData.campaign_id, 10)
             : null,
-        challan_number: suggestedNumber,
         member_name: activeMember?.full_name,
         campaign_name: campaign?.title,
         amount: totalAmount,
@@ -329,8 +322,10 @@ export default function ChallanForm({
         months_covered: formData.type === "monthly" ? monthsToPay : undefined,
         months_count: formData.type === "monthly" ? monthsToPay.length : 1,
         month: formData.type === "monthly" ? monthsToPay[0] : undefined,
-        proof_mode: formData.type === "monthly" && monthsToPay.length > 1 ? proofMode : "individual",
-        shared_proof_file: usesSharedBulkProof ? sharedProofFile : null,
+        proof_mode: formData.type === "monthly" && monthsToPay.length > 1
+          ? (proofMode === "shared" && sharedLater ? "shared_later" : proofMode)
+          : "individual",
+        shared_proof_file: sharedProofNeeded ? sharedProofFile : null,
         proof_file: sendsProofNow ? proofFile : null,
       });
       setSelectedMonths([]);
@@ -351,7 +346,7 @@ export default function ChallanForm({
     (isAdmin || myMember) &&
     (formData.type === "donation"
       ? Boolean(formData.campaign_id)
-      : selectedMonths.length > 0 && (!usesSharedBulkProof || Boolean(sharedProofFile))) &&
+      : selectedMonths.length > 0 && (!sharedProofNeeded || Boolean(sharedProofFile))) &&
     // a single payment needs its proof, or an explicit "upload later"
     (!isSinglePayment || proofLater || Boolean(proofFile));
 
@@ -364,11 +359,6 @@ export default function ChallanForm({
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <PaymentInstructions />
-          {/* Challan number */}
-          <div className="space-y-1.5">
-            <Label>Challan Number</Label>
-            <Input value={suggestedNumber} disabled className="bg-slate-50" />
-          </div>
 
           {/* Member */}
           {isAdmin ? (
@@ -430,6 +420,57 @@ export default function ChallanForm({
           {formData.type === "monthly" && formData.member_id && (
             <div className="space-y-4">
 
+              {/* Already in the list, not paid yet */}
+              {alreadyStarted.length > 0 && (
+                <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div className="min-w-0">
+                    <p>
+                      <b>{alreadyStarted.length > 4
+                        ? `${formatMonthLabel(alreadyStarted[0])} – ${formatMonthLabel(alreadyStarted[alreadyStarted.length - 1])} (${alreadyStarted.length} months)`
+                        : alreadyStarted.map(formatMonthLabel).join(", ")}</b>{" "}
+                      {alreadyStarted.length === 1 ? "is" : "are"} already in {isAdmin ? "this member's" : "your"} list, not paid yet, so {alreadyStarted.length === 1 ? "it is" : "they are"} not shown here.
+                      {!isAdmin && " Upload the proof there; you can pay several months with one proof."}
+                    </p>
+                    {!isAdmin && onOpenStarted && (
+                      <button type="button" onClick={onOpenStarted} className="mt-1 font-semibold text-amber-900 underline underline-offset-2">
+                        Go to them
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Quick choices */}
+              {selectableMonths.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {owedMonths.length > 0 && (
+                    <Button type="button" variant="outline" size="sm" onClick={selectOwed} className="h-9 bg-white">
+                      All {isAdmin ? "owed" : "I owe"} ({Math.min(owedMonths.length, maxMonthsPerPayment)})
+                    </Button>
+                  )}
+                  {selectableMonths.includes(currentMonthValue) && (
+                    <Button type="button" variant="outline" size="sm" onClick={selectThisMonth} className="h-9 bg-white">This month</Button>
+                  )}
+                  {aheadStep > 0 && (
+                    <Button type="button" variant="outline" size="sm" onClick={addAhead} className="h-9 bg-white">
+                      +{aheadStep} {aheadStep === 1 ? "month" : "months"} ahead
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setMoreOpen((v) => !v)}
+                aria-expanded={showMore}
+                className="flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900"
+              >
+                <ChevronDown className={`h-4 w-4 transition-transform ${showMore ? "rotate-180" : ""}`} />
+                More options (start month, pay ahead)
+              </button>
+
+              {showMore && (<>
               {/* Start from picker */}
               <div className="space-y-1.5">
                 <Label>Start From Month</Label>
@@ -468,6 +509,7 @@ export default function ChallanForm({
                   </Select>
                 </div>
               )}
+              </>)}
 
               {/* Month grid */}
               <div className="space-y-2">
@@ -557,9 +599,29 @@ export default function ChallanForm({
                     </button>
                   </div>
 
-                  {proofMode === "shared" && (
+                  {proofMode === "shared" && sharedLater && (
+                    <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
+                      <p className="text-xs text-slate-600">
+                        One payment number for all {selectedMonths.length} months. Pay, then upload one proof for all of them from My payments.
+                      </p>
+                      <button type="button" onClick={() => setSharedLater(false)} className="shrink-0 text-xs font-medium text-emerald-700 hover:underline">
+                        Add proof now
+                      </button>
+                    </div>
+                  )}
+
+                  {proofMode === "shared" && !sharedLater && (
                     <div className="space-y-2">
-                      <Label>Shared proof file *</Label>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <Label>Shared proof file *</Label>
+                        <button
+                          type="button"
+                          onClick={() => { setSharedLater(true); setSharedProofFile(null); setProofError(""); }}
+                          className="text-xs text-slate-500 hover:text-slate-700 underline underline-offset-2"
+                        >
+                          Upload later
+                        </button>
+                      </div>
 
                       <ProofPicker
                         file={sharedProofFile}
@@ -589,14 +651,27 @@ export default function ChallanForm({
               {/* Summary */}
               {selectedMonths.length > 0 && !feeMissing && (
                 <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 space-y-1 text-sm">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Monthly amount</span><span>₹{monthlyAmount}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>Months</span><span>× {selectedMonths.length}</span>
-                  </div>
+                  {selectedFeesVary ? (
+                    selectedMonths.map((m) => (
+                      <div key={m} className="flex justify-between text-slate-600">
+                        <span>{formatMonthLabel(m)}</span><span>₹{feeOfMonth(m).toLocaleString()}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Monthly amount</span><span>₹{feeOfMonth(selectedMonths[0])}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Months</span><span>× {selectedMonths.length}</span>
+                      </div>
+                    </>
+                  )}
+                  {selectedFeesVary && (
+                    <p className="text-xs text-slate-500">The fee changed, so earlier months keep the fee of that time.</p>
+                  )}
                   <div className="flex justify-between font-semibold text-emerald-800 pt-1 border-t border-emerald-200">
-                    <span>Total</span><span>₹{(monthlyAmount * selectedMonths.length).toLocaleString()}</span>
+                    <span>Total</span><span>₹{selectedMonths.reduce((s, m) => s + feeOfMonth(m), 0).toLocaleString()}</span>
                   </div>
                 </div>
               )}
@@ -694,7 +769,7 @@ export default function ChallanForm({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={!canSubmit} className="bg-emerald-600 hover:bg-emerald-700">
               {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {sendsProofNow ? "Generate & Submit Proof" : "Generate Challan"}
+              {sendsProofNow || sharedProofNeeded ? "Send payment" : "Generate Challan"}
             </Button>
           </div>
         </form>

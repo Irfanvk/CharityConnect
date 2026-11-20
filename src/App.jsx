@@ -22,6 +22,8 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import InstallAppDialog from '@/components/InstallAppDialog';
 import { NotificationsProvider } from '@/context/NotificationContext';
 import { LaunchSplash } from '@/components/LaunchSplash';
+import ReceiptVerify from '@/pages/ReceiptVerify';
+import { LanguageProvider } from '@/lib/appLanguage';
 
 const LandingPage = lazy(() => import('./pages/Landing'));
 
@@ -69,7 +71,7 @@ const PUBLIC_ROUTE_PATHS = new Set(
   Object.keys(PUBLIC_PAGES || {}).map((path) => `/${String(path).toLowerCase()}`)
 );
 
-const ADMIN_PAGES = new Set(['Members', 'Reports', 'AuditLogs', 'Settings', 'AdminRequests', 'FundUtilization']);
+const ADMIN_PAGES = new Set(['Members', 'Reports', 'AuditLogs', 'Settings', 'AdminRequests', 'FundUtilization', 'Banners', 'Unfinished']);
 const SUPERADMIN_PAGES = new Set(['SuperadminPanel', 'Import']);
 
 const canAccessPage = (pageKey, role) => {
@@ -123,10 +125,16 @@ const SessionExpiredToastBridge = () => {
 const AuthenticatedApp = () => {
   const { user: authUser, isLoadingAuth, isLoadingPublicSettings, isAuthenticated, authError, checkAppState } = useAuth();
   const location = useLocation();
+  // A receipt's public link (/r/<token>) opens for everyone, signed in or not.
+  const receiptMatch = /^\/r\/([A-Za-z0-9-]+)\/?$/.exec(location.pathname);
   const isOnLoginPage = isLoginPath(location.pathname);
   const isOnPublicPage = isPublicPath(location.pathname);
   const returnToParam = new URLSearchParams(location.search).get('returnTo');
   const loginRedirectPath = buildLoginRedirectPath(location);
+
+  if (receiptMatch) {
+    return <ReceiptVerify token={receiptMatch[1]} />;
+  }
 
   if (isAuthenticated && isOnPublicPage && !isRootPath(location.pathname)) {
     const target = returnToParam && !isPublicPath(returnToParam) ? returnToParam : APP_PATHS.HOME;
@@ -274,6 +282,7 @@ function App() {
 
   return (
     <AppErrorBoundary>
+      <LanguageProvider>
       <AuthProvider>
         <QueryClientProvider client={queryClientInstance}>
           <ThemeApplier />
@@ -296,6 +305,7 @@ function App() {
           <Toaster />
         </QueryClientProvider>
       </AuthProvider>
+      </LanguageProvider>
     </AppErrorBoundary>
   )
 }
