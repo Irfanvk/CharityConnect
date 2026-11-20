@@ -20,7 +20,7 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
   const [statusFilter, setStatusFilter] = useState("pending");
   const [search, setSearch] = useState("");
   const didAutoOpenRef = useRef(false);
-  const { approveMutation, reviewBlock, busy } = useBulkReview();
+  const { reviewBlock, busy, requestApprove, approvalDialog } = useBulkReview();
 
   useEffect(() => {
     if (!initialBulkGroupId || didAutoOpenRef.current) return;
@@ -146,7 +146,7 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
                         {opStatus === "rejected" && bulk.rejection_reason && (
                           <p className="text-xs text-rose-700">Reason: {bulk.rejection_reason}</p>
                         )}
-                        <p className="text-xs text-slate-400 font-mono">Group: {bulk.bulk_group_id}</p>
+                        <p className="text-xs text-slate-400 font-mono">{bulk.challan_no ? `${bulk.challan_no} · ` : ""}Group: {bulk.bulk_group_id}</p>
                       </div>
 
                       <div className="flex flex-wrap gap-2">
@@ -161,13 +161,9 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
                             <Button
                               className="bg-emerald-600 hover:bg-emerald-700"
                               disabled={busy}
-                              onClick={() => approveMutation.mutate(bulk.bulk_group_id)}
+                              onClick={() => requestApprove(bulk)}
                             >
-                              {approveMutation.isPending ? (
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              ) : (
-                                <CheckCircle2 className="w-4 h-4 mr-2" />
-                              )}
+                              <CheckCircle2 className="w-4 h-4 mr-2" />
                               Approve All
                             </Button>
                             <Button

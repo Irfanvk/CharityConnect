@@ -168,10 +168,10 @@ export default function FinancialSummaryPanel({
             : { items: pendingChallans, total_amount: pendingAmount };
         const exportRows = exportData.items;
         const generatedAt = generatedAtIST();
-        const headerRow = ["#", "Challan ID", "Member Name", "Month", "Type", "Amount (INR)", "Status", "Raised On"];
+        const headerRow = ["#", "Payment No.", "Member Name", "Month", "Type", "Amount (INR)", "Status", "Raised On"];
         const dataRows = exportRows.map((c, i) => [
             i + 1,
-            c.id,
+            c.challan_no || c.challan_number || `CH-${c.id}`,
             memberName(c),
             c.month || "",
             c.type || "",

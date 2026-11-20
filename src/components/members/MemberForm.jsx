@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import PhoneInput from "@/components/ui/phone-input";
 import LocationFields from "@/components/members/LocationFields";
+import FeeHistory from "@/components/members/FeeHistory";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -201,6 +202,9 @@ export default function MemberForm({ open, onOpenChange, member, onSubmit, sugge
               />
             </div>
           </div>
+          {member?.id && (
+            <FeeHistory memberId={member.id} currentFee={member.monthly_amount} newFee={formData.monthly_amount} />
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="address">Address</Label>

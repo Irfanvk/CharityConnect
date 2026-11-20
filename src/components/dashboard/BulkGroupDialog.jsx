@@ -10,6 +10,7 @@ import { AlertTriangle, ExternalLink, Loader2, UserCog } from "lucide-react";
 import { emitNotificationsChanged } from "@/lib/notificationState";
 import { updateBulkGroupStatus } from "@/lib/bulkGroupStore";
 import { formatMonth } from "@/lib/challanStatus";
+import ApprovePaymentDialog, { toApprovalPayment } from "@/components/challans/ApprovePaymentDialog";
 
 export const MIN_REASON_LENGTH = 10;
 const OWN_PAYMENT_LABEL = "Your payment — another admin will review";
@@ -71,8 +72,23 @@ export function useBulkReview() {
     return null;
   };
 
+  // Approving opens the bank check screen; after = run once it is approved (e.g. close a dialog).
+  const [approval, setApproval] = useState(null);
+  const requestApprove = (op, after) => setApproval({ payment: toApprovalPayment({ ...op, is_bulk_group: true }), after });
+  const approvalDialog = (
+    <ApprovePaymentDialog
+      payment={approval?.payment || null}
+      onOpenChange={(v) => { if (!v) setApproval(null); }}
+      onApproved={(_, payment) => {
+        updateBulkGroupStatus(payment.bulkGroupId, "approved");
+        refresh();
+        approval?.after?.();
+      }}
+    />
+  );
+
   const busy = approveMutation.isPending || rejectMutation.isPending;
-  return { approveMutation, rejectMutation, reviewBlock, busy };
+  return { approveMutation, rejectMutation, reviewBlock, busy, requestApprove, approvalDialog };
 }
 
 /**
@@ -82,7 +98,7 @@ export function useBulkReview() {
 export default function BulkGroupDialog({ bulkGroupId, open, onOpenChange, startWith = "details" }) {
   const [view, setView] = useState(startWith);
   const [reason, setReason] = useState("");
-  const { approveMutation, rejectMutation, reviewBlock, busy } = useBulkReview();
+  const { rejectMutation, reviewBlock, busy, requestApprove, approvalDialog } = useBulkReview();
 
   useEffect(() => {
     if (!open) return;
@@ -234,16 +250,8 @@ export default function BulkGroupDialog({ bulkGroupId, open, onOpenChange, start
                   <Button
                     className="bg-emerald-600 hover:bg-emerald-700"
                     disabled={busy}
-                    onClick={async () => {
-                      try {
-                        await approveMutation.mutateAsync(groupId);
-                        onOpenChange(false);
-                      } catch {
-                        // the error toast is shown; keep the dialog open
-                      }
-                    }}
+                    onClick={() => requestApprove({ ...details, bulk_group_id: groupId }, () => onOpenChange(false))}
                   >
-                    {approveMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     Approve All
                   </Button>
                   <Button variant="destructive" disabled={busy} onClick={() => setView("reject")}>
@@ -255,6 +263,7 @@ export default function BulkGroupDialog({ bulkGroupId, open, onOpenChange, start
           </div>
         )}
       </DialogContent>
+      {approvalDialog}
     </Dialog>
   );
 }

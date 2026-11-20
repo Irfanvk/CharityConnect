@@ -49,6 +49,8 @@ export default function AdminRecordPaymentForm({
   const [kind, setKind] = useState("monthly");
   const [selectedMonths, setSelectedMonths] = useState([]);
   const [amountPerMonth, setAmountPerMonth] = useState("");
+  // Until the admin types an amount, every month is charged its own fee (fee history).
+  const [amountTyped, setAmountTyped] = useState(false);
   const [campaignId, setCampaignId] = useState("");
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("cash");
@@ -82,6 +84,7 @@ export default function AdminRecordPaymentForm({
 
   useEffect(() => {
     setAmountPerMonth(member?.monthly_amount ? String(member.monthly_amount) : "");
+    setAmountTyped(false);
     setSelectedMonths([]);
   }, [member]);
 
@@ -133,11 +136,14 @@ export default function AdminRecordPaymentForm({
 
   const months = payable?.all_months || [];
   const currentMonth = payable?.current_month || currentBusinessMonth();
-  const total = kind === "monthly"
-    ? selectedMonths.length * Number(amountPerMonth || 0)
-    : Number(amount || 0);
   const standardAmount = Number(member?.monthly_amount || 0);
-  const amountDiffers = kind === "monthly" && Number(amountPerMonth) !== standardAmount;
+  const monthFees = payable?.month_fees || {};
+  const feeOf = (m) => Number(monthFees[m] ?? standardAmount);
+  const feesVary = new Set(selectedMonths.map(feeOf)).size > 1;
+  const total = kind === "monthly"
+    ? (amountTyped ? selectedMonths.length * Number(amountPerMonth || 0) : selectedMonths.reduce((s, m) => s + feeOf(m), 0))
+    : Number(amount || 0);
+  const amountDiffers = kind === "monthly" && amountTyped && selectedMonths.some((m) => Number(amountPerMonth) !== feeOf(m));
   const notesRequired = NOTES_METHODS.includes(method) || amountDiffers;
   const activeCampaigns = campaigns.filter((c) => String(c.status).toLowerCase() === "active");
 
@@ -178,7 +184,7 @@ export default function AdminRecordPaymentForm({
         collected_by_user_id: method === "cash" ? collectedBy : undefined,
         entry_notes: notes.trim() || undefined,
         ...(kind === "monthly"
-          ? { months: selectedMonths, amount_per_month: amountPerMonth }
+          ? { months: selectedMonths, ...(amountTyped ? { amount_per_month: amountPerMonth } : {}) }
           : { campaign_id: campaignId, amount }),
       };
       const created = await charityClient.challans.adminRecord(payload, proof);
@@ -355,8 +361,11 @@ export default function AdminRecordPaymentForm({
                   min="1"
                   inputMode="decimal"
                   value={amountPerMonth}
-                  onChange={(e) => setAmountPerMonth(e.target.value)}
+                  onChange={(e) => { setAmountPerMonth(e.target.value); setAmountTyped(true); }}
                 />
+                {feesVary && !amountTyped && (
+                  <p className="text-xs text-slate-600">The fee changed during these months, so each month is charged the fee of that month.</p>
+                )}
                 {amountDiffers && member && (
                   <p className="text-xs text-amber-700">Differs from the standard {formatInr(standardAmount)} — notes are required.</p>
                 )}
