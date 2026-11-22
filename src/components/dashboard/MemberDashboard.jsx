@@ -273,6 +273,9 @@ export default function MemberDashboard({
                 <div className="text-right flex-shrink-0">
                   <p className="text-xs text-slate-500">Monthly Due</p>
                   <p className="text-lg font-bold text-emerald-600">₹{monthlyAmount}</p>
+                  {memberProfile?.fee_confirmed === false && (
+                    <p className="text-xs font-medium text-sky-700">Waiting for the committee to confirm</p>
+                  )}
                   {dueThroughMonth ? (
                     <p className="text-xs font-medium text-amber-600 mt-1">
                       Due through {format(new Date(`${dueThroughMonth}-01`), "MMM yyyy")}

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { doneByText } from "@/components/common/DoneBy";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { charityClient } from "@/api/charityClient";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +67,7 @@ export function useBulkReview() {
   // An admin never reviews their own payment, nor one they entered.
   const reviewBlock = (op) => {
     if (!op || currentUser?.id == null) return null;
+    if (currentUser.role === "executive") return "An admin approves or rejects this payment.";
     const me = Number(currentUser.id);
     if (op.member_user_id != null && Number(op.member_user_id) === me) return OWN_PAYMENT_LABEL;
     if (op.created_by_user_id != null && Number(op.created_by_user_id) === me) return OWN_ENTRY_LABEL;
@@ -197,10 +199,10 @@ export default function BulkGroupDialog({ bulkGroupId, open, onOpenChange, start
               </div>
             )}
             {String(details.status || "").toLowerCase() === "approved" && details.approved_by_name && (
-              <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">Approved by {details.approved_by_name}</p>
+              <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{doneByText("Approved", details.approved_by_name, details.approved_at)}</p>
             )}
             {String(details.status || "").toLowerCase() === "rejected" && details.rejection_reason && (
-              <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">Rejected: {details.rejection_reason}</p>
+              <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">Rejected: {details.rejection_reason}{details.rejected_by_name && <span className="block text-xs">{doneByText("Rejected", details.rejected_by_name, details.rejected_at)}</span>}</p>
             )}
 
             {proofUrl && (

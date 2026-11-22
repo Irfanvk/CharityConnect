@@ -177,7 +177,7 @@ export default function ClaimDetail({ R, claim, viewerId, onChanged }) {
             ))}
             {claim.status === "paid" && (
               <p className="mt-2 font-medium text-emerald-800">
-                ✓ {R.t("status_paid")}: {R.date(claim.paid_on)} · {R.t(`method_${claim.paid_method}`)}{claim.paid_reference ? ` · ${claim.paid_reference}` : ""}
+                ✓ {R.t("status_paid")}: {R.date(claim.paid_on)} · {R.t(`method_${claim.paid_method}`)}{claim.paid_reference ? ` · ${claim.paid_reference}` : ""}{claim.paid_by_name ? ` · ${claim.paid_by_name}` : ""}
                 {claim.paid_receipt_url && <> · <a className="underline" href={docHref(claim.paid_receipt_url)} target="_blank" rel="noreferrer">{R.t("receipt")}</a></>}
               </p>
             )}

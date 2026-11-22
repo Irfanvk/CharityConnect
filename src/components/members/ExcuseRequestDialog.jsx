@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { doneByText } from "@/components/common/DoneBy";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Trash2 } from "lucide-react";
 import { charityClient } from "@/api/charityClient";
@@ -79,6 +80,7 @@ export default function ExcuseRequestDialog({ open, onOpenChange, months = [] })
                       <span className="font-semibold">{monthName(e.month, L.locale)}</span>{" "}
                       <span className={`rounded-full border px-2 py-0.5 text-xs ${STATUS[e.status]?.cls || ""}`}>{t(STATUS[e.status]?.label || e.status)}</span>
                       {e.status === "rejected" && e.decision_note && <span className="block text-xs text-slate-600">{e.decision_note}</span>}
+                      {e.status !== "requested" && e.decided_by && <span className="block text-xs text-slate-500">{doneByText(e.status === "rejected" ? "Rejected" : "Approved", e.decided_by, e.decided_at)}</span>}
                     </span>
                     {e.status === "requested" && (
                       <Button size="icon" variant="ghost" title={t("Withdraw")} disabled={withdraw.isPending} onClick={() => withdraw.mutate(e.id)}><Trash2 className="h-4 w-4" /></Button>

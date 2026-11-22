@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { cityProblem } from "@/lib/countries";
 import { charityClient } from "@/api/charityClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,8 +30,10 @@ export default function Register() {
     address: '',
     city: '',
     country: '',
-    monthly_amount: 100
+    monthly_amount: ''  // a new member types it (no pre-filled amount); an admin confirms it
   });
+  // The lowest fee comes with the invite check (this page is not signed in); 100 until then.
+  const [minFee, setMinFee] = useState(100);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -43,6 +46,27 @@ export default function Register() {
   // 'idle' | 'checking' | 'available' | 'taken'
   const [usernameCheckStatus, setUsernameCheckStatus] = useState('idle');
   const usernameDebounceRef = useRef(null);
+  // What the server says about the invite in the link: null (not checked) | 'checking' |
+  // 'valid' | 'used' | 'expired' | 'not_found'. A used link shows "log in" instead of the form.
+  const [linkStatus, setLinkStatus] = useState(null);
+
+  const checkInviteStatus = async (code) => {
+    setLinkStatus('checking');
+    try {
+      const result = await charityClient.invites.status(code);
+      setLinkStatus(result?.status || 'valid');
+      if (result?.min_monthly_fee != null) setMinFee(Number(result.min_monthly_fee));
+      if (result?.registration_mode) {
+        // Known before they type anything: existing members never see the fee box.
+        setInviteValidationMeta({
+          allowMonthlyAmount: result.registration_mode !== 'existing_member',
+          registrationMode: result.registration_mode,
+        });
+      }
+    } catch {
+      setLinkStatus('valid'); // could not check (e.g. offline): show the form; signing up checks again
+    }
+  };
 
   useEffect(() => {
     const linkedInviteCode = searchParams.get('invite_code') || searchParams.get('inviteCode');
@@ -59,6 +83,7 @@ export default function Register() {
     setInviteCode(normalizedCode);
     setStep(2);
     setError('');
+    checkInviteStatus(normalizedCode);
   }, [searchParams]);
 
   // Validate username format and length
@@ -104,10 +129,15 @@ export default function Register() {
     setInviteCode(normalizedCode);
     setStep(2);
     setError('');
+    checkInviteStatus(normalizedCode);
   };
 
   const getReadableError = (err) => {
     const detail = err?.data?.detail;
+    // The browser's own words when the server can't be reached ("Load failed" on iPhone).
+    if (!err?.data && /load failed|failed to fetch|networkerror|network request failed/i.test(String(err?.message || ''))) {
+      return "We couldn't reach the server. Check your internet and try again. Already registered? Go to Login.";
+    }
 
     if (Array.isArray(detail) && detail.length > 0) {
       return detail
@@ -180,11 +210,7 @@ export default function Register() {
 
     const hasContactInput = String(formData.email || '').trim() || String(formData.phone || '').trim();
     if (!inviteCode || !hasContactInput) {
-      setInviteValidationMeta({
-        allowMonthlyAmount: true,
-        registrationMode: 'new_member',
-      });
-      return;
+      return; // keep what the link told us (new or existing member)
     }
 
     const timeout = setTimeout(() => {
@@ -228,6 +254,16 @@ export default function Register() {
       setLoading(false);
       return;
     }
+    if (cityProblem(formData.city)) {
+      setError(cityProblem(formData.city));
+      setLoading(false);
+      return;
+    }
+    if (inviteValidationMeta.allowMonthlyAmount && !(Number(formData.monthly_amount) >= Math.max(minFee, 1))) {
+      setError(`Please enter your monthly payment: at least ₹${Math.max(minFee, 1).toLocaleString('en-IN')}.`);
+      setLoading(false);
+      return;
+    }
 
     try {
       const inviteValidationResult = await validateInviteAndDetectMode();
@@ -248,7 +284,7 @@ export default function Register() {
         address: formData.address || '',
         country: formData.country,
         city: formData.city.trim(),
-        monthly_amount: allowMonthlyAmount ? (parseInt(formData.monthly_amount, 10) || 100) : 0
+        monthly_amount: allowMonthlyAmount ? Number(formData.monthly_amount) || 0 : 0
       });
 
       // Backend creates the User and Member profile and marks the invite used.
@@ -358,15 +394,24 @@ export default function Register() {
             {/* <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-sky-500/25">
             {step === 1 ? <MoonStar className="w-8 h-8 text-white" /> : <Heart className="w-8 h-8 text-white" />}
           </div> */}
+            {!(step === 2 && ['used', 'expired', 'not_found'].includes(linkStatus)) && (<>
             <CardTitle className="text-2xl font-bold text-slate-900 dark:text-slate-100">
               {step === 1 ? `Join ${APP_BRAND.NAME}` : 'Complete Registration'}
             </CardTitle>
             <p className="text-slate-600 dark:text-slate-300 text-sm mt-2">
               {step === 1 ? 'Enter your invite code to begin' : 'Fill in your details to create your account'}
             </p>
+            </>)}
           </CardHeader>
 
           <CardContent className="space-y-6">
+            {step === 2 && linkStatus === 'checking' && (
+              <div className="flex justify-center py-6"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
+            )}
+            {step === 2 && ['used', 'expired', 'not_found'].includes(linkStatus) && (
+              <InviteLinkNotice status={linkStatus} onLogin={() => navigate(APP_PATHS.LOGIN, { replace: true })} />
+            )}
+            {!(step === 2 && linkStatus && linkStatus !== 'valid') && (<>
             {error && (
               <Alert className="bg-rose-50 border-rose-200">
                 <XCircle className="w-4 h-4 text-rose-600" />
@@ -533,19 +578,19 @@ export default function Register() {
                         type="number"
                         value={formData.monthly_amount}
                         onChange={(e) => setFormData({ ...formData, monthly_amount: e.target.value })}
-                        placeholder="Enter monthly payment amount (minimum ₹50)"
-                        min="50"
-                        max="10000"
+                        placeholder={`How much each month? (at least ₹${Math.max(minFee, 1).toLocaleString('en-IN')})`}
+                        min={Math.max(minFee, 1)}
+                        max="1000000"
                         required
                       />
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        You can modify this amount later from your profile with admin approval.
+                        The committee will confirm this amount after you join. You can ask to change it later from your Profile.
                       </p>
                     </>
                   ) : (
                     <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-600/40 dark:bg-amber-900/20 dark:text-amber-200">
-                      Membership amount is locked for existing members during invite registration.
-                      You can request changes later from Profile and admins can approve it.
+                      You are joining as an existing member, so your monthly fee stays as it is on our records.
+                      You will see it after you log in; if it is not right, send a request from your Profile.
                     </div>
                   )}
                 </div>
@@ -580,9 +625,43 @@ export default function Register() {
                 Back to Login
               </Link>
             </div>
+          </>)}
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+/** Shown instead of the form when the invite link can't be used any more. */
+function InviteLinkNotice({ status, onLogin }) {
+  const text = {
+    used: {
+      title: "You're already registered",
+      body: "This invite link was already used to create your account. Log in with the username and password you chose.",
+    },
+    expired: {
+      title: "This invite link has expired",
+      body: "Please ask the committee for a new invite. If you already registered, just log in.",
+    },
+    not_found: {
+      title: "This invite link isn't valid",
+      body: "Please check the link or ask the committee for a new invite. If you already registered, just log in.",
+    },
+  }[status];
+  return (
+    <div className="space-y-4 text-center">
+      <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full ${status === 'used' ? 'bg-emerald-100' : 'bg-amber-100'}`}>
+        {status === 'used' ? <CheckCircle className="h-7 w-7 text-emerald-600" /> : <XCircle className="h-7 w-7 text-amber-600" />}
+      </div>
+      <div>
+        <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{text.title}</p>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{text.body}</p>
+      </div>
+      <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={onLogin}>Go to Login</Button>
+      <Link to="/forgotpassword" className="block text-sm font-medium text-slate-500 hover:underline dark:text-slate-400">
+        Forgot password?
+      </Link>
     </div>
   );
 }

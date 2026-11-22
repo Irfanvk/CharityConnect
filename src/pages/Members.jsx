@@ -44,6 +44,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, MoreVertical, Pencil, Trash2, Phone, Mail, UserCheck, UserX, Ban, Upload, Loader2, X, Download, ChevronDown, ChevronUp, AlertTriangle, UserPlus, MessageCircle, Copy, CheckCircle2, HandCoins, CalendarOff } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import SeasonalDialog from "@/components/members/SeasonalDialog";
+import FeeConfirmBar from "@/components/members/FeeConfirmBar";
 import ExcuseRequestsBar from "@/components/members/ExcuseRequestsBar";
 import { format } from "date-fns";
 import MemberForm from "@/components/members/MemberForm";
@@ -105,6 +106,8 @@ export default function Members() {
   const [linkParams, setLinkParams] = useSearchParams();
   const isSuperAdmin = user?.role === 'superadmin';
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  // Executives see every member (contact, fee, place) and record payments; they don't change members.
+  const isStaff = isAdmin || user?.role === 'executive';
 
   const inviteMutation = useMutation({
     mutationFn: (data) => charityClient.invites.create(data),
@@ -871,6 +874,8 @@ export default function Members() {
         )}
       </div>
 
+      {isAdmin && <FeeConfirmBar focusMemberId={linkParams.get("tab") === "fee" ? linkParams.get("member") : null} />}
+
       {isAdmin && <ExcuseRequestsBar onReview={setSeasonalMember} />}
 
       {isAdmin && (
@@ -878,7 +883,7 @@ export default function Members() {
           onOpenChange={(next) => { if (!next) setSeasonalMember(null); }} />
       )}
 
-      {isAdmin && (
+      {isStaff && (
         <AdminRecordPaymentForm
           open={!!recordMember}
           onOpenChange={(next) => { if (!next) setRecordMember(null); }}
@@ -949,7 +954,7 @@ export default function Members() {
       {/* Search, filters and sort; sticky on wider screens so it stays reachable on long pages */}
       <div className="md:sticky md:top-0 z-10 -mx-1 px-1 sm:-mx-0 sm:px-0 bg-slate-50/95 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80 py-3">
         <MembersFilterBar
-          isAdmin={isAdmin}
+          isAdmin={isStaff}
           search={search}
           onSearchChange={setSearch}
           filters={{ status: statusFilter, registered: registeredFilter, country: countryFilter, phoneCode: phoneCodeFilter, phone: phoneSearch }}
@@ -983,7 +988,7 @@ export default function Members() {
               <TableRow className="bg-slate-50">
                 <TableHead>Member</TableHead>
                 <TableHead>Contact</TableHead>
-                {isAdmin && <TableHead>Lives in</TableHead>}
+                {isStaff && <TableHead>Lives in</TableHead>}
                 <TableHead>Join Date</TableHead>
                 <TableHead>Monthly Amount</TableHead>
                 <TableHead>Status</TableHead>
@@ -993,7 +998,7 @@ export default function Members() {
             <TableBody>
               {isLoading || isFetching ? (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 7 : 6} className="text-center py-8 text-slate-500">
+                  <TableCell colSpan={isStaff ? 7 : 6} className="text-center py-8 text-slate-500">
                     <span className="inline-flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin" />
                       Loading members...
@@ -1002,13 +1007,13 @@ export default function Members() {
                 </TableRow>
               ) : isError ? (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 7 : 6} className="text-center py-8 text-rose-600">
+                  <TableCell colSpan={isStaff ? 7 : 6} className="text-center py-8 text-rose-600">
                     {error?.message || "Unable to load members"}
                   </TableCell>
                 </TableRow>
               ) : paginatedMembers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 7 : 6} className="text-center py-8 text-slate-500">
+                  <TableCell colSpan={isStaff ? 7 : 6} className="text-center py-8 text-slate-500">
                     {(countryFilter !== "all" || phoneCodeFilter !== "all" || phoneDigits || registeredFilter !== "all")
                       ? "No members match these filters."
                       : statusFilter === "active"
@@ -1028,7 +1033,7 @@ export default function Members() {
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="font-medium text-slate-900">{member.full_name}</p>
-                              {isAdmin && !member.is_active && (
+                              {isStaff && !member.is_active && (
                                 <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 leading-none">
                                   Not registered
                                 </span>
@@ -1053,7 +1058,7 @@ export default function Members() {
                         )}
                       </div>
                     </TableCell>
-                    {isAdmin && (
+                    {isStaff && (
                       <TableCell>
                         {member.country ? (
                           <div className="text-sm">
@@ -1086,13 +1091,15 @@ export default function Members() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          {isAdmin && (
                           <DropdownMenuItem onClick={() => { setEditingMember(member); setFormOpen(true); }}>
                             <Pencil className="w-4 h-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
+                          )}
 
                           {/* Status toggle for all admins */}
-                          {member.status === 'active' ? (
+                          {!isAdmin ? null : member.status === 'active' ? (
                             <DropdownMenuItem
                               onClick={() => updateMutation.mutate({
                                 id: member.id,
@@ -1120,7 +1127,7 @@ export default function Members() {
                             </DropdownMenuItem>
                           )}
 
-                          {isAdmin && Number(member.user_id) !== Number(user?.id) && (
+                          {isStaff && Number(member.user_id) !== Number(user?.id) && (
                             <DropdownMenuItem onClick={() => setRecordMember(member)} className="text-emerald-600">
                               <HandCoins className="w-4 h-4 mr-2" />
                               Record payment

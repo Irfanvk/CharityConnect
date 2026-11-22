@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { doneByText } from "@/components/common/DoneBy";
 import { useSearchParams } from "react-router-dom";
 import { useDeepLink } from "@/lib/useDeepLink";
 import { formatMemberId, sanitizeShareUrl } from "@/lib/utils";
@@ -213,16 +214,23 @@ export default function AdminRequests() {
   });
 
   const pendingChallanItems = useMemo(() => {
-    const individual = (pendingChallanPage.items || []).map((c) => ({ ...c, is_bulk_group: false, key: `c-${c.id}` }));
+    // Months of a bulk payment (several months, one proof) are reviewed together as the bulk
+    // item below, never one by one: approving one month alone left the bulk payment waiting.
+    const individual = (pendingChallanPage.items || [])
+      .filter((c) => !c.bulk_group_id)
+      .map((c) => ({ ...c, is_bulk_group: false, key: `c-${c.id}` }));
     const bulk = (pendingBulkPage.bulk_operations || [])
-      .filter((b) => b.status === "pending")
+      .filter((b) => ["pending", "pending_approval"].includes(String(b.status || "").toLowerCase()))
       .map((b) => ({ ...b, is_bulk_group: true, key: `b-${b.bulk_group_id}` }));
     return [...bulk, ...individual].sort(
       (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
     );
   }, [pendingChallanPage.items, pendingBulkPage.bulk_operations]);
 
-  const pendingChallanCount = Number(pendingChallanPage.total || 0) + Number(pendingBulkPage.pending || 0);
+  // Bulk months are counted once, as their bulk payment.
+  const bulkMonthsOnPage = (pendingChallanPage.items || []).filter((c) => c.bulk_group_id).length;
+  const pendingChallanCount = Math.max(0, Number(pendingChallanPage.total || 0) - bulkMonthsOnPage)
+    + Number(pendingBulkPage.pending || 0);
 
   const invalidatePendingChallans = () => {
     queryClient.invalidateQueries({ queryKey: ["admin", "pending-challans"] });
@@ -378,6 +386,18 @@ export default function AdminRequests() {
     onError: (error) => {
       toast({ title: "Bulk rejection failed", description: error?.message || "Please try again.", variant: "destructive" });
     },
+  });
+
+  // Password reset requests: pending or rejected ones can be deleted 7 days after they were sent.
+  const [prDeleteTarget, setPrDeleteTarget] = useState(null);
+  const prDeleteMutation = useMutation({
+    mutationFn: (req) => charityClient.admin.deletePasswordReset(req.id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin", "password-reset-requests"] });
+      setPrDeleteTarget(null);
+      toast({ title: "Password reset request deleted" });
+    },
+    onError: (error) => toast({ title: "Could not delete", description: error?.message || "Please try again.", variant: "destructive" }),
   });
 
   // Pending or rejected requests (not amount changes or account closures) after 7 days.
@@ -636,6 +656,28 @@ export default function AdminRequests() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={Boolean(prDeleteTarget)} onOpenChange={(open) => { if (!open && !prDeleteMutation.isPending) setPrDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this password reset request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The {prDeleteTarget?.status} request from {prDeleteTarget?.user_full_name || prDeleteTarget?.user_username || prDeleteTarget?.identifier} will be removed for good.
+              It is noted in the Audit Log. If they still need help, they can ask again from Forgot password.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={prDeleteMutation.isPending}>Keep</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 hover:bg-rose-700"
+              disabled={prDeleteMutation.isPending}
+              onClick={(e) => { e.preventDefault(); prDeleteMutation.mutate(prDeleteTarget); }}
+            >
+              {prDeleteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* ── Password Reset Requests tab ── */}
       {activeTab === "password" && (
         <div className="space-y-6">
@@ -693,6 +735,18 @@ export default function AdminRequests() {
                             onClick={() => { setSelectedPrRequest(req); setPrReviewOpen(true); }}
                           >
                             Review
+                          </Button>
+                        )}
+                        {req.can_delete && !isOwnUser(req.user_id) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-rose-600"
+                            title="Delete request"
+                            aria-label="Delete request"
+                            onClick={() => setPrDeleteTarget(req)}
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         )}
                         {req.status === "approved" && req.whatsapp_chat_url && (
@@ -847,6 +901,11 @@ export default function AdminRequests() {
               ) : (
                 <div className="text-sm text-slate-600 rounded-md border p-3">
                   Status: <strong>{selectedRequest.status}</strong>
+                  {selectedRequest.resolved_by && (
+                    <span className="block text-xs text-slate-500">
+                      {doneByText(selectedRequest.status === "rejected" ? "Rejected" : "Approved", selectedRequest.resolved_by, selectedRequest.resolved_at)}
+                    </span>
+                  )}
                   {selectedRequest.status === "pending" && <p className="mt-2 italic">{OWN_REQUEST_LABEL}</p>}
                   {selectedRequest.admin_notes && <p className="mt-2">Admin notes: {selectedRequest.admin_notes}</p>}
                   {selectedRequest.rejection_reason && <p className="mt-2">Reason: {selectedRequest.rejection_reason}</p>}

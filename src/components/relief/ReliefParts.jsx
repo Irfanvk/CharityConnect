@@ -31,10 +31,12 @@ export function ReliefRules({ R, scheme }) {
       <ol className="list-decimal space-y-2 pl-5 text-[15px] leading-relaxed text-slate-800">
         {rules.rules.map((rule, i) => <li key={i}>{rule}</li>)}
       </ol>
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[15px] leading-relaxed text-amber-900">
-        <p className="font-semibold">{rules.noteHeading}</p>
-        <p>{rules.note}</p>
-      </div>
+      {rules.note && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[15px] leading-relaxed text-amber-900">
+          <p className="font-semibold">{rules.noteHeading}</p>
+          <p>{rules.note}</p>
+        </div>
+      )}
       {scheme && (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {["death", "illness", "retirement"].map((reason) => (
@@ -54,7 +56,6 @@ function checkValue(R, check) {
   switch (check.key) {
     case "unpaid_months": return R.t("check_unpaid_months_value", { value: check.value });
     case "membership_months": return R.t("check_membership_months_value", { value: check.value });
-    case "first_year_paid": return R.t("check_first_year_paid_value", { value: check.value, limit: check.limit });
     case "lives_abroad": return check.value ? countryName(check.value) || check.value : R.t("notEntered");
     case "gulf_years": return check.value === null || check.value === undefined ? "—" : R.t("check_gulf_years_value", { value: check.value });
     default: return String(check.value ?? "");

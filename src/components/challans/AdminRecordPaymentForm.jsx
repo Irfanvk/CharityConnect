@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { isAdminRole } from "@/lib/roles";
 import { useQuery } from "@tanstack/react-query";
 import { charityClient } from "@/api/charityClient";
 import { usePublicSettings } from "@/lib/usePublicSettings";
@@ -127,11 +128,13 @@ export default function AdminRecordPaymentForm({
 
   const { data: collectors = [] } = useQuery({
     queryKey: ["users", "collectors"],
-    enabled: open && method === "cash",
+    // Executives record only cash they collected themselves (the user list is for admins).
+    enabled: open && method === "cash" && isAdminRole(currentUser),
     queryFn: async () => {
       const users = await charityClient.users.list({ is_active: true, limit: 200 });
-      return users.filter((u) => ["admin", "superadmin"].includes(String(u.role).toLowerCase()));
+      return users.filter((u) => ["admin", "superadmin", "executive"].includes(String(u.role).toLowerCase()));
     },
+    placeholderData: currentUser ? [currentUser] : [],
   });
 
   const months = payable?.all_months || [];

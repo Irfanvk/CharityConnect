@@ -18,8 +18,6 @@ export const RELIEF_RULES = {
       "When a member gives a written application, the GCC admins concerned will check it and confirm eligibility.",
       "In the first stage of the scheme, ₹50,000 will be given to the family of an eligible member who dies early, and at least ₹40,000 to those affected by the serious illnesses above; or ₹40,000 assistance to expatriates returning home after ending at least 10 years of Gulf service.",
     ],
-    noteHeading: "Special note",
-    note: "The membership campaign started in August 2024. For the 2024-25 financial year, members must pay 8 months of membership fees in total (August to March). Anyone who still owes this must pay it first, before the month of Ramzan begins.",
   },
   ml: {
     title: "ജിസിസി അംഗങ്ങൾക്കുള്ള അടിയന്തര സഹായ ധനം",
@@ -31,8 +29,6 @@ export const RELIEF_RULES = {
       "അംഗങ്ങൾ രേഖാമൂലം അപേക്ഷ നൽകിയാൽ, ബന്ധപ്പെട്ട ജിസിസി അഡ്മിൻമാർ പരിശോധിച്ച് അർഹത ഉറപ്പാക്കണം.",
       "പദ്ധതിയുടെ ആദ്യ ഘട്ടത്തിൽ, അകാലത്തിൽ മരണപ്പെട്ട അർഹരായ അംഗങ്ങളുടെ കുടുംബത്തിന് ₹50,000/- ഉം, മുകളിൽ പറഞ്ഞ മാരക രോഗങ്ങൾ ബാധിച്ചവർക്ക് കുറഞ്ഞത് ₹40,000/- ഉം സഹായ ധനം നൽകും; അല്ലെങ്കിൽ കുറഞ്ഞത് 10 വർഷത്തെ ഗൾഫ് സേവനം അവസാനിപ്പിച്ച് നാട്ടിലേക്ക് മടങ്ങുന്ന പ്രവാസികൾക്ക് ₹40,000/- സഹായ ധനം.",
     ],
-    noteHeading: "പ്രത്യേക അറിയിപ്പ്",
-    note: "അംഗത്വ കാമ്പെയ്ൻ 2024 ഓഗസ്റ്റിൽ ആരംഭിച്ചു. 2024-25 സാമ്പത്തിക വർഷത്തിൽ അംഗങ്ങൾ ആകെ 8 മാസത്തെ (ഓഗസ്റ്റ് മുതൽ മാർച്ച് വരെ) അംഗത്വ തുക അടയ്ക്കണം. ഈ തുക ബാക്കിയുള്ളവർ റമദാൻ മാസം തുടങ്ങുന്നതിന് മുമ്പ് ആദ്യം അത് അടച്ചിരിക്കണം.",
   },
   kn: {
     title: "ಜಿಸಿಸಿ ಸದಸ್ಯರಿಗೆ ಆಕಸ್ಮಿಕ ಪರಿಹಾರ ಧನ",
@@ -44,8 +40,6 @@ export const RELIEF_RULES = {
       "ಸದಸ್ಯರು ಲಿಖಿತ ಅರ್ಜಿ ಸಮರ್ಪಿಸಿದಲ್ಲಿ, ಸಂಬಂಧಪಟ್ಟ ಜಿಸಿಸಿ ಅಡ್ಮಿನ್ ಗಳು ಪರಿಶೋಧಿಸಿ ಅರ್ಹತೆಯನ್ನು ಧೃಢೀಕರಿಸಬೇಕು.",
       "ಯೋಜನೆಯ ಆರಂಭಿಕ ಹಂತದಲ್ಲಿ ಅಕಾಲಿಕ ಮರಣ ಹೊಂದಿದ ಅರ್ಹ ಸದಸ್ಯರ ಕುಟುಂಬಕ್ಕೆ ರೂ. 50,000/- ಮತ್ತು ಮೇಲೆ ಸೂಚಿಸಲಾದ ಮಾರಣಾಂತಿಕ ರೋಗಗಳಿಗೆ ತುತ್ತಾದವರಿಗೆ ಕನಿಷ್ಠ ರೂ. 40,000/- ಪರಿಹಾರ ಧನ ನೀಡಲಾಗುವುದು ಅಥವಾ ಕನಿಷ್ಠ 10 ವರ್ಷಗಳ ಗಲ್ಫ್ ಸೇವೆ ಕೊನೆಗೊಳಿಸಿ ಊರಿಗೆ ಮರಳುವ ಪ್ರವಾಸಿಗಳಿಗೆ ರೂ. 40,000/- ಸಹಾಯಧನ.",
     ],
-    noteHeading: "ವಿಶೇಷ ಸೂಚನೆ",
-    note: "ಮೆಂಬರ್ಶಿಪ್ ಅಭಿಯಾನ 2024 ಆಗಸ್ಟ್ ತಿಂಗಳಲ್ಲಿ ಆರಂಭಗೊಂಡಿದ್ದು 2024-25 ನೇ ಆರ್ಥಿಕ ವರ್ಷದಲ್ಲಿ ಸದಸ್ಯರು ಒಟ್ಟು 8 ತಿಂಗಳುಗಳ (ಆಗಸ್ಟ್ ನಿಂದ ಮಾರ್ಚ್ ತನಕ) ಸದಸ್ಯತನ ಹಣವನ್ನು ಪಾವತಿಸಬೇಕಾಗಿದ್ದು, ಮೊದಲಿಗೆ ಈ ಹಣವನ್ನು ಪಾವತಿಸಲು ಬಾಕಿಯಿರುವವರು ರಂಝಾನ್ ತಿಂಗಳಾರಂಭಕ್ಕಿಂತ ಮುಂಚಿತವಾಗಿ ಪಾವತಿಸಿರಬೇಕು.",
   },
 };
 
@@ -64,8 +58,6 @@ const en = {
   check_unpaid_months_value: "{value} unpaid",
   check_membership_months: "Member for at least {limit} months",
   check_membership_months_value: "{value} months",
-  check_first_year_paid: "Aug 2024 – Mar 2025 fully paid",
-  check_first_year_paid_value: "{value} of {limit} paid",
   check_lives_abroad: "Lives abroad (expatriate)",
   check_gulf_years: "At least {limit} years of Gulf service",
   check_gulf_years_value: "{value} years",
@@ -180,8 +172,6 @@ const ml = {
   check_unpaid_months_value: "{value} മാസം ബാക്കി",
   check_membership_months: "കുറഞ്ഞത് {limit} മാസമായി അംഗം",
   check_membership_months_value: "{value} മാസം",
-  check_first_year_paid: "2024 ഓഗസ്റ്റ് – 2025 മാർച്ച് മുഴുവൻ അടച്ചു",
-  check_first_year_paid_value: "{limit}-ൽ {value} അടച്ചു",
   check_lives_abroad: "വിദേശത്ത് താമസം (പ്രവാസി)",
   check_gulf_years: "കുറഞ്ഞത് {limit} വർഷം ഗൾഫ് സേവനം",
   check_gulf_years_value: "{value} വർഷം",
@@ -296,8 +286,6 @@ const kn = {
   check_unpaid_months_value: "{value} ತಿಂಗಳು ಬಾಕಿ",
   check_membership_months: "ಕನಿಷ್ಠ {limit} ತಿಂಗಳಿಂದ ಸದಸ್ಯ",
   check_membership_months_value: "{value} ತಿಂಗಳು",
-  check_first_year_paid: "2024 ಆಗಸ್ಟ್ – 2025 ಮಾರ್ಚ್ ಪೂರ್ತಿ ಪಾವತಿ",
-  check_first_year_paid_value: "{limit} ರಲ್ಲಿ {value} ಪಾವತಿ",
   check_lives_abroad: "ವಿದೇಶದಲ್ಲಿ ವಾಸ (ಪ್ರವಾಸಿ)",
   check_gulf_years: "ಕನಿಷ್ಠ {limit} ವರ್ಷ ಗಲ್ಫ್ ಸೇವೆ",
   check_gulf_years_value: "{value} ವರ್ಷ",

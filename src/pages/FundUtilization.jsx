@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { doneByText } from "@/components/common/DoneBy";
+import { formatBusinessDate } from "@/lib/businessTime";
 import { useSearchParams } from "react-router-dom";
 import { useDeepLink } from "@/lib/useDeepLink";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -64,13 +66,13 @@ const QUERY_KEY_LIST = ["fund-utilizations", "list"];
 function SummaryCard({ icon: Icon, label, value, colorClass }) {
   return (
     <Card>
-      <CardContent className="flex items-center gap-4 p-5">
-        <div className={`rounded-full p-3 ${colorClass}`}>
+      <CardContent className="flex items-center gap-3 p-4">
+        <div className={`shrink-0 rounded-full p-3 ${colorClass}`}>
           <Icon className="h-5 w-5 text-white" />
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="text-2xl font-bold">
+          <p className="break-words text-xl font-bold tabular-nums 2xl:text-2xl">
             {value != null
               ? `₹${Number(value).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
               : "—"}
@@ -297,7 +299,7 @@ export default function FundUtilization() {
           Loading summary…
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <SummaryCard
             icon={TrendingUp}
             label="Total Collected"
@@ -323,13 +325,13 @@ export default function FundUtilization() {
             colorClass="bg-blue-500"
           />
           <Card>
-            <CardContent className="flex items-center gap-4 p-5">
-              <div className="rounded-full bg-purple-500 p-3">
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="shrink-0 rounded-full bg-purple-500 p-3">
                 <Wallet className="h-5 w-5 text-white" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm text-muted-foreground">Total Entries</p>
-                <p className="text-2xl font-bold">{summary?.utilization_count ?? "—"}</p>
+                <p className="text-xl font-bold tabular-nums 2xl:text-2xl">{summary?.utilization_count ?? "—"}</p>
               </div>
             </CardContent>
           </Card>
@@ -402,18 +404,18 @@ export default function FundUtilization() {
                           ? format(new Date(record.date), "dd MMM yyyy")
                           : "—"}
                       </TableCell>
-                      <TableCell>{record.registered_by_name || `Admin #${record.registered_by_admin_id}`}</TableCell>
+                      <TableCell className="text-sm">{record.registered_by_name || "admin"}<span className="block text-xs text-muted-foreground">{record.created_at ? formatBusinessDate(record.created_at, { day: "numeric" }) : ""}</span></TableCell>
                       <TableCell>
                         {statusBadge(record)}
                         {record.status === "approved" && record.approved_by_name && (
-                          <div className="text-xs text-muted-foreground">by {record.approved_by_name}</div>
+                          <div className="text-xs text-muted-foreground">{doneByText("Approved", record.approved_by_name, record.approved_at)}</div>
                         )}
                         {record.status === "rejected" && record.rejection_reason && (
-                          <div className="max-w-xs text-xs text-rose-600">Reason: {record.rejection_reason}</div>
+                          <div className="max-w-xs text-xs text-rose-600">Reason: {record.rejection_reason}{record.rejected_by_name && <span className="block text-muted-foreground">{doneByText("Rejected", record.rejected_by_name, record.rejected_at)}</span>}</div>
                         )}
                         {record.status === "pending" && record.reversal_reason && (
                           <div className="max-w-xs text-xs text-amber-700">
-                            Reverted{record.reversed_by_name ? ` by ${record.reversed_by_name}` : ""}: {record.reversal_reason}
+                            {record.reversed_by_name ? doneByText("Reverted", record.reversed_by_name, record.reversed_at) : "Reverted"}: {record.reversal_reason}
                           </div>
                         )}
                       </TableCell>

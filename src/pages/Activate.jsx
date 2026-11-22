@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { cityProblem } from "@/lib/countries";
 import { Link, useNavigate } from "react-router-dom";
 import { CheckCircle2, Loader2, XCircle, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { charityClient } from "@/api/charityClient";
@@ -126,6 +127,7 @@ export default function Activate() {
     }
     if (!form.country) return "Please choose the country you live in.";
     if (!form.city.trim()) return "Please enter your city.";
+    if (cityProblem(form.city)) return cityProblem(form.city);
     if (!username || usernameFormatError) return "Please choose a username (3-30 letters or numbers).";
     if (usernameStatus === "taken") return "This username is taken. Please choose another.";
     if (form.password.length < 8) return "Password must be at least 8 characters.";

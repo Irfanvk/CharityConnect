@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { cityProblem } from "@/lib/countries";
 import { charityClient } from "@/api/charityClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -129,6 +130,7 @@ export default function OnboardingWizard({ open, onComplete, user, memberProfile
       if (!formData.country || !String(formData.city || '').trim()) {
         throw new Error('Please choose the country you live in and enter your city.');
       }
+      if (cityProblem(formData.city)) throw new Error(cityProblem(formData.city));
       try {
         const updated = await charityClient.members.updateMyLocation({
           country: formData.country,

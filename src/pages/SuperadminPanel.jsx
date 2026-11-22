@@ -25,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Shield, UserCog, Loader2, Crown, Check, Search, Bell, Smartphone, Clock3, ChevronRight, Settings2 } from "lucide-react";
+import { Shield, UserCog, Loader2, Crown, Check, Search, Bell, Smartphone, Clock3, ChevronRight, Settings2, Eye } from "lucide-react";
 import PlatformSettingsPanel from "@/components/settings/PlatformSettingsPanel";
 import NotificationDeliveryPanel from "@/components/NotificationDeliveryPanel";
 import { format, formatISTDateTime } from "@/lib/dateTime";
@@ -149,6 +149,10 @@ export default function SuperadminPanel() {
     }
   };
 
+  // Any role change, e.g. member -> executive. Only a superadmin can do it (the server checks).
+  const askRole = (userId, currentRole, userName, targetRole) =>
+    setConfirmDialog({ open: true, userId, targetRole, userName, currentRole });
+
   const confirmRoleChange = () => {
     if (confirmDialog.userId && confirmDialog.targetRole) {
       updateRoleMutation.mutate({
@@ -162,6 +166,7 @@ export default function SuperadminPanel() {
     switch (role) {
       case 'superadmin': return 'default'; // dark
       case 'admin': return 'secondary';
+      case 'executive': return 'secondary';
       case 'member': return 'outline';
       default: return 'outline';
     }
@@ -171,6 +176,7 @@ export default function SuperadminPanel() {
     switch (role) {
       case 'superadmin': return <Crown className="w-3 h-3" />;
       case 'admin': return <Shield className="w-3 h-3" />;
+      case 'executive': return <Eye className="w-3 h-3" />;
       default: return null;
     }
   };
@@ -369,6 +375,26 @@ export default function SuperadminPanel() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
+                          {u.role === 'member' && (
+                            <Button size="sm" variant="outline" disabled={updateRoleMutation.isPending}
+                              onClick={() => askRole(u.id, u.role, u.username || u.full_name, 'executive')}>
+                              <Eye className="w-3 h-3 mr-1" />
+                              Make Executive
+                            </Button>
+                          )}
+                          {u.role === 'executive' && (
+                            <>
+                              <Button size="sm" variant="outline" disabled={updateRoleMutation.isPending}
+                                onClick={() => askRole(u.id, u.role, u.username || u.full_name, 'member')}>
+                                Back to Member
+                              </Button>
+                              <Button size="sm" variant="outline" disabled={updateRoleMutation.isPending}
+                                onClick={() => askRole(u.id, u.role, u.username || u.full_name, 'admin')}>
+                                <Shield className="w-3 h-3 mr-1" />
+                                Promote to Admin
+                              </Button>
+                            </>
+                          )}
                           {/* Promote button */}
                           {u.role === 'member' && (
                             <Button
@@ -502,6 +528,7 @@ export default function SuperadminPanel() {
               {confirmDialog.targetRole === 'admin' && 'This will grant administrative privileges.'}
               {confirmDialog.targetRole === 'superadmin' && 'This will grant full superadmin privileges. Use with caution.'}
               {confirmDialog.targetRole === 'member' && 'This will remove administrative privileges.'}
+              {confirmDialog.targetRole === 'executive' && 'An executive sees every report, member and payment, and can create payments, upload proof, record cash and send reminders for members. They cannot approve, reject or change members. They see admin codes (A12).'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

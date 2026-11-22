@@ -160,6 +160,7 @@ export default function Layout({ children, currentPageName }) {
   }, [wayfindingUserKey]);
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
+  const isStaff = isAdmin || currentUser?.role === 'executive';
   const isSuperadmin = currentUser?.role === 'superadmin';
   const bankDetailsEnabled = usePublicSettings().bank_details_enabled !== false;
   const displayName =
@@ -172,12 +173,12 @@ export default function Layout({ children, currentPageName }) {
   const navigation = [
     { name: "Dashboard", href: ROUTE_KEYS.DASHBOARD, path: PAGE_PATHS.DASHBOARD, icon: LayoutDashboard, description: "Your home view and daily summary" },
     { name: "Community", href: ROUTE_KEYS.COMMUNITY, path: PAGE_PATHS.COMMUNITY, icon: Users2, description: "Members, collections, and spending" },
-    { name: "Members", href: ROUTE_KEYS.MEMBERS, path: PAGE_PATHS.MEMBERS, icon: Users, adminOnly: true, description: "Who is part of the organisation" },
+    { name: "Members", href: ROUTE_KEYS.MEMBERS, path: PAGE_PATHS.MEMBERS, icon: Users, staffOnly: true, description: "Who is part of the organisation" },
     { name: "Challans", href: ROUTE_KEYS.CHALLANS, path: PAGE_PATHS.CHALLANS, icon: Receipt, description: "Payments, receipts, and proof uploads" },
-    { name: "Unfinished payments", href: ROUTE_KEYS.UNFINISHED, path: PAGE_PATHS.UNFINISHED, icon: Hourglass, adminOnly: true, description: "Payments members started without proof" },
+    { name: "Unfinished payments", href: ROUTE_KEYS.UNFINISHED, path: PAGE_PATHS.UNFINISHED, icon: Hourglass, staffOnly: true, description: "Payments members started without proof" },
     { name: "Campaigns", href: ROUTE_KEYS.CAMPAIGNS, path: PAGE_PATHS.CAMPAIGNS, icon: Heart, description: "Causes you can support and track" },
     { name: "Bank Details", href: ROUTE_KEYS.BANK_DETAILS, path: PAGE_PATHS.BANK_DETAILS, icon: Landmark, hidden: !bankDetailsEnabled, description: "Official account and QR for payments" },
-    { name: "Reports", href: ROUTE_KEYS.REPORTS, path: PAGE_PATHS.REPORTS, icon: FileText, adminOnly: true, description: "Financial summaries and exports" },
+    { name: "Reports", href: ROUTE_KEYS.REPORTS, path: PAGE_PATHS.REPORTS, icon: FileText, staffOnly: true, description: "Financial summaries and exports" },
     { name: "Audit Logs", href: ROUTE_KEYS.AUDIT_LOGS, path: PAGE_PATHS.AUDIT_LOGS, icon: Settings, adminOnly: true, description: "Who changed what and when" },
     { name: "Banners", href: ROUTE_KEYS.BANNERS, path: PAGE_PATHS.BANNERS, icon: ImageIcon, adminOnly: true, description: "Pictures for occasions on login and dashboards" },
     { name: "Relief Fund", href: ROUTE_KEYS.RELIEF, path: PAGE_PATHS.RELIEF, icon: HandHeart, description: "Help for members: death, illness, retirement" },
@@ -214,6 +215,7 @@ export default function Layout({ children, currentPageName }) {
     if (item.hidden) return false;
     if (item.superadminOnly) return isSuperadmin;
     if (item.adminOnly) return isAdmin;
+    if (item.staffOnly) return isStaff;
     return true;
   });
 

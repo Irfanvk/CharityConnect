@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { doneByText } from "@/components/common/DoneBy";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarOff, Check, HandCoins, Loader2, Trash2, X } from "lucide-react";
 import { charityClient } from "@/api/charityClient";
@@ -14,12 +15,12 @@ import { formatMonth } from "@/lib/challanStatus";
 /*
  * Admins: months a member cannot pay (backend seasonal.py).
  * - Excused months: owed nothing (e.g. no work); members can ask, an admin decides here.
- * - Yearly pledge: for seasonal members, a total for the Aug-Jul year instead of every month.
+ * - Yearly pledge: for seasonal members, a total for the year (January to December) instead of every month.
  * - Monthly membership off: owes no monthly fee at all (e.g. one-time contributions only).
  */
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
-export const fyMonths = (year) => [8, 9, 10, 11, 12].map((m) => `${year}-${String(m).padStart(2, "0")}`)
-  .concat([1, 2, 3, 4, 5, 6, 7].map((m) => `${year + 1}-${String(m).padStart(2, "0")}`));
+// The organisation's year is January to December (it was August to July until Nov 2026).
+export const fyMonths = (year) => Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
 const STATUS = {
   approved: { label: "Excused", cls: "border-sky-200 bg-sky-50 text-sky-800" },
   requested: { label: "Asked by member", cls: "border-amber-200 bg-amber-50 text-amber-800" },
@@ -165,7 +166,7 @@ export default function SeasonalDialog({ member, open, onOpenChange }) {
                   {[currentYear - 1, currentYear, currentYear + 1].filter((y) => y >= 2024).map((y) => (
                     <button key={y} type="button" onClick={() => setYear(y)} aria-pressed={year === y}
                       className={`rounded-full border px-3 py-1.5 font-semibold ${year === y ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-200 bg-white text-slate-700"}`}>
-                      {y}-{y + 1}
+                      {y}
                     </button>
                   ))}
                 </div>
@@ -210,7 +211,7 @@ export default function SeasonalDialog({ member, open, onOpenChange }) {
                           <span>
                             <span className="font-semibold">{formatMonth(e.month)}</span>{" "}
                             <span className={`rounded-full border px-2 py-0.5 text-xs ${STATUS[e.status]?.cls || ""}`}>{STATUS[e.status]?.label || e.status}</span>
-                            <span className="block text-xs text-slate-600">{e.reason}{e.decided_by ? ` · ${e.decided_by}` : ""}{e.decision_note ? ` · ${e.decision_note}` : ""}</span>
+                            <span className="block text-xs text-slate-600">{e.reason}{e.decided_by ? ` · ${doneByText(e.status === "rejected" ? "Rejected" : "Approved", e.decided_by, e.decided_at)}` : ""}{e.decision_note ? ` · ${e.decision_note}` : ""}</span>
                           </span>
                           {e.status !== "requested" && (
                             <Button size="icon" variant="ghost" title={e.status === "approved" ? "Undo: the month is owed again" : "Remove"}
@@ -226,7 +227,7 @@ export default function SeasonalDialog({ member, open, onOpenChange }) {
                 <section className="space-y-2 rounded-xl border border-slate-200 p-3">
                   <p className="flex items-center gap-1.5 font-semibold text-slate-900"><HandCoins className="h-4 w-4" />Yearly pledge (seasonal work)</p>
                   <p className="text-slate-600">
-                    Instead of every month, the member promises a total for {year}-{year + 1} and pays when they can. Months are not owed one by one; what is left is owed by the end of July.
+                    Instead of every month, the member promises a total for {year} and pays when they can. Months are not owed one by one; what is left is owed by the end of December.
                   </p>
                   {pledgeForYear && (
                     <div className="rounded-lg bg-emerald-50 p-2 text-emerald-900">

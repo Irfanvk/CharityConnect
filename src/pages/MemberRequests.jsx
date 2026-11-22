@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { doneByText } from "@/components/common/DoneBy";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { charityClient } from "@/api/charityClient";
@@ -141,11 +142,11 @@ export default function MemberRequests() {
                 </div>
 
                 {request.status === "approved" && request.resolved_at && (
-                  <p className="text-xs text-emerald-700">Applied on {format(new Date(request.resolved_at), "MMM d, yyyy")}</p>
+                  <p className="text-xs text-emerald-700">{request.resolved_by ? doneByText("Approved", request.resolved_by, request.resolved_at) : `Applied on ${format(new Date(request.resolved_at), "MMM d, yyyy")}`}</p>
                 )}
 
                 {request.status === "rejected" && (
-                  <p className="text-xs text-rose-700">Reason: {request.rejection_reason || "No reason provided"}</p>
+                  <p className="text-xs text-rose-700">Reason: {request.rejection_reason || "No reason provided"}{request.resolved_by && <span className="block text-slate-500">{doneByText("Rejected", request.resolved_by, request.resolved_at)}</span>}</p>
                 )}
               </CardContent>
             </Card>

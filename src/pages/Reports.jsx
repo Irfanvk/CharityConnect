@@ -46,7 +46,7 @@ export default function Reports() {
   const openMember = (id) => go("member", { member: id });
 
   if (isLoading) return null;
-  if (user?.role !== "admin" && user?.role !== "superadmin") {
+  if (!["admin", "superadmin", "executive"].includes(user?.role)) {
     return (
       <Card className="border-0 shadow-sm">
         <CardContent className="p-12 text-center">

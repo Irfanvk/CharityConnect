@@ -10,7 +10,7 @@ import { receiptDate } from "@/components/challans/ReceiptCard";
 import { monthName, useT } from "@/lib/appLanguage";
 
 /*
- * My statement (members, and admins who are members): one Aug-Jul year month by month
+ * My statement (members, and admins who are members): one year (January to December) month by month
  * (paid, waiting for approval, not paid), what is still owed, and the whole payment history
  * with a receipt for every paid payment. Opened from My payments and from Profile.
  */
@@ -80,7 +80,7 @@ export default function MyStatement() {
             {(data.years || []).map((y) => (
               <button key={y} type="button" onClick={() => setYear(y)} aria-pressed={data.year === y}
                 className={`rounded-full border px-4 py-2 text-sm font-semibold ${data.year === y ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-200 bg-white text-slate-700 hover:border-emerald-300"}`}>
-                {y}-{y + 1}
+                {y}
               </button>
             ))}
           </div>
@@ -112,7 +112,7 @@ export default function MyStatement() {
           {pledge && (
             <div className="rounded-2xl border border-violet-200 bg-violet-50 p-3 text-sm text-violet-900">
               <p className="font-semibold">{t("Your pledge for {label}: {amount}", { label: pledge.label, amount: inr(pledge.amount) })}</p>
-              <p>{t("Paid {paid} · left {left}. Pay whenever you can, before the end of July.", { paid: inr(pledge.paid + pledge.waiting), left: inr(pledge.left) })}</p>
+              <p>{t("Paid {paid} · left {left}. Pay whenever you can, before the end of December.", { paid: inr(pledge.paid + pledge.waiting), left: inr(pledge.left) })}</p>
             </div>
           )}
 

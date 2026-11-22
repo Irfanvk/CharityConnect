@@ -198,7 +198,7 @@ function normalizeChallan(challan) {
     amount: normalizeAmount(normalized.amount),
     proof_url: normalized.proof_url || normalized.proof_path || null,
     proof_path: normalized.proof_path || normalized.proof_url || null,
-    // The real payment number (PG-2526-0042); older rows show CH-<id>.
+    // The real payment number (PG-2026-0042; before Nov 2026 PG-2526-...); older rows show CH-<id>.
     challan_number: normalized.challan_no || normalized.challan_number || (normalized.id != null ? `CH-${normalized.id}` : undefined),
     created_date:
       normalized.approved_at ||
@@ -708,6 +708,10 @@ const charityClient = {
     setMonthlyMember: async (id, monthlyMember) =>
       apiFetch(`${API_PATHS.members.byId(id)}/monthly-member`, { method: 'PUT', body: JSON.stringify({ monthly_member: Boolean(monthlyMember) }) }),
     excuseRequests: async () => apiFetch('/excused/requests', { method: 'GET' }),
+    // New members who joined by invite: the fee they chose waits for an admin.
+    feesToConfirm: async () => apiFetch('/members/fees-to-confirm', { method: 'GET' }),
+    confirmFee: async (memberId, body) =>
+      apiFetch(`/members/${memberId}/confirm-fee`, { method: 'POST', body: JSON.stringify(body || {}) }),
     // The signed-in member's own
     mySeasonal: async () => apiFetch('/members/me/seasonal', { method: 'GET' }),
     requestExcused: async ({ months, reason }) =>
@@ -1110,6 +1114,10 @@ const charityClient = {
         body: JSON.stringify({ admin_notes: admin_notes || undefined }),
       });
     },
+
+    // Pending or rejected, 7 days after it was sent (approved / used ones are kept).
+    deletePasswordReset: async (id) =>
+      apiFetch(`${API_PATHS.admin.passwordResetRequests}/${id}`, { method: 'DELETE' }),
 
     rejectPasswordReset: async (id, rejection_reason, admin_notes = '') => {
       return apiFetch(API_PATHS.admin.rejectPasswordReset(id), {
@@ -1533,6 +1541,9 @@ const charityClient = {
         body: JSON.stringify(data),
       }),
 
+    // Public: { status: valid | used | expired | not_found } for an invite link.
+    status: (inviteCode) => apiFetch(API_PATHS.invites.status(inviteCode), { method: 'GET' }),
+
     validate: (emailOrPhone, inviteCode) =>
       apiFetch(
         API_PATHS.invites.validate,
@@ -1678,7 +1689,7 @@ const charityClient = {
 
   /** Admin reports (see backend app/services/report_service.py). */
   reports: {
-    // Your own statement (members, and admins who are members); year = Aug-Jul start year.
+    // Your own statement (members, and admins who are members); year = the year (January to December).
     myStatement: (year) => apiFetch(API_PATHS.reports.myStatement, { method: 'GET' }, year ? { year } : {}),
     memberStatement: (memberId, query = {}) =>
       apiFetch(API_PATHS.reports.memberStatement(memberId), { method: 'GET' }, query),

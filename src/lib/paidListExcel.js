@@ -1,10 +1,10 @@
 /*
  * "Traditional" yearly paid list in Excel, as the committee keeps it by hand
  * (Membership Collection Report): blue band with the committee name and a yellow rounded
- * "Membership Collection Report - 2025/2026" box (a picture, as Excel shapes cannot be made
+ * "Membership Collection Report - 2026" box (a picture, as Excel shapes cannot be made
  * here), yellow header, rows alternating light gold / white, ✓ for paid months.
  *
- * Columns: SI. NO. (member's number) | NAME & ADDRESS | Monthly Donation | AUG … JULY |
+ * Columns: SI. NO. (member's number) | NAME & ADDRESS | Monthly Donation | JAN … DEC |
  * Total Received Month | Total Amount Received | Pending Months | Pending Amount |
  * one column per campaign given to that year | Total Campaigns | Grand Total.
  * The last row "Received Amount (Net Total)" sums every money column.
@@ -21,7 +21,8 @@ const WHITE = "FFFFFFFF";       // even rows
 const GREEN_LIGHT = "FFE2EFDA"; // totals columns / month header
 const GREEN_MID = "FFC6E0B4";   // net total row
 const ROSE = "FFFCE4D6";        // pending columns
-const MONTHS = ["AUG", "SEP", "OCT", "NOV", "DEC", "JAN", "FEB", "MAR", "APR", "MAY", "JUNE", "JULY"];
+// The year runs January to December (until Nov 2026 the sheet ran August to July).
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUNE", "JULY", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
 const fill = (argb) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
 const thin = { style: "thin" };
@@ -104,7 +105,7 @@ export async function downloadPaidListExcel(data) {
   // Yellow rounded box over rows 5-11, columns B-O
   const boxWidth = 1150;
   const boxHeight = 115;
-  const png = await titleBoxPng(`Membership Collection Report - ${data.label.replace("-", "/")}`, boxWidth, boxHeight);
+  const png = await titleBoxPng(`Membership Collection Report - ${data.label}`, boxWidth, boxHeight);
   const imageId = wb.addImage({ buffer: png, extension: "png" });
   ws.addImage(imageId, { tl: { col: 1.15, row: 4.55 }, ext: { width: boxWidth, height: boxHeight }, editAs: "oneCell" });
 

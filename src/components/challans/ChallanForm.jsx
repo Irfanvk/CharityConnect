@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
+import { isStaffRole } from "@/lib/roles";
 import { formatMemberId } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { charityClient } from "@/api/charityClient";
@@ -75,7 +76,7 @@ export default function ChallanForm({
   currentUser,
   onOpenStarted,
 }) {
-  const isAdmin = currentUser?.role === "admin" || currentUser?.role === "superadmin";
+  const isAdmin = isStaffRole(currentUser); // admins and executives make payments for members
   const normalizeId = (v) => (v === null || v === undefined ? "" : String(v));
   const areSameId = (a, b) => normalizeId(a) === normalizeId(b);
 

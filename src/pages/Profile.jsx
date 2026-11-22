@@ -27,7 +27,7 @@ import { formatMonth, isNotPaidYet } from "@/lib/challanStatus";
 import PaymentReminderSetting, { ordinal } from "@/components/PaymentReminderSetting";
 import AvatarLightbox from "@/components/profile/AvatarLightbox";
 import LocationFields from "@/components/members/LocationFields";
-import { formatLocation, isLocationComplete } from "@/lib/countries";
+import { cityProblem, formatLocation, isLocationComplete } from "@/lib/countries";
 
 const FIELD_LABELS = {
   full_name: "Full name",
@@ -114,6 +114,7 @@ function LocationDialog({ open, onOpenChange, memberProfile }) {
     e.preventDefault();
     if (!form.country) return setError("Please choose the country you live in.");
     if (!form.city.trim()) return setError("Please enter your city.");
+    if (cityProblem(form.city)) return setError(cityProblem(form.city));
     setSaving(true);
     try {
       const updated = await charityClient.members.updateMyLocation({ country: form.country, city: form.city.trim() });
@@ -205,7 +206,8 @@ export default function Profile() {
     queryKey: ["auth", "me", "profile"],
     queryFn: () => charityClient.auth.me(),
   });
-  const isMember = user?.role === "member";
+  // Executives are members too: their profile changes go to an admin for approval.
+  const isMember = user?.role === "member" || user?.role === "executive";
   const [locationOpen, setLocationOpen] = useState(false);
 
   // Admins may have no member record; treat 404 as "none".
@@ -547,7 +549,7 @@ export default function Profile() {
             {[
               memberProfile?.member_code && formatMemberId(memberProfile.member_code),
               joinDate && `Member since ${format(joinDate, "MMM yyyy")}`,
-              !isMember && (user.role === "superadmin" ? "Superadmin" : "Admin"),
+              user?.role === "executive" ? "Executive" : !isMember && (user.role === "superadmin" ? "Superadmin" : "Admin"),
             ].filter(Boolean).join(" · ")}
           </p>
           {photoPending && (
