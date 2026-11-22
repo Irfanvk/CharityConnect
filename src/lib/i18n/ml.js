@@ -134,7 +134,7 @@ const ml = {
   "of your pledge": "വാഗ്ദാനത്തിൽ നിന്ന്",
   "You are not a monthly member, so no monthly fee is owed. Thank you for your contributions.": "നിങ്ങൾ മാസവരി അംഗമല്ല, അതിനാൽ മാസവരി ബാക്കിയില്ല. നിങ്ങളുടെ സംഭാവനകൾക്ക് നന്ദി.",
   "Your pledge for {label}: {amount}": "{label} വർഷത്തെ നിങ്ങളുടെ വാഗ്ദാനം: {amount}",
-  "Paid {paid} · left {left}. Pay whenever you can, before the end of July.": "അടച്ചത് {paid} · ബാക്കി {left}. ജൂലൈ അവസാനത്തിന് മുമ്പ് സൗകര്യം പോലെ അടയ്ക്കുക.",
+  "Paid {paid} · left {left}. Pay whenever you can, before the end of December.": "അടച്ചത് {paid} · ബാക്കി {left}. ഡിസംബർ അവസാനത്തിന് മുമ്പ് സൗകര്യം പോലെ അടയ്ക്കുക.",
   "Ask to be excused": "ഒഴിവിന് അപേക്ഷിക്കുക",
   "If you cannot pay some months (for example, no work), ask the committee. If they agree, nothing is owed for those months.": "ചില മാസങ്ങളിൽ അടയ്ക്കാൻ കഴിയുന്നില്ലെങ്കിൽ (ഉദാ. ജോലിയില്ല), കമ്മിറ്റിയോട് ചോദിക്കുക. അവർ സമ്മതിച്ചാൽ ആ മാസങ്ങൾക്ക് ഒന്നും അടയ്ക്കേണ്ടതില്ല.",
   "There is no month to ask for in this year.": "ഈ വർഷം അപേക്ഷിക്കാൻ മാസങ്ങളൊന്നുമില്ല.",

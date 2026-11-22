@@ -49,8 +49,8 @@ function YearChartDialog({ L, open, onOpenChange }) {
   for (let y = thisYear; y >= 2024; y--) years.push(String(y));
   const [year, setYear] = useState(String(thisYear));
   const [busy, setBusy] = useState(null);
-  // The committee's paid list runs Aug-Jul: "2025-2026" = Aug 2025 to Jul 2026.
-  const currentFy = Number(format(new Date(), "M")) >= 8 ? thisYear : thisYear - 1;
+  // The committee's paid list runs January to December, like every other year in the app.
+  const currentFy = thisYear;
   const fyYears = [];
   for (let y = currentFy; y >= 2024; y--) fyYears.push(String(y));
   const [fy, setFy] = useState(String(currentFy));
@@ -157,13 +157,13 @@ function YearChartDialog({ L, open, onOpenChange }) {
         <div className="mt-2 space-y-2 border-t border-slate-200 pt-4">
           <p className="text-base font-semibold text-slate-900">Membership Collection Report (traditional Excel)</p>
           <p className="-mt-1 text-sm text-slate-600">
-            The committee's own sheet, Aug–Jul: every member by member ID, ✓ for each paid month, W waiting,
+            The committee's own sheet, January to December: every member by member ID, ✓ for each paid month, W waiting,
             – before joining; received, pending, each campaign given to that year, and the net total.
           </p>
           <div className="grid grid-cols-2 gap-2">
             {fyYears.map((y) => (
               <Button key={y} variant={fy === y ? "default" : "outline"} className={fy === y ? "bg-emerald-600 hover:bg-emerald-700" : ""} onClick={() => setFy(y)}>
-                {y}-{Number(y) + 1}
+                {y}
               </Button>
             ))}
           </div>

@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
+import { doneByText } from "@/components/common/DoneBy";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, Copy, ImagePlus, Loader2, Monitor, Pause, Pencil, Play, Plus, Smartphone, Trash2 } from "lucide-react";
 import { charityClient } from "@/api/charityClient";
@@ -305,6 +306,8 @@ export default function Banners() {
                           {formatISTDateTime(b.starts_at, { second: undefined })} → {formatISTDateTime(b.ends_at, { second: undefined })}
                         </p>
                         <p className="text-xs text-slate-500">Shows on: {places}</p>
+                        {b.created_by_name && <p className="text-xs text-slate-500">{doneByText("Created", b.created_by_name, b.created_at)}</p>}
+                        {b.updated_by_name && b.updated_by_name !== b.created_by_name && <p className="text-xs text-slate-500">{doneByText("Changed", b.updated_by_name, b.updated_at)}</p>}
                         <div className="mt-2 flex flex-wrap gap-2">
                           {b.status !== "past" && (
                             <Button size="sm" variant="outline" onClick={() => setEditor({ initial: formFromBanner(b), id: b.id })} className="gap-1"><Pencil className="h-3.5 w-3.5" />Edit</Button>

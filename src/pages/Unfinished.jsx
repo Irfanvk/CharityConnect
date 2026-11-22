@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { isAdminRole } from "@/lib/roles";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BellRing, CheckCircle2, Clock, HandCoins, Loader2, Phone, Search, Trash2 } from "lucide-react";
 import { charityClient } from "@/api/charityClient";
@@ -166,9 +167,11 @@ export default function Unfinished() {
                     {loadingMember === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <HandCoins className="h-4 w-4" />}Record as received
                   </Button>
                 )}
+                {isAdminRole(user) && (
                 <Button variant="ghost" className="h-10 gap-1.5 text-slate-600 hover:text-rose-600" onClick={() => { setCancelTarget(item); setReason(item.already_paid ? "This month is already paid." : ""); }}>
                   <Trash2 className="h-4 w-4" />Cancel
                 </Button>
+                )}
               </div>
             </li>
           ))}

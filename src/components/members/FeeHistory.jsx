@@ -1,4 +1,5 @@
 import React from "react";
+import { doneByText } from "@/components/common/DoneBy";
 import { useQuery } from "@tanstack/react-query";
 import { History } from "lucide-react";
 import { charityClient } from "@/api/charityClient";
@@ -40,7 +41,7 @@ export default function FeeHistory({ memberId, currentFee, newFee }) {
               <span>From {formatMonth(h.effective_from)}{h === history[nowIndex] ? " (now)" : waiting && h.effective_from === waiting.effective_from && h === history[history.length - 1] ? " (starts next month)" : ""}</span>
               <span className="font-semibold tabular-nums">₹{Number(h.amount).toLocaleString("en-IN")}</span>
               <span className="w-full text-xs text-slate-500">
-                {SOURCE[h.source] || h.source}{h.changed_by ? ` · ${h.changed_by}` : ""}{h.note ? ` · ${h.note}` : ""}
+                {SOURCE[h.source] || h.source}{h.changed_by ? ` · ${doneByText("Changed", h.changed_by, h.created_at)}` : ""}{h.note ? ` · ${h.note}` : ""}
               </span>
             </li>
           ))}

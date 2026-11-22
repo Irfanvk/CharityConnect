@@ -73,7 +73,7 @@ export default function ReceiptsReportView() {
       all.forEach((r) => ws.addRow({
         number: r.number, date: r.date || "", code: r.member_code || "", name: r.member_name || "",
         what: receiptWhat(r), amount: Number(r.received_amount ?? r.amount ?? 0),
-        method: METHOD[r.payment_method] || r.payment_method || "", ref: r.transaction_ref || "", by: r.checked_by || "",
+        method: METHOD[r.payment_method] || r.payment_method || "", ref: r.transaction_ref || "", by: r.checked_by ? `admin (${r.checked_by})` : "",
       }));
       ws.getColumn("amount").numFmt = "#,##0.00";
       ws.addRow({});
@@ -115,7 +115,7 @@ export default function ReceiptsReportView() {
             </Select></div>
           <div className="space-y-1"><Label className="text-xs">Checked by</Label>
             <Select value={checkedBy} onValueChange={setCheckedBy}><SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Any admin</SelectItem>{(data?.checked_by_codes || []).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              <SelectContent><SelectItem value="all">Any admin</SelectItem>{(data?.checked_by_codes || []).map((c) => <SelectItem key={c} value={c}>admin ({c})</SelectItem>)}</SelectContent>
             </Select></div>
         </div>
       </div>
@@ -140,7 +140,7 @@ export default function ReceiptsReportView() {
                 className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm hover:border-emerald-300">
                 <Receipt className="h-5 w-5 shrink-0 text-emerald-600" />
                 <span className="min-w-0 flex-1">
-                  <span className="block font-mono text-xs text-slate-500">{r.number} · {receiptDate(r.date)}{r.checked_by ? ` · checked by ${r.checked_by}` : ""}</span>
+                  <span className="block font-mono text-xs text-slate-500">{r.number} · {receiptDate(r.date)}{r.checked_by ? ` · checked by admin (${r.checked_by})` : ""}</span>
                   <span className="block truncate font-semibold text-slate-900">{r.member_code} · {r.member_name}</span>
                   <span className="block truncate text-sm text-slate-600">
                     {receiptWhat(r)}{r.payment_method ? ` · ${METHOD[r.payment_method] || r.payment_method}` : ""}{r.transaction_ref ? ` · ${r.transaction_ref}` : ""}

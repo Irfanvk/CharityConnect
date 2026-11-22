@@ -48,6 +48,8 @@ export default function Dashboard() {
   const isSuperAdmin = user?.is_superadmin === true || user?.role === 'superadmin';
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const isMember = !!user && !isAdmin && !isSuperAdmin;
+  // An executive's home is a member's home (their own payments) plus follow-up shortcuts.
+  const isExecutive = user?.role === 'executive';
   const requestedTab = searchParams.get("tab");
   const requestedBulkGroupId = searchParams.get("bulk_group_id");
   const wayfindingUserKey = user?.id || user?.email || null;
@@ -181,17 +183,22 @@ export default function Dashboard() {
         order: '-created_date',
         skip: 0,
         limit: DASHBOARD_RECENT_CHALLAN_LIMIT,
+        // executives can see everyone's: their home shows only their own
+        ...(isExecutive && memberProfile?.id ? { member_id: memberProfile.id } : {}),
       }),
-    enabled: !!user,
+    enabled: !!user && (!isExecutive || !!memberProfile?.id),
     staleTime: 2 * 60 * 1000,
   });
 
   const challansArray = Array.isArray(challans) ? challans : [];
 
   const { data: challanSummary } = useQuery({
-    queryKey: ['challans', 'summary', currentMonth, user?.role],
-    queryFn: () => charityClient.challans.summary({ month: currentMonth }),
-    enabled: !!user,
+    queryKey: ['challans', 'summary', currentMonth, user?.role, isExecutive ? memberProfile?.id : null],
+    queryFn: () => charityClient.challans.summary({
+      month: currentMonth,
+      ...(isExecutive && memberProfile?.id ? { member_id: memberProfile.id } : {}),
+    }),
+    enabled: !!user && (!isExecutive || !!memberProfile?.id),
     staleTime: 2 * 60 * 1000,
   });
 
@@ -499,6 +506,8 @@ export default function Dashboard() {
 
           <UnfinishedNotice isAdmin={false} />
 
+          {isExecutive && <ExecutiveTools />}
+
           {showWayfinding ? <HomeMapSection /> : null}
 
           <MemberDashboard
@@ -623,7 +632,7 @@ export default function Dashboard() {
 /** Photo next to the welcome line; under it the member ID and role, or "Add your photo". */
 function WelcomeIdentity({ user, memberProfile, name, children }) {
   const role = String(user?.role || "").toLowerCase();
-  const roleLabel = role === "superadmin" ? "Superadmin" : role === "admin" ? "Admin" : "Member";
+  const roleLabel = role === "superadmin" ? "Superadmin" : role === "admin" ? "Admin" : role === "executive" ? "Executive" : "Member";
   return (
     <div className="mb-1 flex items-center gap-4">
       <Link to={user?.avatar_url ? PAGE_PATHS.PROFILE : `${PAGE_PATHS.PROFILE}?photo=1`} className="shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white" aria-label={user?.avatar_url ? "My profile" : "Add your photo"}>
@@ -642,5 +651,30 @@ function WelcomeIdentity({ user, memberProfile, name, children }) {
         </p>
       </div>
     </div>
+  );
+}
+
+/** Executive's shortcuts: everyone's payments, follow-ups, members, reports, campaigns. */
+function ExecutiveTools() {
+  const links = [
+    { to: PAGE_PATHS.CHALLANS, label: "Members' payments", hint: "Create a payment, upload proof, record cash" },
+    { to: PAGE_PATHS.UNFINISHED, label: "Unfinished payments", hint: "Remind members, record what they paid" },
+    { to: PAGE_PATHS.MEMBERS, label: "Members", hint: "Contacts, fees and statements" },
+    { to: PAGE_PATHS.REPORTS, label: "Reports", hint: "Dues, year chart, paid list, receipts" },
+    { to: PAGE_PATHS.CAMPAIGNS, label: "Campaigns", hint: "Collections and donors" },
+  ];
+  return (
+    <section className="rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm">
+      <p className="text-sm font-semibold text-indigo-900">Executive tools</p>
+      <p className="mb-3 text-xs text-slate-500">Follow up payments and help members. An admin approves every payment.</p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {links.map((l) => (
+          <Link key={l.to} to={l.to} className="rounded-xl border border-slate-200 p-3 transition hover:border-indigo-300 hover:bg-indigo-50/50">
+            <span className="block text-sm font-medium text-slate-900">{l.label}</span>
+            <span className="block text-xs text-slate-500">{l.hint}</span>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }

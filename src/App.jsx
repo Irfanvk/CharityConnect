@@ -71,7 +71,9 @@ const PUBLIC_ROUTE_PATHS = new Set(
   Object.keys(PUBLIC_PAGES || {}).map((path) => `/${String(path).toLowerCase()}`)
 );
 
-const ADMIN_PAGES = new Set(['Members', 'Reports', 'AuditLogs', 'Settings', 'AdminRequests', 'FundUtilization', 'Banners', 'Unfinished']);
+const ADMIN_PAGES = new Set(['AuditLogs', 'Settings', 'AdminRequests', 'FundUtilization', 'Banners']);
+// Executives (view and follow up, no approving) may open these too.
+const STAFF_PAGES = new Set(['Members', 'Reports', 'Unfinished']);
 const SUPERADMIN_PAGES = new Set(['SuperadminPanel', 'Import']);
 
 const canAccessPage = (pageKey, role) => {
@@ -80,6 +82,9 @@ const canAccessPage = (pageKey, role) => {
   }
   if (ADMIN_PAGES.has(pageKey)) {
     return role === 'admin' || role === 'superadmin';
+  }
+  if (STAFF_PAGES.has(pageKey)) {
+    return role === 'admin' || role === 'superadmin' || role === 'executive';
   }
   return true;
 };

@@ -5,7 +5,7 @@ import { Loader2, MapPin } from "lucide-react";
 import { charityClient } from "@/api/charityClient";
 import { useAuth } from "@/lib/AuthContext";
 import { holdAutoInstall, useInstallState } from "@/lib/installPrompt";
-import { isLocationComplete } from "@/lib/countries";
+import { cityProblem, isLocationComplete } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import LocationFields from "@/components/members/LocationFields";
@@ -60,7 +60,8 @@ export default function LocationGate() {
   useEffect(() => {
     if (!missing) { setOpen(false); return; }
     if (open || onAuthPage || install.dialogOpen || install.autoHeld) return;
-    setForm({ country: me?.country || "", city: me?.city || "" });
+    // A country saved as the city (e.g. "Saudi Arabia") is cleared so they type the real city.
+    setForm({ country: me?.country || "", city: cityProblem(me?.city) ? "" : (me?.city || "") });
     setError("");
     setOpen(true);
   }, [missing, open, onAuthPage, install.dialogOpen, install.autoHeld, me]);
@@ -82,6 +83,7 @@ export default function LocationGate() {
     e.preventDefault();
     if (!form.country) return setError("Please choose the country you live in.");
     if (!form.city.trim()) return setError("Please enter your city.");
+    if (cityProblem(form.city)) return setError(cityProblem(form.city));
     setError("");
     save.mutate();
   };
@@ -98,9 +100,11 @@ export default function LocationGate() {
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
             <MapPin className="h-6 w-6" />
           </div>
-          <DialogTitle>Where do you live?</DialogTitle>
+          <DialogTitle>{me?.city && cityProblem(me.city) ? "Which city do you live in?" : "Where do you live?"}</DialogTitle>
           <DialogDescription>
-            Please tell us the country and city you live in now. This is needed for every member and only admins can see it.
+            {me?.city && cityProblem(me.city)
+              ? `Your city was saved as "${me.city}", which is a country. Please choose or type your city.`
+              : "Please tell us the country and city you live in now. This is needed for every member and only admins can see it."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">

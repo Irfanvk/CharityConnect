@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { isAdminRole, isStaffRole } from "@/lib/roles";
+import DoneBy, { doneByText } from "@/components/common/DoneBy";
 import { formatMemberId } from "@/lib/utils";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -233,7 +235,10 @@ export default function Challans() {
   // FIX: isAdmin moved here — BEFORE createMutation — so the mutation closure
   // captures the correct value. In the original it was defined ~40 lines later,
   // meaning isAdmin was always undefined inside the mutation.
-  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+  // isAdmin = may see and help with everyone's payments (admins and executives);
+  // canDecide = may approve, reject, revert or edit amounts (admins only).
+  const isAdmin = isStaffRole(user);
+  const canDecide = isAdminRole(user);
 
   // ── Debounced search ──────────────────────────────────────────────────────
   // Only included in the query key (and sent to the API) after the user
@@ -775,7 +780,7 @@ export default function Challans() {
 
     const payload = {};
 
-    if (isAdmin) {
+    if (canDecide) {
       payload.amount = Number(editData.amount);
       if (editChallan.type === "monthly") {
         payload.month = editData.month;
@@ -976,7 +981,7 @@ export default function Challans() {
               {isAdmin ? "Challans" : tr("My payments")}
             </h1>
             <p className="text-slate-500 dark:text-slate-400">
-              {isAdmin ? "Manage payment challans and approvals" : tr("What you owe, and what you have paid")}
+              {canDecide ? "Manage payment challans and approvals" : isAdmin ? "Follow up members' payments: create payments, upload proof, record cash" : tr("What you owe, and what you have paid")}
             </p>
           </div>
           {/* Members have "Pay now" in the summary box below. */}
@@ -1155,7 +1160,10 @@ export default function Challans() {
                           ? "You collected this cash — another admin must verify it"
                           : null;
                     const canMutateBeforeApproval =
-                      !challan.is_bulk_group && challan.status !== "approved" && (isAdmin || isOwner) && !isOwnPayment;
+                      !challan.is_bulk_group && challan.status !== "approved" && (canDecide || isOwner) && !isOwnPayment;
+                    // An executive may remove a payment they made for a member by mistake (not yet approved).
+                    const canDeleteOwnEntry = !canDecide && isAdmin && !isOwner && !challan.is_bulk_group &&
+                      challan.status !== "approved" && Number(challan.created_by_user_id) === Number(user?.id);
                     const linkedMember = members.find(
                       (m) => normalizeId(m.id) === normalizeId(challan.member_id)
                     );
@@ -1268,15 +1276,16 @@ export default function Challans() {
                                   Reason: {challan.rejection_reason}
                                 </p>
                               )}
-                            {isAdmin && challan.approved_by_name && (
-                              <p className="text-xs text-slate-500">
-                                Approved by {challan.approved_by_name}
-                              </p>
+                            {challan.status === "approved" && (
+                              <DoneBy verb="Approved" by={challan.approved_by_name} at={challan.approved_at} />
                             )}
-                            {isAdmin && challan.reversed_by_name && (
+                            {challan.status === "rejected" && (
+                              <DoneBy verb="Rejected" by={challan.rejected_by_name} at={challan.rejected_at} />
+                            )}
+                            {challan.reversed_by_name && (
                               <p className="text-xs text-amber-700">
-                                Reversed by {challan.reversed_by_name}
-                                {challan.reversal_reason ? `: ${challan.reversal_reason}` : ""}
+                                {doneByText("Reversed", challan.reversed_by_name, challan.reversed_at)}
+                                {isAdmin && challan.reversal_reason ? `: ${challan.reversal_reason}` : ""}
                               </p>
                             )}
                             {isOwnPayment && (
@@ -1285,7 +1294,7 @@ export default function Challans() {
                             {isAdminEntered && (
                               <div className="mt-1 space-y-0.5">
                                 <Badge variant="outline" className="text-[11px]">
-                                  Admin-entered by {challan.created_by_name || "admin"}
+                                  {doneByText("Entered", challan.created_by_name || "admin", challan.created_at)}
                                 </Badge>
                                 <p className="text-xs text-slate-500">
                                   {String(challan.payment_method || "").replace("_", " ")}
@@ -1361,6 +1370,13 @@ export default function Challans() {
                                   </DropdownMenuItem>
                                 )}
 
+                              {canDeleteOwnEntry && (
+                                <DropdownMenuItem onClick={() => setDeleteTarget(challan)} className="text-rose-600">
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete (entered by mistake)
+                                </DropdownMenuItem>
+                              )}
+
                               {/* Edit/Delete before approval (owner + admins) */}
                               {canMutateBeforeApproval && (
                                 <>
@@ -1381,7 +1397,7 @@ export default function Challans() {
                               )}
 
                               {/* Admin: Approve / Reject */}
-                              {isAdmin && !isOwnPayment &&
+                              {canDecide && !isOwnPayment &&
                                 (challan.status === "proof_uploaded" ||
                                   challan.status === "pending") && (
                                   <>
@@ -1413,7 +1429,7 @@ export default function Challans() {
                                 )}
 
                               {/* Admin: Revert / Reject approved challan */}
-                              {isAdmin && !isOwnPayment && !challan.is_bulk_group && challan.status === "approved" && (
+                              {canDecide && !isOwnPayment && !challan.is_bulk_group && challan.status === "approved" && (
                                 <>
                                   <DropdownMenuItem
                                     onClick={() => {
@@ -1443,7 +1459,7 @@ export default function Challans() {
                               )}
 
                               {/* Admin: Revert rejected challan */}
-                              {isAdmin && !isOwnPayment && !challan.is_bulk_group && challan.status === "rejected" && (
+                              {canDecide && !isOwnPayment && !challan.is_bulk_group && challan.status === "rejected" && (
                                 <DropdownMenuItem
                                   onClick={() => {
                                     setRevertTarget(challan);
@@ -1573,7 +1589,7 @@ export default function Challans() {
               <DialogTitle>Edit Challan</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              {editChallan?.type === "monthly" && isAdmin && (
+              {editChallan?.type === "monthly" && canDecide && (
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700">Month</label>
                   <Input
@@ -1585,7 +1601,7 @@ export default function Challans() {
                   />
                 </div>
               )}
-              {isAdmin && (
+              {canDecide && (
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700">Amount (INR)</label>
                   <Input
@@ -1610,8 +1626,8 @@ export default function Challans() {
                   onClick={submitEdit}
                   disabled={
                     updateMutation.isPending ||
-                    (isAdmin && !editData.amount) ||
-                    (isAdmin && editChallan?.type === "monthly" && !editData.month)
+                    (canDecide && !editData.amount) ||
+                    (canDecide && editChallan?.type === "monthly" && !editData.month)
                   }
                   className="bg-emerald-600 hover:bg-emerald-700"
                 >

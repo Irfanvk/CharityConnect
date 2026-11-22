@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { doneByText } from "@/components/common/DoneBy";
 import { charityClient } from "@/api/charityClient";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -141,10 +142,10 @@ export default function BulkOperationsPanel({ initialBulkGroupId = null }) {
                           )}
                         </div>
                         {opStatus === "approved" && bulk.approved_by_name && (
-                          <p className="text-xs text-emerald-700">Approved by {bulk.approved_by_name}</p>
+                          <p className="text-xs text-emerald-700">{doneByText("Approved", bulk.approved_by_name, bulk.approved_at)}</p>
                         )}
                         {opStatus === "rejected" && bulk.rejection_reason && (
-                          <p className="text-xs text-rose-700">Reason: {bulk.rejection_reason}</p>
+                          <p className="text-xs text-rose-700">Reason: {bulk.rejection_reason}{bulk.rejected_by_name && <span className="block">{doneByText("Rejected", bulk.rejected_by_name, bulk.rejected_at)}</span>}</p>
                         )}
                         <p className="text-xs text-slate-400 font-mono">{bulk.challan_no ? `${bulk.challan_no} · ` : ""}Group: {bulk.bulk_group_id}</p>
                       </div>

@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from "react";
+import { doneByText } from "@/components/common/DoneBy";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, AlertTriangle, XCircle, MinusCircle, Loader2, UserCheck } from "lucide-react";
 import { charityClient } from "@/api/charityClient";
@@ -287,8 +288,11 @@ export default function MemberActivationsPanel({ enabled }) {
               ) : (
                 <div className="space-y-1 rounded-md border p-3 text-sm text-slate-600">
                   <p>Status: <strong className="capitalize">{selected.status}</strong>
-                    {selected.reviewed_by_name ? ` by ${selected.reviewed_by_name}` : ""}
-                    {selected.reviewed_at ? ` · ${safeDate(selected.reviewed_at)}` : ""}
+                    {selected.reviewed_by_name && (
+                      <span className="block text-xs text-slate-500">
+                        {doneByText(selected.status === "rejected" ? "Rejected" : "Approved", selected.reviewed_by_name, selected.reviewed_at)}
+                      </span>
+                    )}
                   </p>
                   {selected.admin_notes && <p className="break-words">Notes: {selected.admin_notes}</p>}
                   {selected.rejection_reason && <p className="break-words">Reason: {selected.rejection_reason}</p>}

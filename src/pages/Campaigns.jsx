@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { doneByText } from "@/components/common/DoneBy";
 import { charityClient } from "@/api/charityClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { emitNotificationsChanged } from "@/lib/notificationState";
@@ -698,6 +699,9 @@ export default function Campaigns() {
                       </div>
 
                       <h3 className="font-semibold text-lg text-slate-900 mb-2">{campaign.title}</h3>
+                      {campaign.created_by_name && (
+                        <p className="-mt-1 mb-2 text-xs text-slate-400">{doneByText("Created", campaign.created_by_name, campaign.created_at)}</p>
+                      )}
                       {campaign.description && (
                         <p className="text-sm text-slate-500 mb-4 line-clamp-2">{campaign.description}</p>
                       )}
