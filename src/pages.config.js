@@ -58,6 +58,7 @@ import FundUtilization from './pages/FundUtilization';
 import Relief from './pages/Relief';
 import Banners from './pages/Banners';
 import Unfinished from './pages/Unfinished';
+import AdminArea from './pages/AdminArea';
 import MyStatement from './pages/MyStatement';
 import Documentation from './pages/Documentation';
 import Import from './pages/Import';
@@ -90,6 +91,7 @@ export const PAGES = {
     "Relief": Relief,
     "Banners": Banners,
     "Unfinished": Unfinished,
+    "AdminArea": AdminArea,
     "MyStatement": MyStatement,
     "Documentation": Documentation,
     "Import": Import,

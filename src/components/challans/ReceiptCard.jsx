@@ -39,7 +39,7 @@ const ReceiptCard = forwardRef(function ReceiptCard({ receipt: r, publicView = f
         {r.logo_url && <img src={r.logo_url} alt="" crossOrigin="anonymous" style={{ width: 36, height: 36, borderRadius: 8, background: "#fff", objectFit: "contain" }} />}
         <div>
           <div style={{ fontWeight: 800, fontSize: 15 }}>{r.organisation}</div>
-          <div style={{ fontSize: 11, opacity: 0.9, letterSpacing: 1 }}>PAYMENT RECEIPT</div>
+          <div style={{ fontSize: 11, opacity: 0.9, letterSpacing: 1 }}>{r.corrected ? "PAYMENT RECEIPT · CORRECTED" : "PAYMENT RECEIPT"}</div>
         </div>
       </div>
       <div style={{ padding: 16 }}>
@@ -52,6 +52,12 @@ const ReceiptCard = forwardRef(function ReceiptCard({ receipt: r, publicView = f
             {r.valid ? <CheckCircle2 size={16} /> : <XCircle size={16} />}{r.valid ? "Paid · verified" : "Not valid"}
           </div>
         </div>
+        {r.corrected && r.valid && (
+          <div style={{ marginTop: 10, background: "#fffbeb", border: "1px solid #fcd34d", color: "#92400e", borderRadius: 8,
+            padding: "6px 10px", fontSize: 11 }}>
+            Corrected receipt: this payment was checked again. It replaces the earlier receipt with the same number.
+          </div>
+        )}
         <div style={{ marginTop: 12 }}>
           <Row label="Member" value={`${r.member_name}${r.member_code ? ` (${r.member_code})` : ""}`} />
           <Row label="For" value={receiptWhat(r)} />

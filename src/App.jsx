@@ -73,7 +73,7 @@ const PUBLIC_ROUTE_PATHS = new Set(
 
 const ADMIN_PAGES = new Set(['AuditLogs', 'Settings', 'AdminRequests', 'FundUtilization', 'Banners']);
 // Executives (view and follow up, no approving) may open these too.
-const STAFF_PAGES = new Set(['Members', 'Reports', 'Unfinished']);
+const STAFF_PAGES = new Set(['Members', 'Reports', 'Unfinished', 'AdminArea']);
 const SUPERADMIN_PAGES = new Set(['SuperadminPanel', 'Import']);
 
 const canAccessPage = (pageKey, role) => {

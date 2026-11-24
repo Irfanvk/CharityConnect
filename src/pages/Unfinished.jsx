@@ -16,6 +16,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { formatISTDate } from "@/lib/dateTime";
 import { emitNotificationsChanged } from "@/lib/notificationState";
 import NewPaymentWizard from "@/components/challans/NewPaymentWizard";
+import MovedBackSection from "@/components/challans/MovedBackSection";
+import { useSearchParams } from "react-router-dom";
 
 /*
  * Admins: payments members started but never finished (no proof uploaded).
@@ -44,6 +46,8 @@ export default function Unfinished() {
   const [reason, setReason] = useState("");
   const [recordFor, setRecordFor] = useState(null); // full member record for the form
   const [loadingMember, setLoadingMember] = useState(null);
+  const [params] = useSearchParams();
+  const movedBackView = params.get("view") === "moved-back";
 
   const { data: user } = useQuery({ queryKey: ["me"], queryFn: () => charityClient.auth.me(), staleTime: 5 * 60 * 1000 });
   const { data, isLoading } = useQuery({
@@ -94,6 +98,8 @@ export default function Unfinished() {
           again after 7 days; admins get one summary each morning.
         </p>
       </div>
+
+      <MovedBackSection highlight={movedBackView} />
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800 sm:w-80">

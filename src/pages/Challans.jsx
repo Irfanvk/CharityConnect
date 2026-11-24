@@ -60,6 +60,7 @@ import {
   Pencil,
   Trash2,
   Layers,
+  History,
 } from "lucide-react";
 import { format } from "@/lib/dateTime";
 import { formatBusinessDate } from "@/lib/businessTime";
@@ -71,6 +72,9 @@ import ProofUpload from "@/components/challans/ProofUpload";
 import PayTogetherDialog from "@/components/challans/PayTogetherDialog";
 import ApprovePaymentDialog, { toApprovalPayment } from "@/components/challans/ApprovePaymentDialog";
 import ReceiptDialog from "@/components/challans/ReceiptDialog";
+import MoveBackDialog from "@/components/challans/MoveBackDialog";
+import PaymentHistoryDialog from "@/components/challans/PaymentHistoryDialog";
+import MadeTogetherDialog, { madeTogetherKey } from "@/components/challans/MadeTogetherDialog";
 import { useT } from "@/lib/appLanguage";
 import PaymentStartedDialog from "@/components/challans/PaymentStartedDialog";
 import { formatMonth } from "@/lib/challanStatus";
@@ -217,6 +221,8 @@ export default function Challans() {
   const [rejectReason, setRejectReason] = useState("");
   const [revertTarget, setRevertTarget] = useState(null);
   const [revertReason, setRevertReason] = useState("");
+  const [historyFor, setHistoryFor] = useState(null); // { id } or { bulkGroupId }
+  const [madeTogetherAction, setMadeTogetherAction] = useState(null); // { kind: "join"|"cancel", rows }
   // Tracks which challan is mid-approve to show inline spinner & block double-tap
   const [approvingId, setApprovingId] = useState(null);
 
@@ -270,7 +276,9 @@ export default function Challans() {
   // The member record linked to the logged-in user.
   // Used to scope the challans API call for non-admin users.
   const myMember = myMemberFromApi
-    ?? (isAdmin ? members.find((m) => m.email === user?.email) : null)
+    // Fallback only by the login's own account (never by a blank email: an admin without an
+    // email or member record would otherwise "be" the first member without an email).
+    ?? (isAdmin && user?.id != null ? members.find((m) => m.user_id != null && String(m.user_id) === String(user.id)) : null)
     ?? null;
 
   // Members array passed to ChallanForm:
@@ -539,6 +547,17 @@ export default function Challans() {
     });
     return merged;
   }, [normalisedSourceChallans, adminBulkOps]);
+
+  // "Not paid yet" months one admin made for one member at the same moment (e.g. 36 separate
+  // challans by mistake): offered as "Join into one payment" / "Cancel all" (undo).
+  const madeTogether = useMemo(() => {
+    const map = new Map();
+    normalisedSourceChallans.forEach((c) => {
+      const key = madeTogetherKey(c);
+      if (key) map.set(key, [...(map.get(key) || []), c]);
+    });
+    return map;
+  }, [normalisedSourceChallans]);
 
   const filteredGroupedChallans = useMemo(() => {
     let entries = groupedChallans;
@@ -839,9 +858,9 @@ export default function Challans() {
   };
 
   // ── Revert to Pending ─────────────────────────────────────────────────────
-  const handleRevert = async () => {
+  const handleRevert = async (picked) => {
     if (!revertTarget) return;
-    const reason = revertReason.trim();
+    const reason = String(picked ?? revertReason).trim();
     if (reason.length < MIN_REASON_LENGTH) return;
     try {
       if (revertTarget.is_bulk_group && revertTarget.bulk_group_id) {
@@ -855,10 +874,10 @@ export default function Challans() {
       setRevertTarget(null);
       setRevertReason("");
       emitNotificationsChanged('updated');
-      toast({ title: "Challan reverted to pending." });
+      toast({ title: "Moved back for checking", description: "Another admin must approve it again." });
     } catch (error) {
       toast({
-        title: "Revert failed",
+        title: "Could not move it back",
         description: error?.message || "Please try again.",
         variant: "destructive",
       });
@@ -987,7 +1006,7 @@ export default function Challans() {
             onOpenChange={setNewPaymentOpen}
             currentUser={user}
             ownMember={myMember}
-            onOwnPayment={() => { setFormPreset(myMember || null); setFormOpen(true); }}
+            onOwnSubmit={createMutation.mutateAsync}
             onPayLater={() => { setFormPreset(null); setFormOpen(true); }}
             onRecorded={() => {
               refreshChallanData();
@@ -1246,6 +1265,16 @@ export default function Challans() {
                                 {isAdmin && challan.reversal_reason ? `: ${challan.reversal_reason}` : ""}
                               </p>
                             )}
+                            {challan.reversed_at && (
+                              <button
+                                type="button"
+                                className="text-xs font-medium text-sky-700 underline underline-offset-2"
+                                onClick={() => setHistoryFor(challan.is_bulk_group && challan.bulk_group_id
+                                  ? { bulkGroupId: challan.bulk_group_id } : { id: challan.id })}
+                              >
+                                See history
+                              </button>
+                            )}
                             {isOwnPayment && (
                               <p className="text-xs text-slate-500 italic">{OWN_PAYMENT_LABEL}</p>
                             )}
@@ -1399,7 +1428,7 @@ export default function Challans() {
                                     title={approvedByMe ? OWN_APPROVAL_TOOLTIP : undefined}
                                   >
                                     <Undo2 className="w-4 h-4 mr-2" />
-                                    Revert to Pending
+                                    Move back for checking
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={() => {
@@ -1416,6 +1445,22 @@ export default function Challans() {
                                 </>
                               )}
 
+                              {/* Admin: move back an approved bulk payment (several months, one proof) as a whole */}
+                              {canDecide && !isOwnPayment && challan.is_bulk_group && challan.bulk_group_id && challan.status === "approved" && (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setRevertTarget(challan);
+                                    setRevertReason("");
+                                  }}
+                                  className="text-amber-600"
+                                  disabled={approvedByMe}
+                                  title={approvedByMe ? OWN_APPROVAL_TOOLTIP : undefined}
+                                >
+                                  <Undo2 className="w-4 h-4 mr-2" />
+                                  Move back for checking (all months)
+                                </DropdownMenuItem>
+                              )}
+
                               {/* Admin: Revert rejected challan */}
                               {canDecide && !isOwnPayment && !challan.is_bulk_group && challan.status === "rejected" && (
                                 <DropdownMenuItem
@@ -1426,7 +1471,38 @@ export default function Challans() {
                                   className="text-amber-600"
                                 >
                                   <Undo2 className="w-4 h-4 mr-2" />
-                                  Revert to Pending
+                                  Send back for checking
+                                </DropdownMenuItem>
+                              )}
+
+                              {(() => {
+                                const batch = Number(challan.created_by_user_id) === Number(user?.id)
+                                  ? madeTogether.get(madeTogetherKey(challan)) || [] : [];
+                                if (!canDecide || batch.length < 2) return null;
+                                const joined = new Set(batch.map((r) => r.challan_no || r.id)).size === 1;
+                                return (
+                                  <>
+                                    {!joined && (
+                                      <DropdownMenuItem onClick={() => setMadeTogetherAction({ kind: "join", rows: batch })} className="text-emerald-700">
+                                        <Layers className="w-4 h-4 mr-2" />
+                                        Join the {batch.length} months made together into one payment
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem onClick={() => setMadeTogetherAction({ kind: "cancel", rows: batch })} className="text-rose-600">
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      Cancel all {batch.length} made together
+                                    </DropdownMenuItem>
+                                  </>
+                                );
+                              })()}
+
+                              {(challan.id || challan.bulk_group_id) && (
+                                <DropdownMenuItem
+                                  onClick={() => setHistoryFor(challan.is_bulk_group && challan.bulk_group_id
+                                    ? { bulkGroupId: challan.bulk_group_id } : { id: challan.id })}
+                                >
+                                  <History className="w-4 h-4 mr-2" />
+                                  History
                                 </DropdownMenuItem>
                               )}
 
@@ -1694,8 +1770,8 @@ export default function Challans() {
           </DialogContent>
         </Dialog>
 
-        {/* Revert Dialog */}
-        <Dialog
+        {/* Move back for checking */}
+        <MoveBackDialog
           open={!!revertTarget}
           onOpenChange={(open) => {
             if (!open) {
@@ -1703,42 +1779,17 @@ export default function Challans() {
               setRevertReason("");
             }
           }}
-        >
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Revert to Pending</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Textarea
-                placeholder="Enter reason for reverting (min 10 characters)..."
-                value={revertReason}
-                onChange={(e) => setRevertReason(e.target.value)}
-                rows={3}
-              />
-              <p className={`text-xs ${revertReason.trim().length < MIN_REASON_LENGTH ? "text-rose-600" : "text-slate-500"}`}>
-                {revertReason.trim().length}/{MIN_REASON_LENGTH} characters minimum
-              </p>
-              <div className="flex justify-end gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setRevertTarget(null);
-                    setRevertReason("");
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleRevert}
-                  className="bg-amber-600 hover:bg-amber-700"
-                  disabled={revertReason.trim().length < MIN_REASON_LENGTH}
-                >
-                  Revert
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+          minLength={MIN_REASON_LENGTH}
+          wasApproved={revertTarget?.status === "approved"}
+          label={revertTarget ? [revertTarget.challan_no || revertTarget.challan_number, revertTarget.member_name].filter(Boolean).join(" · ") : ""}
+          onConfirm={handleRevert}
+        />
+        <PaymentHistoryDialog target={historyFor} onOpenChange={(open) => { if (!open) setHistoryFor(null); }} />
+        <MadeTogetherDialog
+          action={madeTogetherAction}
+          onOpenChange={(open) => { if (!open) setMadeTogetherAction(null); }}
+          onDone={() => { refreshChallanData(); emitNotificationsChanged("updated"); }}
+        />
 
       </div>
     </PullToRefresh>

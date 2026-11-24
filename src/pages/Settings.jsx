@@ -93,7 +93,11 @@ export default function Settings() {
   const [user, setUser] = useState(null);
 
   // NEW
-  const [activeTab, setActiveTab] = useState("invites");
+  // Opened from the Admin area on a tab: /Settings?tab=users
+  const [activeTab, setActiveTab] = useState(() => {
+    const wanted = new URLSearchParams(window.location.search).get("tab");
+    return ["invites", "users", "preferences", "security"].includes(wanted) ? wanted : "invites";
+  });
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

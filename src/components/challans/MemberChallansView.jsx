@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle2, Clock, Eye, FileText, Layers, Loader2, Receipt, Trash2, Upload, XCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, Eye, FileText, History, Layers, Loader2, Receipt, Trash2, Upload, XCircle } from "lucide-react";
 import { charityClient } from "@/api/charityClient";
 import { Button } from "@/components/ui/button";
 import { formatBusinessDate } from "@/lib/businessTime";
 import { isNotPaidYet } from "@/lib/challanStatus";
 import { useT, monthName } from "@/lib/appLanguage";
+import PaymentHistoryDialog from "@/components/challans/PaymentHistoryDialog";
 
 /*
  * Members' Challans: what they owe, one "Pay now" button, and their payments in three
@@ -60,7 +61,7 @@ function statusLine(challan, L) {
   return { text: L.t("Not paid yet · pay, then upload the proof"), icon: AlertCircle, cls: "text-rose-700" };
 }
 
-function PaymentCard({ challan, onUpload, onViewProof, onDelete, canDelete, hasProof, onReceipt }) {
+function PaymentCard({ challan, onUpload, onViewProof, onDelete, canDelete, hasProof, onReceipt, onHistory }) {
   const L = useT();
   const { t } = L;
   const bucket = memberBucket(challan);
@@ -86,6 +87,12 @@ function PaymentCard({ challan, onUpload, onViewProof, onDelete, canDelete, hasP
       {challan.status === "rejected" && challan.rejection_reason && (
         <p className="mt-1 rounded-md bg-rose-50 px-2 py-1 text-xs text-rose-800">{t("Reason")}: {challan.rejection_reason}</p>
       )}
+      {challan.reversed_at && challan.status === "pending" && (
+        <p className="mt-1 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-900">
+          {t("The committee is checking this payment again")}
+          {challan.reversal_reason ? ` · ${t("Reason")}: ${challan.reversal_reason}` : ""}
+        </p>
+      )}
       {challan.entry_notes && (
         <p className="mt-1 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-900 break-words"><span className="font-semibold">{t("Note")}:</span> {challan.entry_notes}</p>
       )}
@@ -105,6 +112,11 @@ function PaymentCard({ challan, onUpload, onViewProof, onDelete, canDelete, hasP
             <Eye className="h-5 w-5" />{t("View proof")}
           </Button>
         )}
+        {challan.reversed_at && onHistory && (
+          <Button variant="outline" onClick={() => onHistory(challan)} className="h-11 gap-2 bg-white">
+            <History className="h-5 w-5" />{t("History")}
+          </Button>
+        )}
         {canDelete && (
           <Button variant="ghost" onClick={() => onDelete(challan)} className="h-11 gap-1.5 text-slate-500 hover:text-rose-600">
             <Trash2 className="h-4 w-4" />{t("Cancel")}
@@ -119,6 +131,7 @@ export default function MemberChallansView({
   entries, isLoading, myMember, onPay, onUpload, onViewProof, onDelete, getProofUrl, onPayTogether, onReceipt,
 }) {
   const [shown, setShown] = useState(20);
+  const [historyFor, setHistoryFor] = useState(null);
   const L = useT();
   const { t } = L;
   const month = (m) => monthName(m, L.locale);
@@ -302,6 +315,7 @@ export default function MemberChallansView({
               <PaymentCard
                 key={c.id}
                 challan={c}
+                onHistory={(x) => setHistoryFor(x.is_bulk_group && x.bulk_group_id ? { bulkGroupId: x.bulk_group_id } : { id: x.id })}
                 onUpload={upload}
                 onReceipt={onReceipt}
                 onViewProof={onViewProof}
@@ -319,6 +333,7 @@ export default function MemberChallansView({
           )}
         </>
       )}
+      <PaymentHistoryDialog target={historyFor} onOpenChange={(open) => { if (!open) setHistoryFor(null); }} />
     </div>
   );
 }

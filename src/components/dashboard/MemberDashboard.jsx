@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import StatsCard from "./StatsCard";
 import CollectionStats from "@/components/dashboard/CollectionStats";
+import FundUseList, { approvedFundRecords } from "@/components/funds/FundUseList";
 import { PAGE_PATHS } from "@/config/appPaths";
 import { getMemberSetup } from "@/lib/memberSetup";
 import {
@@ -181,7 +182,7 @@ export default function MemberDashboard({
   const availableBalance = Number(communityFundSummary?.available_balance || 0);
 
   const utilizationByCategory = Object.entries(
-    communityFundRecords.reduce((acc, record) => {
+    approvedFundRecords(communityFundRecords).reduce((acc, record) => {
       const category = String(record?.category || "Other");
       const amount = Number(record?.amount || 0);
       acc[category] = (acc[category] || 0) + amount;
@@ -190,10 +191,6 @@ export default function MemberDashboard({
   )
     .map(([category, amount]) => ({ category, amount: Number(amount || 0) }))
     .sort((a, b) => b.amount - a.amount)
-    .slice(0, 5);
-
-  const recentUtilizationRecords = [...communityFundRecords]
-    .sort((a, b) => new Date(b?.date || b?.created_at || 0) - new Date(a?.date || a?.created_at || 0))
     .slice(0, 5);
 
   return (
@@ -404,25 +401,7 @@ export default function MemberDashboard({
                 <Receipt className="w-4 h-4 text-amber-500" />
                 Recent Utilization Records
               </h4>
-              {recentUtilizationRecords.length === 0 ? (
-                <p className="text-sm text-slate-500">No utilization records available yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {recentUtilizationRecords.map((record) => (
-                    <div key={record.id} className="rounded-lg bg-slate-50 dark:bg-slate-800 p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{record.title || "Utilization entry"}</p>
-                          <p className="text-xs text-slate-500">
-                            {record.category || "Other"} • {record.date ? formatBusinessDate(record.date, { month: "short", day: "2-digit", year: "numeric" }) : "—"}
-                          </p>
-                        </div>
-                        <span className="text-sm font-semibold text-rose-600">₹{Number(record.amount || 0).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <FundUseList records={communityFundRecords} limit={5} />
             </div>
           </div>
 

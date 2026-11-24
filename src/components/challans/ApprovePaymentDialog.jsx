@@ -24,6 +24,13 @@ import { formatMonth } from "@/lib/challanStatus";
 
 const METHODS = [["upi", "UPI"], ["bank_transfer", "Bank transfer"], ["cash", "Cash"], ["cheque", "Cheque"], ["other", "Other (e.g. exchange house)"]];
 const NEEDS_REF = ["upi", "bank_transfer", "cheque"];
+// No reference number? Say how the money was checked instead (one tap).
+const CHECKED_HOW = [
+  "Seen in the bank statement",
+  "Seen in the bank / UPI app",
+  "Bank SMS or e-mail",
+  "Other",
+];
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 
 /** A challan, a grouped list row or a bulk payment, as the approve screen shows it. */
@@ -47,6 +54,8 @@ export function toApprovalPayment(item) {
     method: item.payment_method || null,
     reference: item.transaction_ref || "",
     receivedOn: item.received_on || null,
+    // approved before and moved back for checking: why, and by whom
+    movedBack: item.reversed_at ? { reason: item.reversal_reason || "", by: item.reversed_by_name || "" } : null,
   };
 }
 
@@ -56,7 +65,7 @@ export default function ApprovePaymentDialog({ payment, onOpenChange, onApproved
   const [receivedOn, setReceivedOn] = useState(currentBusinessDate());
   const [method, setMethod] = useState("upi");
   const [reference, setReference] = useState("");
-  const [noReference, setNoReference] = useState(false);
+  const [checkedHow, setCheckedHow] = useState("");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [record, setRecord] = useState(null);
@@ -71,7 +80,7 @@ export default function ApprovePaymentDialog({ payment, onOpenChange, onApproved
     setReceivedOn(payment.receivedOn || currentBusinessDate());
     setMethod(METHODS.some(([v]) => v === payment.method) ? payment.method : "upi");
     setReference(payment.reference || "");
-    setNoReference(false);
+    setCheckedHow("");
     setAmount(String(payment.amount ?? ""));
     setNote("");
     setRecord(null);
@@ -83,10 +92,11 @@ export default function ApprovePaymentDialog({ payment, onOpenChange, onApproved
   const due = Number(payment?.amount || 0);
   const received = amount === "" ? NaN : Number(amount);
   const amountDiffers = Number.isFinite(received) && Math.abs(received - due) > 0.5;
-  const refNeeded = NEEDS_REF.includes(method) && !noReference;
-  const noteNeeded = amountDiffers || (NEEDS_REF.includes(method) && noReference) || method === "other";
+  // A reference is welcome but not required: without one, the admin says how they checked the money.
+  const refMissing = NEEDS_REF.includes(method) && !reference.trim();
+  const noteNeeded = amountDiffers || method === "other" || (refMissing && checkedHow === "Other");
   const ready = receivedOn && Number.isFinite(received) && received >= 0
-    && (!refNeeded || reference.trim()) && (!noteNeeded || note.trim()) && (!duplicate || confirmDuplicate);
+    && (!refMissing || checkedHow) && (!noteNeeded || note.trim()) && (!duplicate || confirmDuplicate);
 
   const viewProof = async () => {
     setOpening(true);
@@ -111,9 +121,10 @@ export default function ApprovePaymentDialog({ payment, onOpenChange, onApproved
       const verification = {
         received_on: receivedOn,
         payment_method: method,
-        transaction_ref: refNeeded || reference.trim() ? reference.trim() : undefined,
+        transaction_ref: reference.trim() || undefined,
         received_amount: received,
-        verification_note: note.trim() || undefined,
+        verification_note: [refMissing && checkedHow !== "Other" ? `No reference · ${checkedHow}` : "", note.trim()]
+          .filter(Boolean).join(" · ") || undefined,
         bank_record_file_id: recordId,
         confirm_duplicate_ref: confirmDuplicate || undefined,
       };
@@ -159,6 +170,14 @@ export default function ApprovePaymentDialog({ payment, onOpenChange, onApproved
           </Button>
         </div>
 
+        {payment?.movedBack && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+            <p className="flex gap-2 font-semibold"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />Approved before, then moved back for checking</p>
+            {payment.movedBack.reason && <p className="mt-1">Reason: {payment.movedBack.reason}</p>}
+            <p className="mt-1 text-xs">Check that this was fixed. The date and reference from before are filled in; change only what was wrong.</p>
+          </div>
+        )}
+
         {payment?.duplicateNote && (
           <p className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{payment.duplicateNote}. Make sure this is a different payment.
@@ -181,14 +200,23 @@ export default function ApprovePaymentDialog({ payment, onOpenChange, onApproved
 
         {NEEDS_REF.includes(method) && (
           <div className="space-y-1.5">
-            <Label htmlFor="ap-ref">Bank / UPI reference (UTR) {refNeeded && "*"}</Label>
-            <Input id="ap-ref" value={reference} maxLength={100} disabled={noReference}
+            <Label htmlFor="ap-ref">Bank / UPI reference (UTR) <span className="font-normal text-slate-500">(if shown)</span></Label>
+            <Input id="ap-ref" value={reference} maxLength={100}
               onChange={(e) => { setReference(e.target.value); setDuplicate(null); setConfirmDuplicate(false); }}
               placeholder="e.g. 431245678901" />
-            <label className="flex items-center gap-2 text-xs text-slate-600">
-              <input type="checkbox" checked={noReference} onChange={(e) => { setNoReference(e.target.checked); setDuplicate(null); }} />
-              No reference shown in the bank (explain in the note)
-            </label>
+            {refMissing && (
+              <div className="space-y-1.5 rounded-lg border border-slate-200 p-2 dark:border-slate-700">
+                <p className="text-xs font-medium text-slate-700 dark:text-slate-300">No reference? How did you check the money came in? *</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {CHECKED_HOW.map((how) => (
+                    <button key={how} type="button" onClick={() => setCheckedHow(how)}
+                      className={`rounded-md border px-2 py-1.5 text-left text-xs ${checkedHow === how ? "border-emerald-600 bg-emerald-50 font-semibold text-emerald-900" : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"}`}>
+                      {how}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
