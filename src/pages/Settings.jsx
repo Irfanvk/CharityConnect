@@ -70,6 +70,24 @@ export default function Settings() {
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteData, setInviteData] = useState({ phone: '', email: '' });
+  // Who the invite's email/mobile belongs to: a member already on record, or a new member.
+  const [inviteMatch, setInviteMatch] = useState(null); // null | 'checking' | { member }
+  useEffect(() => {
+    const phone = String(inviteData.phone || '').replace(/[^\d+]/g, '');
+    const email = String(inviteData.email || '').trim();
+    if (!inviteOpen || (phone.replace(/\D/g, '').length < 8 && !email.includes('@'))) {
+      setInviteMatch(null);
+      return undefined;
+    }
+    setInviteMatch('checking');
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      charityClient.invites.match({ phone: inviteData.phone || undefined, email: email || undefined })
+        .then((out) => { if (!cancelled) setInviteMatch(out || { member: null }); })
+        .catch(() => { if (!cancelled) setInviteMatch(null); });
+    }, 450);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [inviteOpen, inviteData.phone, inviteData.email]);
   const [shareMethod, setShareMethod] = useState('offline');
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState(null);
@@ -700,6 +718,28 @@ export default function Settings() {
                 placeholder="user@example.com"
               />
             </div>
+
+            {inviteMatch === 'checking' && (
+              <p className="text-xs text-slate-500">Checking our members...</p>
+            )}
+            {inviteMatch && inviteMatch !== 'checking' && (
+              inviteMatch.member ? (
+                <div className={`rounded-md border p-3 text-sm ${inviteMatch.member.has_account ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-emerald-200 bg-emerald-50 text-emerald-900'}`}>
+                  <p>
+                    This is <b>{formatMemberId(inviteMatch.member.member_code)}</b> {inviteMatch.member.full_name}.
+                  </p>
+                  <p className="text-xs">
+                    {inviteMatch.member.has_account
+                      ? 'They already have a login. They should log in (or use Forgot password); an invite is not needed.'
+                      : 'They will join as this member: they only choose a username and password and confirm the last 4 digits of their mobile.'}
+                  </p>
+                </div>
+              ) : (
+                <p className="rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
+                  New member: no member on record has this mobile or email. They will fill in their details and monthly amount; an admin confirms the amount.
+                </p>
+              )
+            )}
 
             <div className="flex justify-end gap-3 pt-4">
 

@@ -44,6 +44,13 @@ openssl enc -aes-256-cbc -pbkdf2 -salt -pass "file:$ROOT/.backup_pass" -in "$ARC
   -out "$ROOT/weekly/charity_settings_${TS}.tar.gz.enc"
 find "$ROOT/weekly" -name 'charity_settings_*.enc' -mtime +56 -delete
 echo "[$(date '+%F %T')] weekly settings backup OK" >> "$ROOT/logs/weekly.log"
+if command -v rclone >/dev/null 2>&1 && grep -qs '^\[gdrive\]' /root/.config/rclone/rclone.conf; then
+  if rclone copy "$ROOT/weekly" gdrive:charity-backups/weekly --max-age 15d >> "$ROOT/logs/weekly.log" 2>&1; then
+    echo "[$(date '+%F %T')] copied to Google Drive" >> "$ROOT/logs/weekly.log"
+  else
+    echo "[$(date '+%F %T')] WARNING: copy to Google Drive failed" >> "$ROOT/logs/weekly.log"
+  fi
+fi
 WEEKLY_EOF
 chmod 700 "$ROOT/backup_weekly.sh"
 

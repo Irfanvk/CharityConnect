@@ -182,7 +182,10 @@ export default function Login() {
       console.error('Login error:', err);
       const status = err?.status ?? err?.response?.status;
       let msg;
-      if (status === 401 || status === 403) {
+      const serverText = Array.isArray(err?.data?.detail) ? err.data.detail[0]?.msg : err?.data?.detail;
+      if (status === 403 && typeof serverText === 'string' && serverText.trim()) {
+        msg = serverText; // e.g. "Your account is waiting for the committee to approve it."
+      } else if (status === 401 || status === 403) {
         msg = 'Invalid username or password.';
       } else if (status === 429) {
         msg = 'Too many login attempts. Please wait a moment and try again.';

@@ -16,7 +16,8 @@ import ReceiptsReportView from "@/components/reports/simple/ReceiptsReportView";
 /*
  * Reports for admins: four big buttons, each opening one plain report.
  * The view lives in the address (?view=member&member=12) so Back and shared links work.
- * Older links (?tab=donations&campaign=5) open All payments for that campaign.
+ * Older links (?tab=donations&campaign=5) open All payments for that campaign; Money summary
+ * opens it with ?view=payments&when=this_year&state=paid (also type=monthly).
  */
 
 const VIEWS = {
@@ -89,9 +90,19 @@ export default function Reports() {
       {view === "member" && (
         <MemberStatementView L={L} memberId={memberId} onPickMember={(id) => (id ? openMember(id) : go("member"))} />
       )}
-      {view === "payments" && <PaymentsReportView L={L} onOpenMember={openMember} initialCampaign={legacyCampaign} />}
+      {view === "payments" && (
+        <PaymentsReportView
+          key={params.toString()}
+          L={L}
+          onOpenMember={openMember}
+          initialCampaign={legacyCampaign}
+          initialWhen={params.get("when")}
+          initialState={params.get("state")}
+          initialType={params.get("type")}
+        />
+      )}
       {view === "dues" && <DuesReportView L={L} onOpenMember={openMember} />}
-      {view === "summary" && <MoneySummaryView L={L} onOpenDues={() => go("dues")} />}
+      {view === "summary" && <MoneySummaryView L={L} onOpenDues={() => go("dues")} onOpenPayments={(filters) => go("payments", filters)} />}
       {view === "receipts" && <ReceiptsReportView />}
     </div>
   );

@@ -712,6 +712,9 @@ const charityClient = {
     feesToConfirm: async () => apiFetch('/members/fees-to-confirm', { method: 'GET' }),
     confirmFee: async (memberId, body) =>
       apiFetch(`/members/${memberId}/confirm-fee`, { method: 'POST', body: JSON.stringify(body || {}) }),
+    // Refuse a new member waiting for approval (only while they have no payment records).
+    declineJoin: async (memberId, reason) =>
+      apiFetch(`/members/${memberId}/decline-join`, { method: 'POST', body: JSON.stringify({ reason }) }),
     // The signed-in member's own
     mySeasonal: async () => apiFetch('/members/me/seasonal', { method: 'GET' }),
     requestExcused: async ({ months, reason }) =>
@@ -1543,6 +1546,12 @@ const charityClient = {
 
     // Public: { status: valid | used | expired | not_found } for an invite link.
     status: (inviteCode) => apiFetch(API_PATHS.invites.status(inviteCode), { method: 'GET' }),
+
+    /** Admins: { member } when this email/mobile is a member already on record, else { member: null }. */
+    match: ({ email, phone } = {}) => apiFetch(API_PATHS.invites.match, { method: 'GET' }, {
+      ...(email ? { email } : {}),
+      ...(phone ? { phone } : {}),
+    }),
 
     validate: (emailOrPhone, inviteCode) =>
       apiFetch(

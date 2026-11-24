@@ -8,13 +8,12 @@ import BannerCarousel from "@/components/banners/BannerCarousel";
 import UnfinishedNotice from "@/components/dashboard/UnfinishedNotice";
 import { formatMemberId } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
-import { Users, Heart, TrendingUp, Calendar, Clock, Bell, BookOpen, LogOut, MapPinned, Receipt, User, Wallet } from "lucide-react";
+import { Users, Heart, Calendar, Bell, BookOpen, LogOut, MapPinned, Receipt, User, Wallet } from "lucide-react";
 import { currentBusinessMonth, formatBusinessDate } from "@/lib/businessTime";
 
 const businessTodayLabel = () =>
   `${formatBusinessDate(new Date(), { weekday: "long", month: "long", day: "numeric", year: "numeric" })} (IST)`;
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import StatsCard from "@/components/dashboard/StatsCard";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import CampaignProgress from "@/components/dashboard/CampaignProgress";
 import MemberDashboard from "@/components/dashboard/MemberDashboard";
@@ -24,6 +23,7 @@ import PullToRefresh from "@/components/mobile/PullToRefresh";
 import { APP_IMAGES } from "@/config/appPaths";
 import BulkOperationsPanel from "@/components/dashboard/BulkOperationsPanel";
 import CollectionStats from "@/components/dashboard/CollectionStats";
+import KeyNumbers from "@/components/dashboard/KeyNumbers";
 import MembersByCountryCard from "@/components/dashboard/MembersByCountryCard";
 import { getMemberSetup, isMemberSetupCompleted, saveMemberSetup } from "@/lib/memberSetup";
 import { PAGE_PATHS } from "@/config/appPaths";
@@ -214,21 +214,22 @@ export default function Dashboard() {
 
   const { data: dashboardCharts } = useQuery({
     queryKey: ['admin', 'dashboard', 'charts'],
-    queryFn: () => charityClient.admin.dashboardCharts({ months: 12, top_limit: 10 }),
+    queryFn: () => charityClient.admin.dashboardCharts({ months: 24, top_limit: 10 }),
     enabled: isAdmin,
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: auditLogs } = useQuery({
-    queryKey: ['auditLogs'],
-    queryFn: () => charityClient.auditLogs.list({ order: '-created_date', limit: 50 }),
-    enabled: user?.is_superadmin === true,
+    queryKey: ['auditLogs', 'dashboard-feed'],
+    // Readable entries (names of what changed), newest first. The server never sends
+    // is_superadmin, so this checks the role.
+    queryFn: async () => (await charityClient.auditLogs.feed({ limit: 10 }))?.items || [],
+    enabled: isSuperAdmin,
     staleTime: 2 * 60 * 1000,
   });
 
   const auditLogsArray = Array.isArray(auditLogs) ? auditLogs : [];
 
-  const recurringDonationsArray = [];
 
   const { data: collectionStats } = useQuery({
     queryKey: ['challans', 'collection-stats', user?.role],
@@ -295,10 +296,10 @@ export default function Dashboard() {
     await queryClient.invalidateQueries({ queryKey: ['campaigns'] });
     await queryClient.invalidateQueries({ queryKey: ['fund-utilizations'] });
     await queryClient.invalidateQueries({ queryKey: ['admin', 'settings'] });
-    if (user?.is_superadmin) {
+    if (isSuperAdmin) {
       await queryClient.invalidateQueries({ queryKey: ['auditLogs'] });
     }
-  }, [queryClient, user?.is_superadmin]);
+  }, [queryClient, isSuperAdmin]);
 
   // ─── Derived display values ─────────────────────────────────────────────────
 
@@ -308,11 +309,6 @@ export default function Dashboard() {
     user?.email?.split("@")[0] ||
     (isSuperAdmin ? "Superadmin" : isMember ? "Member" : "User");
 
-  const activeMembers = memberSummary?.active_members ?? membersArray.filter(m => m.status === 'active').length;
-  const totalMembers = memberSummary?.total_members ?? membersArray.length;
-  const totalCollected = challanSummary?.total_collected ?? 0;
-  const pendingApprovals = challanSummary?.pending_count ?? 0;
-  const activeCampaigns = campaignsArray.filter(c => c.status === 'active').length;
 
   const userChallans = challansArray.filter(c => c.created_by === user?.email);
   const userPending = challanSummary?.pending_count ?? userChallans.filter(c => c.status !== 'approved' && c.status !== 'rejected').length;
@@ -461,12 +457,12 @@ export default function Dashboard() {
 
           <SuperAdminDashboard
             members={membersArray}
-            challans={challansArray}
             campaigns={campaignsArray}
             dashboardCharts={dashboardCharts}
             auditLogs={auditLogsArray}
-            recurringDonations={recurringDonationsArray}
             collectionStats={collectionStats}
+            memberSummary={memberSummary}
+            challanSummary={challanSummary}
           />
         </div>
       </PullToRefresh>
@@ -581,40 +577,7 @@ export default function Dashboard() {
             {/* Collection Overview Stats */}
             <CollectionStats collectionStats={collectionStats} />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <StatsCard
-                title="Active Members"
-                value={activeMembers}
-                subtitle={`${totalMembers} total members`}
-                icon={Users}
-                trend={0}
-                color="emerald"
-              />
-              <StatsCard
-                title="Total Collection"
-                value={`₹${totalCollected.toLocaleString()}`}
-                subtitle="From approved payments"
-                icon={TrendingUp}
-                trend={0}
-                color="blue"
-              />
-              <StatsCard
-                title="Pending Approvals"
-                value={pendingApprovals}
-                subtitle="Awaiting review"
-                icon={Clock}
-                trend={0}
-                color="amber"
-              />
-              <StatsCard
-                title="Active Campaigns"
-                value={activeCampaigns}
-                subtitle={`${campaignsArray.length} total campaigns`}
-                icon={Heart}
-                trend={0}
-                color="rose"
-              />
-            </div>
+            <KeyNumbers memberSummary={memberSummary} challanSummary={challanSummary} campaigns={campaignsArray} />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <RecentActivity challans={challansArray} />

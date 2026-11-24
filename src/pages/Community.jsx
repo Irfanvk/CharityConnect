@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { charityClient } from "@/api/charityClient";
 import { useAuth } from "@/lib/AuthContext";
+import { isStaffRole } from "@/lib/roles";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +20,8 @@ const PIE_COLORS = ["#10b981", "#0ea5e9", "#f59e0b", "#ef4444", "#8b5cf6", "#14b
 
 export default function Community() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+  // Staff see member IDs and active/inactive; members get names only (the server sends no more).
+  const isAdmin = isStaffRole(user);
   const [searchTerm, setSearchTerm] = useState("");
 
   const { data: members = [] } = useQuery({
@@ -116,10 +118,10 @@ export default function Community() {
     return members.filter((m) => {
       return (
         String(m?.full_name || "").toLowerCase().includes(q) ||
-        String(m?.member_code || m?.member_id || "").toLowerCase().includes(q)
+        (isAdmin && String(m?.member_code || m?.member_id || "").toLowerCase().includes(q))
       );
     });
-  }, [members, searchTerm]);
+  }, [members, searchTerm, isAdmin]);
 
   return (
     <div className="space-y-6">
@@ -179,7 +181,7 @@ export default function Community() {
               <Input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by name or member ID…"
+                placeholder={isAdmin ? "Search by name or member ID…" : "Search by name…"}
                 className="pl-9"
               />
             </div>
@@ -209,15 +211,17 @@ export default function Community() {
                       </p>
                     )}
                   </div>
-                  <Badge
-                    className={
-                      member.status === "active"
-                        ? "bg-emerald-100 text-emerald-700 border-0 shrink-0 ml-2"
-                        : "bg-slate-100 text-slate-500 border-0 shrink-0 ml-2"
-                    }
-                  >
-                    {member.status || "active"}
-                  </Badge>
+                  {isAdmin && member.status && (
+                    <Badge
+                      className={
+                        member.status === "active"
+                          ? "bg-emerald-100 text-emerald-700 border-0 shrink-0 ml-2"
+                          : "bg-slate-100 text-slate-500 border-0 shrink-0 ml-2"
+                      }
+                    >
+                      {member.status}
+                    </Badge>
+                  )}
                 </div>
               ))}
             </div>

@@ -75,6 +75,7 @@ export default function ChallanForm({
   existingChallans,
   currentUser,
   onOpenStarted,
+  presetMember = null, // opens with this member chosen (an admin's own payment)
 }) {
   const isAdmin = isStaffRole(currentUser); // admins and executives make payments for members
   const normalizeId = (v) => (v === null || v === undefined ? "" : String(v));
@@ -122,6 +123,14 @@ export default function ChallanForm({
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    if (!open || !presetMember?.id) return;
+    setPickedMember(presetMember);
+    setFormData((prev) => ({ ...prev, member_id: String(presetMember.id) }));
+    setMemberSearch(`${presetMember.full_name || ""} (${formatMemberId(presetMember.member_code || presetMember.member_id)})`);
+    setShowDropdown(false);
+  }, [open, presetMember]);
 
   // When form opens / member changes, reset month selections
   useEffect(() => {
