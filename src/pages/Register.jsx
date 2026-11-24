@@ -30,13 +30,23 @@ export default function Register() {
     address: '',
     city: '',
     country: '',
-    monthly_amount: ''  // a new member types it (no pre-filled amount); an admin confirms it
+    monthly_amount: '',  // a new member types it (no pre-filled amount); an admin confirms it
+    verify: '',  // existing member: last 4 digits of the mobile on record (or the email on record)
   });
+  // From the invite check: new member -> the invite's email/mobile (filled in, locked);
+  // existing member -> name, member ID, hidden contacts, which check, whether location is missing.
+  const [preview, setPreview] = useState(null);
+  const existing = preview?.registration_mode === 'existing_member' ? preview.member : null;
+  const lockedEmail = preview?.registration_mode === 'new_member' ? (preview.invite_email || '') : '';
+  const lockedPhone = preview?.registration_mode === 'new_member' ? (preview.invite_phone || '') : '';
+  const askLocation = !existing || existing.needs_location;
   // The lowest fee comes with the invite check (this page is not signed in); 100 until then.
   const [minFee, setMinFee] = useState(100);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  // New members can log in only after an admin approves them.
+  const [waitingApproval, setWaitingApproval] = useState(false);
   const [redirectIn, setRedirectIn] = useState(REDIRECT_SECONDS);
   const [usernameError, setUsernameError] = useState('');
   const [inviteValidationMeta, setInviteValidationMeta] = useState({
@@ -54,8 +64,19 @@ export default function Register() {
     setLinkStatus('checking');
     try {
       const result = await charityClient.invites.status(code);
-      setLinkStatus(result?.status || 'valid');
+      // An existing member who already has a login is sent to Login instead of the form.
+      setLinkStatus(result?.status === 'valid' && result?.has_account ? 'has_account' : (result?.status || 'valid'));
       if (result?.min_monthly_fee != null) setMinFee(Number(result.min_monthly_fee));
+      if (result?.status === 'valid' && result?.registration_mode) {
+        setPreview(result);
+        setFormData((prev) => ({
+          ...prev,
+          // Nothing to re-type: the invite's contacts, or the name the committee has.
+          email: result.invite_email || prev.email,
+          phone: result.invite_phone || prev.phone,
+          full_name: prev.full_name || result.member?.full_name || '',
+        }));
+      }
       if (result?.registration_mode) {
         // Known before they type anything: existing members never see the fee box.
         setInviteValidationMeta({
@@ -209,7 +230,7 @@ export default function Register() {
     }
 
     const hasContactInput = String(formData.email || '').trim() || String(formData.phone || '').trim();
-    if (!inviteCode || !hasContactInput) {
+    if (!inviteCode || !hasContactInput || preview) {
       return; // keep what the link told us (new or existing member)
     }
 
@@ -249,12 +270,19 @@ export default function Register() {
       return;
     }
 
-    if (!formData.country || !formData.city.trim()) {
+    if (existing && !String(formData.verify || '').trim()) {
+      setError(existing.check === 'phone_last4'
+        ? 'Please enter the last 4 digits of your mobile number.'
+        : 'Please enter the email the committee has for you.');
+      setLoading(false);
+      return;
+    }
+    if (askLocation && (!formData.country || !formData.city.trim())) {
       setError('Please choose the country you live in and enter your city.');
       setLoading(false);
       return;
     }
-    if (cityProblem(formData.city)) {
+    if (askLocation && cityProblem(formData.city)) {
       setError(cityProblem(formData.city));
       setLoading(false);
       return;
@@ -266,30 +294,37 @@ export default function Register() {
     }
 
     try {
-      const inviteValidationResult = await validateInviteAndDetectMode();
-      if (!inviteValidationResult?.valid) {
-        throw new Error('Invite validation failed');
+      // The invite check already told us new or existing member; older links fall back to
+      // matching the typed email/mobile. The server checks everything again.
+      let allowMonthlyAmount = !existing;
+      if (!preview) {
+        const inviteValidationResult = await validateInviteAndDetectMode();
+        if (!inviteValidationResult?.valid) {
+          throw new Error('Invite validation failed');
+        }
+        allowMonthlyAmount = inviteValidationResult?.allow_monthly_amount !== false;
       }
-
-      const allowMonthlyAmount = inviteValidationResult?.allow_monthly_amount !== false;
 
       // Register with backend - creates both User and Member
       const response = await charityClient.auth.register({
         invite_code: inviteCode.trim().toUpperCase(),
         username: formData.username,
         password: formData.password,
-        email: formData.email,
+        // Existing members send no contacts (the committee's stay); new members' come from the invite.
+        email: existing ? undefined : (formData.email || undefined),
         full_name: formData.full_name,
-        phone: formData.phone,
+        phone: existing ? undefined : (formData.phone || undefined),
         address: formData.address || '',
-        country: formData.country,
-        city: formData.city.trim(),
-        monthly_amount: allowMonthlyAmount ? Number(formData.monthly_amount) || 0 : 0
+        country: askLocation ? formData.country : undefined,
+        city: askLocation ? formData.city.trim() : undefined,
+        monthly_amount: allowMonthlyAmount ? Number(formData.monthly_amount) || 0 : 0,
+        verify: existing ? String(formData.verify).trim() : undefined,
       });
 
       // Backend creates the User and Member profile and marks the invite used.
       // The user is NOT signed in here: they are sent to the login page.
       setFormData((prev) => ({ ...prev, username: response?.user?.username || prev.username }));
+      setWaitingApproval(allowMonthlyAmount);  // a new member (an existing member can log in now)
       setSuccess(true);
     } catch (err) {
       console.error('Registration error:', err);
@@ -305,14 +340,14 @@ export default function Register() {
   });
 
   useEffect(() => {
-    if (!success) return undefined;
+    if (!success || waitingApproval) return undefined;
     if (redirectIn <= 0) {
       goToLogin();
       return undefined;
     }
     const timer = setTimeout(() => setRedirectIn((n) => n - 1), 1000);
     return () => clearTimeout(timer);
-  }, [success, redirectIn]);
+  }, [success, redirectIn, waitingApproval]);
 
   if (success) {
     return (
@@ -335,15 +370,22 @@ export default function Register() {
                 <CheckCircle className="w-8 h-8 text-emerald-600" />
               </div>
               <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Registration Successful!</h2>
-              <p className="text-slate-600 dark:text-slate-300 mb-6">
-                Your account has been created. Taking you to the login page in {redirectIn} second{redirectIn === 1 ? '' : 's'}…
-              </p>
+              {waitingApproval ? (
+                <p className="text-slate-600 dark:text-slate-300 mb-6">
+                  Thank you for joining. The committee will check your details and approve your account;
+                  then you can log in with the username <b>{formData.username}</b> and the password you chose.
+                </p>
+              ) : (
+                <p className="text-slate-600 dark:text-slate-300 mb-6">
+                  Your account has been created. Taking you to the login page in {redirectIn} second{redirectIn === 1 ? '' : 's'}…
+                </p>
+              )}
               <div className="flex flex-col gap-3">
                 <Button
                   onClick={goToLogin}
                   className="bg-emerald-600 hover:bg-emerald-700"
                 >
-                  Go to Login now
+                  {waitingApproval ? 'Go to Login' : 'Go to Login now'}
                 </Button>
               </div>
             </CardContent>
@@ -394,12 +436,12 @@ export default function Register() {
             {/* <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-sky-500/25">
             {step === 1 ? <MoonStar className="w-8 h-8 text-white" /> : <Heart className="w-8 h-8 text-white" />}
           </div> */}
-            {!(step === 2 && ['used', 'expired', 'not_found'].includes(linkStatus)) && (<>
+            {!(step === 2 && ['used', 'expired', 'not_found', 'has_account'].includes(linkStatus)) && (<>
             <CardTitle className="text-2xl font-bold text-slate-900 dark:text-slate-100">
               {step === 1 ? `Join ${APP_BRAND.NAME}` : 'Complete Registration'}
             </CardTitle>
             <p className="text-slate-600 dark:text-slate-300 text-sm mt-2">
-              {step === 1 ? 'Enter your invite code to begin' : 'Fill in your details to create your account'}
+              {step === 1 ? 'Enter your invite code to begin' : existing ? 'Choose your login to finish joining' : 'Fill in your details to create your account'}
             </p>
             </>)}
           </CardHeader>
@@ -408,7 +450,7 @@ export default function Register() {
             {step === 2 && linkStatus === 'checking' && (
               <div className="flex justify-center py-6"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
             )}
-            {step === 2 && ['used', 'expired', 'not_found'].includes(linkStatus) && (
+            {step === 2 && ['used', 'expired', 'not_found', 'has_account'].includes(linkStatus) && (
               <InviteLinkNotice status={linkStatus} onLogin={() => navigate(APP_PATHS.LOGIN, { replace: true })} />
             )}
             {!(step === 2 && linkStatus && linkStatus !== 'valid') && (<>
@@ -444,6 +486,17 @@ export default function Register() {
               </div>
             ) : (
               <form onSubmit={handleRegister} className="space-y-4">
+                {existing && (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-700/50 dark:bg-emerald-900/20 dark:text-emerald-100">
+                    <p className="font-semibold">Welcome, {existing.full_name}</p>
+                    <p>Your member ID is <b>{existing.member_code}</b>. Your details are already with the committee.</p>
+                    {(existing.phone_hint || existing.email_hint) && (
+                      <p className="mt-1 text-xs opacity-80">
+                        On record: {[existing.phone_hint, existing.email_hint].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="username" className="text-slate-800 dark:text-slate-100">
                     Username *
@@ -528,6 +581,7 @@ export default function Register() {
 
                 <div className="space-y-2">
                   <Label htmlFor="full_name" className="text-slate-800 dark:text-slate-100">Full Name *</Label>
+                  {existing && <p className="text-xs text-slate-500 dark:text-slate-400">As the committee has it. Correct it only if it is spelled wrongly.</p>}
                   <Input
                     id="full_name"
                     value={formData.full_name}
@@ -537,38 +591,79 @@ export default function Register() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-slate-800 dark:text-slate-100">Email *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    autoComplete="email"
-                    required
-                  />
-                </div>
+                {existing ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="verify" className="text-slate-800 dark:text-slate-100">
+                      {existing.check === 'phone_last4' ? 'Last 4 digits of your mobile *' : 'Your email *'}
+                    </Label>
+                    <Input
+                      id="verify"
+                      value={formData.verify}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        verify: existing.check === 'phone_last4' ? e.target.value.replace(/\D/g, '').slice(0, 4) : e.target.value,
+                      })}
+                      inputMode={existing.check === 'phone_last4' ? 'numeric' : 'email'}
+                      type={existing.check === 'phone_last4' ? 'text' : 'email'}
+                      placeholder={existing.check === 'phone_last4' ? '4567' : 'name@example.com'}
+                      autoComplete="off"
+                      required
+                    />
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {existing.check === 'phone_last4'
+                        ? `To confirm it's you: the mobile the committee has is ${existing.phone_hint}.`
+                        : `To confirm it's you: type the email the committee has (${existing.email_hint}).`}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="email" className="text-slate-800 dark:text-slate-100">
+                        {lockedEmail ? 'Email *' : 'Email (optional)'}
+                      </Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        autoComplete="email"
+                        readOnly={Boolean(lockedEmail)}
+                        className={lockedEmail ? 'bg-slate-100 dark:bg-slate-800' : ''}
+                        required={Boolean(lockedEmail) || (!preview && !formData.phone)}
+                      />
+                      {lockedEmail && <p className="text-xs text-slate-500 dark:text-slate-400">From your invite.</p>}
+                    </div>
 
-                <div className="space-y-2">
-                  <PhoneInput
-                    id="phone"
-                    label="Phone Number"
-                    value={formData.phone}
-                    onChange={(value) => setFormData({ ...formData, phone: value })}
-                    required
-                  />
-                </div>
+                    <div className="space-y-2">
+                      {lockedPhone ? (
+                        <>
+                          <Label htmlFor="phone" className="text-slate-800 dark:text-slate-100">Phone Number *</Label>
+                          <Input id="phone" value={formData.phone} readOnly className="bg-slate-100 dark:bg-slate-800" />
+                          <p className="text-xs text-slate-500 dark:text-slate-400">From your invite.</p>
+                        </>
+                      ) : (
+                        <PhoneInput
+                          id="phone"
+                          label="Phone Number"
+                          value={formData.phone}
+                          onChange={(value) => setFormData({ ...formData, phone: value })}
+                          required
+                        />
+                      )}
+                    </div>
+                  </>
+                )}
 
-                <LocationFields
+                {askLocation && <LocationFields
                   idPrefix="register"
                   country={formData.country}
                   city={formData.city}
                   phone={formData.phone}
                   onChange={(next) => setFormData((prev) => ({ ...prev, ...next }))}
-                />
+                />}
 
                 <div className="space-y-2">
-                  {inviteValidationMeta.allowMonthlyAmount ? (
+                  {(preview ? !existing : inviteValidationMeta.allowMonthlyAmount) ? (
                     <>
                       <Label htmlFor="monthly_amount" className="text-slate-800 dark:text-slate-100">
                         Monthly Fixed Payment (₹) *
@@ -644,6 +739,10 @@ function InviteLinkNotice({ status, onLogin }) {
       title: "This invite link has expired",
       body: "Please ask the committee for a new invite. If you already registered, just log in.",
     },
+    has_account: {
+      title: "You already have an account",
+      body: "The committee has you as a member with a login already. Log in with your username and password, or use Forgot password.",
+    },
     not_found: {
       title: "This invite link isn't valid",
       body: "Please check the link or ask the committee for a new invite. If you already registered, just log in.",
@@ -651,8 +750,8 @@ function InviteLinkNotice({ status, onLogin }) {
   }[status];
   return (
     <div className="space-y-4 text-center">
-      <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full ${status === 'used' ? 'bg-emerald-100' : 'bg-amber-100'}`}>
-        {status === 'used' ? <CheckCircle className="h-7 w-7 text-emerald-600" /> : <XCircle className="h-7 w-7 text-amber-600" />}
+      <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full ${['used', 'has_account'].includes(status) ? 'bg-emerald-100' : 'bg-amber-100'}`}>
+        {['used', 'has_account'].includes(status) ? <CheckCircle className="h-7 w-7 text-emerald-600" /> : <XCircle className="h-7 w-7 text-amber-600" />}
       </div>
       <div>
         <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{text.title}</p>

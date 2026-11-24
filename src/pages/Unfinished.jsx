@@ -15,7 +15,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { formatISTDate } from "@/lib/dateTime";
 import { emitNotificationsChanged } from "@/lib/notificationState";
-import AdminRecordPaymentForm from "@/components/challans/AdminRecordPaymentForm";
+import NewPaymentWizard from "@/components/challans/NewPaymentWizard";
 
 /*
  * Admins: payments members started but never finished (no proof uploaded).
@@ -205,13 +205,12 @@ export default function Unfinished() {
       </AlertDialog>
 
       {recordFor && (
-        <AdminRecordPaymentForm
+        <NewPaymentWizard
           open={Boolean(recordFor)}
           onOpenChange={(open) => { if (!open) setRecordFor(null); }}
-          members={[recordFor]}
           currentUser={user}
           presetMember={recordFor}
-          onRecorded={() => { setRecordFor(null); refresh(); emitNotificationsChanged("updated"); }}
+          onRecorded={() => { refresh(); emitNotificationsChanged("updated"); }}
         />
       )}
     </div>

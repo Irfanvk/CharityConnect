@@ -120,6 +120,7 @@ export const API_PATHS = {
   invites: {
     list: '/invites/',
     pending: '/invites/pending',
+    match: '/invites/match',
     byId: (id) => `/invites/${id}`,
     validate: '/invites/validate',
     status: (code) => `/invites/status/${encodeURIComponent(code)}`,

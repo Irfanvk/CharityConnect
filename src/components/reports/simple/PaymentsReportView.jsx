@@ -8,14 +8,16 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { format } from "@/lib/dateTime";
+import { currentBusinessMonth } from "@/lib/businessTime";
 import { formatMemberId } from "@/lib/utils";
 import { LIVING_COUNTRIES } from "@/lib/countries";
 import { STATE_STYLE } from "@/lib/reportsI18n";
 import { downloadCsv, downloadExcel, downloadPdf, printDocument } from "@/lib/reportFiles";
 import { ExportButtons, LoadState, StateBadge, fetchAllPages } from "./ReportsShared";
 
-const METHODS = ["cash", "upi", "bank_transfer", "cheque"];
+const METHODS = ["cash", "upi", "bank_transfer", "cheque", "other"];
+const WHENS = ["this_month", "last_month", "this_year", "last_year", "all", "custom"];
+const STATES = ["paid", "waiting", "not_paid", "rejected"];
 const PAGE = 50;
 const MAX_PDF_ROWS = 600;
 
@@ -26,7 +28,7 @@ function shiftMonth(month, n) {
 }
 
 function rangeFor(when, from, to) {
-  const now = format(new Date(), "yyyy-MM");
+  const now = currentBusinessMonth();
   const year = now.slice(0, 4);
   switch (when) {
     case "this_month": return [now, now];
@@ -44,7 +46,7 @@ function Field({ label, children, className = "" }) {
 
 function YearChartDialog({ L, open, onOpenChange }) {
   const { toast } = useToast();
-  const thisYear = Number(format(new Date(), "yyyy"));
+  const thisYear = Number(currentBusinessMonth().slice(0, 4));
   const years = [];
   for (let y = thisYear; y >= 2024; y--) years.push(String(y));
   const [year, setYear] = useState(String(thisYear));
@@ -168,7 +170,7 @@ function YearChartDialog({ L, open, onOpenChange }) {
             ))}
           </div>
           <Button onClick={paidList} disabled={Boolean(busy)} className="h-11 w-full bg-emerald-700 hover:bg-emerald-800">
-            {busy === "paid-list" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Download {fy}-{Number(fy) + 1} report
+            {busy === "paid-list" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Download {fy} report
           </Button>
         </div>
       </DialogContent>
@@ -176,12 +178,13 @@ function YearChartDialog({ L, open, onOpenChange }) {
   );
 }
 
-export default function PaymentsReportView({ L, onOpenMember, initialCampaign = null }) {
-  const [when, setWhen] = useState(initialCampaign ? "all" : "this_year");
+export default function PaymentsReportView({ L, onOpenMember, initialCampaign = null, initialWhen = null, initialState = null, initialType = null }) {
+  // Other pages (Money summary) can open this list with a filter already set.
+  const [when, setWhen] = useState(WHENS.includes(initialWhen) ? initialWhen : initialCampaign ? "all" : "this_year");
   const [fromMonth, setFromMonth] = useState("");
   const [toMonth, setToMonth] = useState("");
-  const [type, setType] = useState(initialCampaign ? "campaign" : "all");
-  const [state, setState] = useState("all");
+  const [type, setType] = useState(initialCampaign ? "campaign" : ["monthly", "campaign"].includes(initialType) ? initialType : "all");
+  const [state, setState] = useState(STATES.includes(initialState) ? initialState : "all");
   const [campaign, setCampaign] = useState(initialCampaign ? String(initialCampaign) : "all");
   const [country, setCountry] = useState("all");
   const [method, setMethod] = useState("all");
@@ -239,10 +242,10 @@ export default function PaymentsReportView({ L, onOpenMember, initialCampaign = 
     search ? `${L.t("search")}: ${search}` : null,
   ].filter(Boolean).join(" · ");
 
-  const activeFilters = [type !== "all", state !== "all", campaign !== "all", country !== "all", method !== "all", Boolean(search), when !== "this_year"].filter(Boolean).length;
+  const activeFilters = [type !== "all", state !== "all", campaign !== "all", country !== "all", method !== "all", Boolean(search), when !== "this_year", sort !== "month_desc"].filter(Boolean).length;
   const clearAll = () => {
     setWhen("this_year"); setFromMonth(""); setToMonth(""); setType("all"); setState("all");
-    setCampaign("all"); setCountry("all"); setMethod("all"); setText(""); setSearch("");
+    setCampaign("all"); setCountry("all"); setMethod("all"); setText(""); setSearch(""); setSort("month_desc");
   };
 
   // PDFs are pictures of each page; beyond a few hundred rows they get slow and huge.
@@ -252,6 +255,7 @@ export default function PaymentsReportView({ L, onOpenMember, initialCampaign = 
   const forWhat = (p) => (p.type === "monthly" ? L.month(p.month) : p.campaign || L.t("donation"));
   const loadAll = async () => fetchAllPages((page) => charityClient.reports.payments({ ...params, ...page }));
   const columns = [
+    { key: "number", label: L.t("paymentNo"), width: 15 },
     { key: "member", label: L.t("member"), width: 24 },
     { key: "code", label: L.t("memberId"), width: 12 },
     { key: "type", label: L.t("type"), width: 14 },
@@ -266,6 +270,7 @@ export default function PaymentsReportView({ L, onOpenMember, initialCampaign = 
   ];
   const toRows = (list) => list.map((p) => ({
     _state: p.state,
+    number: p.payment_no || `CH-${p.id}`,
     member: p.member_name,
     code: formatMemberId(p.member_code),
     type: p.type === "monthly" ? L.t("monthlyFeeType") : L.t("donation"),
@@ -293,12 +298,13 @@ export default function PaymentsReportView({ L, onOpenMember, initialCampaign = 
     tiles: tilesFor(all.totals),
     sections: [{
       columns: [
-        { key: "member", label: L.t("member"), width: "24%" },
-        { key: "code", label: L.t("memberId"), width: "11%" },
-        { key: "for", label: L.t("paidFor"), width: "17%" },
-        { key: "amount", label: L.t("amount"), align: "right", width: "12%" },
-        { key: "status", label: L.t("status"), width: "18%" },
-        { key: "date", label: L.t("date"), width: "18%" },
+        { key: "number", label: L.t("paymentNo"), width: "14%" },
+        { key: "member", label: L.t("member"), width: "22%" },
+        { key: "code", label: L.t("memberId"), width: "10%" },
+        { key: "for", label: L.t("paidFor"), width: "16%" },
+        { key: "amount", label: L.t("amount"), align: "right", width: "11%" },
+        { key: "status", label: L.t("status"), width: "14%" },
+        { key: "date", label: L.t("date"), width: "13%" },
       ],
       rows: toRows(all.items).map((r) => ({ state: r._state, cells: { ...r, amount: L.money(r.amount) } })),
       empty: L.t("nothingFound"),
@@ -311,7 +317,7 @@ export default function PaymentsReportView({ L, onOpenMember, initialCampaign = 
       <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input value={text} onChange={(e) => setText(e.target.value)} placeholder={L.t("searchMember")} aria-label={L.t("search")} className="h-11 bg-white pl-9" />
+          <Input value={text} onChange={(e) => setText(e.target.value)} placeholder={L.t("searchPayment")} aria-label={L.t("search")} className="h-11 bg-white pl-9" />
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Field label={L.t("when")}>
@@ -383,7 +389,9 @@ export default function PaymentsReportView({ L, onOpenMember, initialCampaign = 
               <SelectContent>
                 <SelectItem value="month_desc">{L.t("newestFirst")}</SelectItem>
                 <SelectItem value="month_asc">{L.t("oldestFirst")}</SelectItem>
+                <SelectItem value="newest">{L.t("recentlyEntered")}</SelectItem>
                 <SelectItem value="amount_desc">{L.t("biggestFirst")}</SelectItem>
+                <SelectItem value="amount_asc">{L.t("smallestFirst")}</SelectItem>
                 <SelectItem value="member">{L.t("nameAZ")}</SelectItem>
               </SelectContent>
             </Select>
@@ -408,7 +416,7 @@ export default function PaymentsReportView({ L, onOpenMember, initialCampaign = 
           <>
             <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
               {tilesFor(totals).map((tile) => {
-                const key = { [L.t("paid")]: "paid", [L.t("waitingShort")]: "waiting", [L.t("notPaid")]: "not_paid", [L.t("rejected")]: "rejected" }[tile.label];
+                const key = tile.state;
                 const s = STATE_STYLE[tile.state];
                 const on = state === key;
                 return (
@@ -466,7 +474,7 @@ export default function PaymentsReportView({ L, onOpenMember, initialCampaign = 
                       <button type="button" onClick={() => onOpenMember(p.member_id)} className="min-w-0 text-left">
                         <p className="truncate font-semibold text-slate-900">{p.member_name}</p>
                         <p className="text-xs text-slate-500">
-                          {formatMemberId(p.member_code)} · {p.type === "monthly" ? L.t("monthlyFeeType") : L.t("donation")}: <b>{forWhat(p)}</b>
+                          <span className="font-mono">{p.payment_no || `CH-${p.id}`}</span> · {formatMemberId(p.member_code)} · {p.type === "monthly" ? L.t("monthlyFeeType") : L.t("donation")}: <b>{forWhat(p)}</b>
                           {p.paid_on && <> · {L.date(p.paid_on)}</>}
                           {p.method && <> · {L.method(p.method)}</>}
                         </p>

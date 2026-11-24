@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format, formatISTDateTime } from "@/lib/dateTime";
@@ -6,22 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-} from "@/components/ui/dialog";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+
 import {
     TrendingUp,
     TrendingDown,
@@ -31,8 +16,6 @@ import {
     AlertCircle,
     Download,
     FileDown,
-    ChevronLeft,
-    ChevronRight,
 } from "lucide-react";
 
 /** Format a number as Indian-locale currency with Rs. prefix */
@@ -110,29 +93,14 @@ export default function FinancialSummaryPanel({
     fundSummary,
     pendingAmount = 0,
     pendingCount = 0,
-    pendingChallans = [],
-    pendingPage = 0,
-    pendingPageSize = 100,
-    pendingTotal = 0,
-    onPendingPageChange,
-    loadAllPendingChallans,
-    members = [],
+    pendingMembers = 0,
+    onOpenReceivables,
     isLoading = false,
     isAdmin = false,
 }) {
-    const [receivablesOpen, setReceivablesOpen] = useState(false);
 
     // Guard: render nothing for non-admin users
     if (!isAdmin) return null;
-
-    // Member name lookup
-    const mlookup = {};
-    members.forEach((m) => {
-        mlookup[String(m.id)] = m.full_name || m.member_name || `Member #${m.id}`;
-    });
-    function memberName(c) {
-        return c.member_name || mlookup[String(c.member_id)] || `Member #${c.member_id ?? "?"}`;
-    }
 
     // Gross Receipts: prefer fund-utilizations (backend computes it from approved challans)
     // Fall back to challan collection-stats all_time
@@ -156,153 +124,10 @@ export default function FinancialSummaryPanel({
         { label: "Gross Receipts", value: grossReceipts, note: "Total approved collections (all time)" },
         { label: "Total Disbursements", value: disbursements, note: "Funds utilised / expenditure recorded" },
         { label: "Net Balance (Cash on Hand)", value: netBalance, note: "Gross Receipts minus Total Disbursements" },
-        { label: "Month-to-Date Receipts", value: mtd, note: "Approved collections this calendar month" },
-        { label: "Year-to-Date Receipts", value: ytd, note: "Approved collections this calendar year" },
-        { label: `Outstanding Receivables (as of ${asOfDate})`, value: pendingAmount, note: `${pendingCount} challan${pendingCount !== 1 ? "s" : ""} pending/generated — all unpaid challans as of ${asOfDate}` },
+        { label: "Month-to-Date Receipts", value: mtd, note: "Approved this calendar month (by the day approved)" },
+        { label: "Year-to-Date Receipts", value: ytd, note: "Approved this calendar year (by the day approved)" },
+        { label: `Outstanding Receivables (as of ${asOfDate})`, value: pendingAmount, note: `${pendingCount} unpaid month${pendingCount !== 1 ? "s" : ""} from ${pendingMembers} active member${pendingMembers !== 1 ? "s" : ""} (excused months, pledges and proofs waiting for approval left out)` },
     ];
-
-    // ── Receivables CSV download ──────────────────────────────────────────────
-    async function handleReceivablesCSV() {
-        const exportData = loadAllPendingChallans
-            ? await loadAllPendingChallans()
-            : { items: pendingChallans, total_amount: pendingAmount };
-        const exportRows = exportData.items;
-        const generatedAt = generatedAtIST();
-        const headerRow = ["#", "Payment No.", "Member Name", "Month", "Type", "Amount (INR)", "Status", "Raised On"];
-        const dataRows = exportRows.map((c, i) => [
-            i + 1,
-            c.challan_no || c.challan_number || `CH-${c.id}`,
-            memberName(c),
-            c.month || "",
-            c.type || "",
-            Number(c.amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 }),
-            c.status,
-            c.created_date ? format(new Date(c.created_date), "dd MMM yyyy") : "",
-        ]);
-        const totalRow = ["", "", "", "", "TOTAL",
-            Number(exportData.total_amount).toLocaleString("en-IN", { maximumFractionDigits: 2 }),
-            "", ""];
-        const rows = [
-            [`${getOrgName()} – Outstanding Receivables as of ${asOfDate}`],
-            [`Generated (IST): ${generatedAt}`],
-            [],
-            headerRow,
-            ...dataRows,
-            [],
-            totalRow,
-        ];
-        const csv = rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
-        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `outstanding-receivables-${format(new Date(), "yyyy-MM-dd")}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-    }
-
-    // ── Receivables PDF download ──────────────────────────────────────────────
-    async function handleReceivablesPDF() {
-        const exportData = loadAllPendingChallans
-            ? await loadAllPendingChallans()
-            : { items: pendingChallans, total_amount: pendingAmount };
-        const exportRows = exportData.items;
-        const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
-        const pageW = doc.internal.pageSize.getWidth();
-        const generatedAt = generatedAtIST();
-
-        doc.setFillColor(...PDF_BRAND);
-        doc.rect(0, 0, pageW, 52, "F");
-        doc.setTextColor(255, 255, 255);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(18);
-        doc.text(getOrgName(), 28, 22);
-        doc.setFontSize(9);
-        doc.text(`As of: ${asOfDate}`, pageW - 28, 26, { align: "right" });
-        doc.text(`Generated (IST): ${generatedAt}`, pageW - 28, 40, { align: "right" });
-
-        const memberMatrix = Object.values(exportRows.reduce((groups, challan) => {
-            const memberId = String(challan.member_id ?? "unknown");
-            const isCampaign = challan.backend_type === "campaign" || challan.type === "donation";
-            const group = groups[memberId] || {
-                memberId,
-                name: memberName(challan),
-                monthlyCount: 0,
-                monthlyAmount: 0,
-                campaignCount: 0,
-                campaignAmount: 0,
-                totalAmount: 0,
-            };
-            const amount = Number(challan.amount || 0);
-            if (isCampaign) {
-                group.campaignCount += 1;
-                group.campaignAmount += amount;
-            } else {
-                group.monthlyCount += 1;
-                group.monthlyAmount += amount;
-            }
-            group.totalAmount += amount;
-            groups[memberId] = group;
-            return groups;
-        }, {})).sort((first, second) => first.name.localeCompare(second.name));
-
-        const money = (amount) => Number(amount).toLocaleString("en-IN", { maximumFractionDigits: 2 });
-        const tableBody = memberMatrix.map((group, index) => [
-            String(index + 1),
-            group.memberId,
-            group.name,
-            String(group.monthlyCount),
-            money(group.monthlyAmount),
-            String(group.campaignCount),
-            money(group.campaignAmount),
-            String(group.monthlyCount + group.campaignCount),
-            money(group.totalAmount),
-        ]);
-
-        autoTable(doc, {
-            head: [["#", "Member ID", "Member Name", "Monthly\nCount", "Monthly\nAmount", "Campaign\nCount", "Campaign\nAmount", "Total\nCount", "Outstanding\n(INR)"]],
-            body: tableBody,
-            foot: [["", "", "TOTAL", "", money(memberMatrix.reduce((sum, group) => sum + group.monthlyAmount, 0)), "", money(memberMatrix.reduce((sum, group) => sum + group.campaignAmount, 0)), String(exportRows.length), money(exportData.total_amount)]],
-            showFoot: "lastPage",
-            startY: 64,
-            margin: { left: 28, right: 28 },
-            styles: {
-                fontSize: 8,
-                cellPadding: { top: 4, bottom: 4, left: 6, right: 6 },
-                lineColor: PDF_BORDER,
-                lineWidth: 0.3,
-                textColor: [30, 41, 59],
-            },
-            headStyles: { fillColor: PDF_BRAND, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8.5 },
-            alternateRowStyles: { fillColor: PDF_ALT },
-            footStyles: { fillColor: [220, 240, 230], textColor: [5, 90, 60], fontStyle: "bold", fontSize: 8.5 },
-            columnStyles: {
-                0: { cellWidth: 24, halign: "center" },
-                1: { cellWidth: 52, halign: "center" },
-                3: { cellWidth: 42, halign: "center" },
-                4: { cellWidth: 62, halign: "right" },
-                5: { cellWidth: 42, halign: "center" },
-                6: { cellWidth: 62, halign: "right" },
-                7: { cellWidth: 42, halign: "center" },
-                8: { cellWidth: 78, halign: "right", fontStyle: "bold" },
-            },
-            tableLineColor: PDF_BORDER,
-            tableLineWidth: 0.3,
-        });
-
-        const totalPages = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-            doc.setPage(i);
-            const pageH = doc.internal.pageSize.getHeight();
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(7.5);
-            doc.setTextColor(150, 150, 150);
-            doc.text(`${getOrgName()} • Outstanding Receivables • Confidential`, 28, pageH - 14);
-            doc.text(`Page ${i} of ${totalPages}`, pageW - 28, pageH - 14, { align: "right" });
-        }
-
-        doc.save(`outstanding-receivables-${format(new Date(), "yyyy-MM-dd")}.pdf`);
-    }
 
     // ── CSV export ────────────────────────────────────────────────────────────
     function handleDownloadCSV() {
@@ -352,7 +177,7 @@ export default function FinancialSummaryPanel({
         // Disclaimer note
         doc.setTextColor(80, 80, 80);
         doc.setFontSize(8);
-        doc.text(`All figures reflect approved receipts only. Outstanding Receivables shown as of ${asOfDate} (all unpaid challans regardless of age).`, 36, 76);
+        doc.text(`All figures reflect approved receipts only. Outstanding Receivables: unpaid months of active members as of ${asOfDate}.`, 36, 76);
 
         // Summary table
         autoTable(doc, {
@@ -474,7 +299,7 @@ export default function FinancialSummaryPanel({
                         icon={CalendarDays}
                         label="Month-to-Date Receipts"
                         value={fmt(mtd)}
-                        sub="Approved collections this calendar month"
+                        sub="Approved this month (by the day approved)"
                         iconBg="bg-blue-500"
                         loading={isLoading}
                     />
@@ -482,7 +307,7 @@ export default function FinancialSummaryPanel({
                         icon={CalendarRange}
                         label="Year-to-Date Receipts"
                         value={fmt(ytd)}
-                        sub="Approved collections this calendar year"
+                        sub="Approved this year (by the day approved)"
                         iconBg="bg-indigo-500"
                         loading={isLoading}
                     />
@@ -490,135 +315,14 @@ export default function FinancialSummaryPanel({
                         icon={AlertCircle}
                         label="Outstanding Receivables"
                         value={fmt(pendingAmount)}
-                        sub={`${pendingCount} challan${pendingCount !== 1 ? "s" : ""} pending/generated — as of ${asOfDate} (all-time unpaid)`}
+                        sub={`${pendingCount} unpaid month${pendingCount !== 1 ? "s" : ""} · ${pendingMembers} member${pendingMembers !== 1 ? "s" : ""} · open the list`}
                         iconBg="bg-amber-500"
                         loading={isLoading}
-                        onClick={() => !isLoading && setReceivablesOpen(true)}
+                        onClick={onOpenReceivables && !isLoading ? onOpenReceivables : undefined}
                     />
                 </div>
             </div>
 
-            {/* ── Outstanding Receivables drill-down dialog ── */}
-            <Dialog open={receivablesOpen} onOpenChange={setReceivablesOpen}>
-                <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <AlertCircle className="w-4 h-4 text-amber-500" />
-                            Outstanding Receivables
-                            <span className="text-sm font-normal text-slate-500 ml-1">as of {asOfDate}</span>
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="flex items-center justify-between py-1">
-                        <p className="text-sm text-slate-500">
-                            {pendingCount} challan{pendingCount !== 1 ? "s" : ""} &bull; Total:
-                            <span className="font-semibold text-amber-700 ml-1">{fmt(pendingAmount)}</span>
-                        </p>
-                        <div className="flex items-center gap-2">
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 px-2.5 text-xs border-emerald-600 text-emerald-700 hover:bg-emerald-50"
-                                onClick={handleReceivablesCSV}
-                            >
-                                <Download className="w-3 h-3 mr-1" />
-                                CSV
-                            </Button>
-                            <Button
-                                size="sm"
-                                className="h-7 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700"
-                                onClick={handleReceivablesPDF}
-                            >
-                                <FileDown className="w-3 h-3 mr-1" />
-                                PDF
-                            </Button>
-                        </div>
-                    </div>
-                    <Separator />
-                    <div className="overflow-y-auto flex-1">
-                        {pendingChallans.length === 0 ? (
-                            <p className="text-sm text-slate-400 text-center py-10">No outstanding receivables.</p>
-                        ) : (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-10">#</TableHead>
-                                        <TableHead>Member</TableHead>
-                                        <TableHead>Month</TableHead>
-                                        <TableHead>Type</TableHead>
-                                        <TableHead className="text-right">Amount</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Raised On</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {pendingChallans.map((c, i) => (
-                                        <TableRow key={c.id ?? i}>
-                                            <TableCell className="text-slate-400 text-xs">{pendingPage * pendingPageSize + i + 1}</TableCell>
-                                            <TableCell className="font-medium text-sm">{memberName(c)}</TableCell>
-                                            <TableCell className="text-sm">{c.month || "—"}</TableCell>
-                                            <TableCell className="text-sm capitalize">{c.type || "—"}</TableCell>
-                                            <TableCell className="text-right font-semibold text-sm">{fmt(c.amount)}</TableCell>
-                                            <TableCell>
-                                                <Badge
-                                                    className={
-                                                        c.is_inferred_due
-                                                            ? "bg-rose-100 text-rose-700 border-0"
-                                                            : c.status === "pending"
-                                                            ? "bg-amber-100 text-amber-700 border-0"
-                                                            : "bg-slate-100 text-slate-600 border-0"
-                                                    }
-                                                >
-                                                    {c.is_inferred_due ? "due" : c.status}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-xs text-slate-500">
-                                                {c.is_inferred_due ? "Missing monthly record" : c.created_date ? format(new Date(c.created_date), "dd MMM yyyy") : "—"}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        )}
-                    </div>
-                    <Separator />
-                    {pendingTotal > pendingPageSize && (
-                        <div className="flex items-center justify-between pt-1">
-                            <span className="text-xs text-slate-400">
-                                Showing {pendingPage * pendingPageSize + 1}-{Math.min((pendingPage + 1) * pendingPageSize, pendingTotal)} of {pendingTotal}
-                            </span>
-                            <div className="flex items-center gap-1">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2"
-                                    disabled={pendingPage === 0 || isLoading}
-                                    onClick={() => onPendingPageChange?.(pendingPage - 1)}
-                                    aria-label="Previous receivables page"
-                                >
-                                    <ChevronLeft className="w-4 h-4" />
-                                </Button>
-                                <span className="text-xs text-slate-500 tabular-nums">
-                                    Page {pendingPage + 1} of {Math.ceil(pendingTotal / pendingPageSize)}
-                                </span>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2"
-                                    disabled={(pendingPage + 1) * pendingPageSize >= pendingTotal || isLoading}
-                                    onClick={() => onPendingPageChange?.(pendingPage + 1)}
-                                    aria-label="Next receivables page"
-                                >
-                                    <ChevronRight className="w-4 h-4" />
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-                    <DialogFooter className="flex items-center justify-between !flex-row pt-1">
-                        <span className="text-xs text-slate-400">All figures are as of {asOfDate}. Includes unpaid challans and missing monthly dues.</span>
-                        <Button variant="ghost" size="sm" onClick={() => setReceivablesOpen(false)}>Close</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </>
     );
 }

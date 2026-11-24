@@ -50,7 +50,7 @@ kept="$(find "$ROOT/daily" -name 'charity_db_*.sql.gz.enc' | wc -l | tr -d ' ')"
 echo "$(date '+%F %T') OK $(basename "$OUT") $size" > "$ROOT/last_ok"
 log "OK: $(basename "$OUT") ($size, checked). Backups kept: $kept"
 
-if command -v rclone >/dev/null 2>&1 && rclone listremotes 2>/dev/null | grep -q '^gdrive:$'; then
+if command -v rclone >/dev/null 2>&1 && grep -qs '^\[gdrive\]' /root/.config/rclone/rclone.conf; then
   if rclone copy "$ROOT/daily" gdrive:charity-backups/daily --max-age 3d >> "$LOG" 2>&1; then
     log "Copied to Google Drive"
   else

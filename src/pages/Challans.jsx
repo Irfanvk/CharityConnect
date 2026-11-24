@@ -29,7 +29,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -61,16 +60,13 @@ import {
   Pencil,
   Trash2,
   Layers,
-  HandCoins,
-  ReceiptText,
-  ChevronRight,
 } from "lucide-react";
 import { format } from "@/lib/dateTime";
 import { formatBusinessDate } from "@/lib/businessTime";
 import ChallanForm from "@/components/challans/ChallanForm";
 import BulkGroupDialog from "@/components/dashboard/BulkGroupDialog";
 import MemberChallansView from "@/components/challans/MemberChallansView";
-import AdminRecordPaymentForm from "@/components/challans/AdminRecordPaymentForm";
+import NewPaymentWizard from "@/components/challans/NewPaymentWizard";
 import ProofUpload from "@/components/challans/ProofUpload";
 import PayTogetherDialog from "@/components/challans/PayTogetherDialog";
 import ApprovePaymentDialog, { toApprovalPayment } from "@/components/challans/ApprovePaymentDialog";
@@ -202,7 +198,8 @@ export default function Challans() {
   const [statusFilter, setStatusFilter] = useState(() => (linkParams.get("status") === "pending" ? "pending" : "all"));
   const [entryFilter, setEntryFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
-  const [recordOpen, setRecordOpen] = useState(false);
+  // The member the challan form opens with (an admin's own payment from "New payment").
+  const [formPreset, setFormPreset] = useState(null);
   // Admins: one "New payment" button, then a choice between the two kinds.
   const [newPaymentOpen, setNewPaymentOpen] = useState(false);
   const [pageSize, setPageSize] = useState(20);
@@ -953,18 +950,6 @@ export default function Challans() {
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="space-y-6">
-        {isAdmin && (
-          <AdminRecordPaymentForm
-            open={recordOpen}
-            onOpenChange={setRecordOpen}
-            members={members}
-            currentUser={user}
-            onRecorded={() => {
-              refreshChallanData();
-              emitNotificationsChanged("updated");
-            }}
-          />
-        )}
 
         {isAdmin && (
           <BulkGroupDialog
@@ -997,48 +982,18 @@ export default function Challans() {
         </div>
 
         {isAdmin && (
-          <Dialog open={newPaymentOpen} onOpenChange={setNewPaymentOpen}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>New payment</DialogTitle>
-                <DialogDescription>Choose what you want to do.</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-3">
-                {[
-                  {
-                    key: "record",
-                    icon: HandCoins,
-                    title: "Money already received",
-                    text: "Cash, bank transfer or UPI a member gave you. Another admin verifies it.",
-                    open: () => setRecordOpen(true),
-                  },
-                  {
-                    key: "challan",
-                    icon: ReceiptText,
-                    title: "Generate a challan",
-                    text: "A challan to be paid, for you or a member. Add the proof now or later.",
-                    open: () => setFormOpen(true),
-                  },
-                ].map(({ key, icon: Icon, title, text, open }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => { setNewPaymentOpen(false); open(); }}
-                    className="flex w-full items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-left transition hover:border-emerald-400 hover:bg-emerald-50/40 dark:border-slate-700 dark:bg-slate-900"
-                  >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium text-slate-900 dark:text-white">{title}</span>
-                      <span className="block text-xs text-slate-500 dark:text-slate-400">{text}</span>
-                    </span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
-                  </button>
-                ))}
-              </div>
-            </DialogContent>
-          </Dialog>
+          <NewPaymentWizard
+            open={newPaymentOpen}
+            onOpenChange={setNewPaymentOpen}
+            currentUser={user}
+            ownMember={myMember}
+            onOwnPayment={() => { setFormPreset(myMember || null); setFormOpen(true); }}
+            onPayLater={() => { setFormPreset(null); setFormOpen(true); }}
+            onRecorded={() => {
+              refreshChallanData();
+              emitNotificationsChanged("updated");
+            }}
+          />
         )}
 
         {!isAdmin ? (
@@ -1281,6 +1236,9 @@ export default function Challans() {
                             )}
                             {challan.status === "rejected" && (
                               <DoneBy verb="Rejected" by={challan.rejected_by_name} at={challan.rejected_at} />
+                            )}
+                            {challan.proof_uploaded_by_name && (
+                              <DoneBy verb="Proof uploaded" by={challan.proof_uploaded_by_name} at={challan.proof_uploaded_at} />
                             )}
                             {challan.reversed_by_name && (
                               <p className="text-xs text-amber-700">
@@ -1539,7 +1497,8 @@ export default function Challans() {
         {/* Challan Form */}
         <ChallanForm
           open={formOpen}
-          onOpenChange={setFormOpen}
+          onOpenChange={(v) => { setFormOpen(v); if (!v) setFormPreset(null); }}
+          presetMember={formPreset}
           onSubmit={createMutation.mutateAsync}
           members={membersForForm}
           campaigns={campaigns}

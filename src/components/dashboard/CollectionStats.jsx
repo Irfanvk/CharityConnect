@@ -11,11 +11,11 @@ import {
 } from "lucide-react";
 
 const periodConfig = [
-  { key: "today", label: "Today", icon: CalendarDays, gradient: "from-blue-500 to-cyan-600", bg: "from-blue-50 to-cyan-50" },
-  { key: "this_week", label: "This Week", icon: CalendarRange, gradient: "from-indigo-500 to-violet-600", bg: "from-indigo-50 to-violet-50" },
-  { key: "this_month", label: "This Month", icon: Calendar, gradient: "from-emerald-500 to-teal-600", bg: "from-emerald-50 to-teal-50" },
-  { key: "this_year", label: "This Year", icon: TrendingUp, gradient: "from-amber-500 to-orange-600", bg: "from-amber-50 to-orange-50" },
-  { key: "all_time", label: "All Time", icon: Wallet, gradient: "from-rose-500 to-pink-600", bg: "from-rose-50 to-pink-50" },
+  { key: "today", label: "Today", hint: "Approved today", icon: CalendarDays, gradient: "from-blue-500 to-cyan-600", bg: "from-blue-50 to-cyan-50" },
+  { key: "this_week", label: "This week", hint: "Since Monday", icon: CalendarRange, gradient: "from-indigo-500 to-violet-600", bg: "from-indigo-50 to-violet-50" },
+  { key: "this_month", label: "This month", hint: "Since the 1st", icon: Calendar, gradient: "from-emerald-500 to-teal-600", bg: "from-emerald-50 to-teal-50" },
+  { key: "this_year", label: "This year", hint: "Since 1 January", icon: TrendingUp, gradient: "from-amber-500 to-orange-600", bg: "from-amber-50 to-orange-50" },
+  { key: "all_time", label: "All time", hint: "Everything approved", icon: Wallet, gradient: "from-rose-500 to-pink-600", bg: "from-rose-50 to-pink-50" },
 ];
 
 export default function CollectionStats({ collectionStats, compact = false }) {
@@ -33,10 +33,13 @@ export default function CollectionStats({ collectionStats, compact = false }) {
             Live
           </Badge>
         </div>
+        <p className="text-xs text-slate-500">
+          Money approved in each period (monthly fees and campaigns), counted on the day it was approved.
+        </p>
       </CardHeader>
       <CardContent>
         <div className={`grid gap-3 ${compact ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-5"}`}>
-          {periodConfig.map(({ key, label, icon: Icon, gradient, bg }) => (
+          {periodConfig.map(({ key, label, hint, icon: Icon, gradient, bg }) => (
             <div
               key={key}
               className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${bg} p-4 transition-shadow hover:shadow-md`}
@@ -46,10 +49,11 @@ export default function CollectionStats({ collectionStats, compact = false }) {
                   <Icon className="w-4.5 h-4.5 text-white" />
                 </div>
               </div>
-              <p className="text-2xl font-bold text-slate-900">
-                ₹{stats[key].toLocaleString()}
+              <p className="truncate text-xl font-bold text-slate-900 sm:text-2xl" title={`₹${Number(stats[key] || 0).toLocaleString("en-IN")}`}>
+                ₹{Number(stats[key] || 0).toLocaleString("en-IN")}
               </p>
-              <p className="text-xs font-medium text-slate-500 mt-0.5">{label}</p>
+              <p className="text-xs font-semibold text-slate-600 mt-0.5">{label}</p>
+              <p className="text-[11px] text-slate-400">{hint}</p>
             </div>
           ))}
         </div>

@@ -49,7 +49,7 @@ import ExcuseRequestsBar from "@/components/members/ExcuseRequestsBar";
 import { format } from "date-fns";
 import MemberForm from "@/components/members/MemberForm";
 import MembersFilterBar from "@/components/members/MembersFilterBar";
-import AdminRecordPaymentForm from "@/components/challans/AdminRecordPaymentForm";
+import NewPaymentWizard from "@/components/challans/NewPaymentWizard";
 import MemberTimelineDialog from "@/components/members/MemberTimelineDialog";
 import UserProfilePopover, { AvatarCircle } from "@/components/UserProfilePopover";
 import { countryName } from "@/lib/countries";
@@ -884,16 +884,12 @@ export default function Members() {
       )}
 
       {isStaff && (
-        <AdminRecordPaymentForm
+        <NewPaymentWizard
           open={!!recordMember}
           onOpenChange={(next) => { if (!next) setRecordMember(null); }}
-          members={members}
           currentUser={user}
           presetMember={recordMember}
-          onRecorded={() => {
-            queryClient.invalidateQueries({ queryKey: ["challans"] });
-            toast({ title: "Payment recorded", description: "Another admin must verify this payment." });
-          }}
+          onRecorded={() => queryClient.invalidateQueries({ queryKey: ["challans"] })}
         />
       )}
 

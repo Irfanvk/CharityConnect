@@ -163,7 +163,7 @@ export default function Profile() {
   const { t } = useT();
   const queryClient = useQueryClient();
   const bankDetailsEnabled = usePublicSettings().bank_details_enabled !== false;
-  const { logout } = useAuth();
+  const { logout, setAuthenticatedUser } = useAuth();
 
   const [cropOpen, setCropOpen] = useState(false);
   // "Add your photo" (top bar / dashboard) opens the photo picker straight away.
@@ -279,9 +279,12 @@ export default function Profile() {
   const recentPayments = payments.slice(0, 3);
 
   // ── Photo ──────────────────────────────────────────────────────────────────
-  // Every photo change is approved by an admin, admins' own too, whenever there is a member
-  // record to attach the request to (the server enforces this).
-  const photoNeedsApproval = isMember || Boolean(memberProfile?.id);
+  // The superadmin decides in Settings whether members, and admins/executives, change their own
+  // photo straight away or send it for approval; the server says which applies (can_change_photo)
+  // and enforces it. Older servers don't send it: then every member record needs approval.
+  const photoNeedsApproval = typeof user?.can_change_photo === "boolean"
+    ? !user.can_change_photo
+    : isMember || Boolean(memberProfile?.id);
   const handleAvatarSave = async (file) => {
     setUploadingAvatar(true);
     try {
@@ -300,7 +303,8 @@ export default function Profile() {
         return;
       }
       await charityClient.auth.uploadAvatar(file);
-      await refetchUser();
+      const fresh = await refetchUser();
+      if (fresh?.data) setAuthenticatedUser(fresh.data); // the photo in the top bar too
       toast({ title: "Profile photo updated" });
     } catch (error) {
       toast({ title: "Upload failed", description: error?.message || "Please try again.", variant: "destructive" });
@@ -324,7 +328,8 @@ export default function Profile() {
         return;
       }
       await charityClient.auth.removeAvatar();
-      await refetchUser();
+      const fresh = await refetchUser();
+      if (fresh?.data) setAuthenticatedUser(fresh.data);
       toast({ title: "Profile photo removed" });
     } catch (error) {
       toast({ title: "Remove failed", description: error?.message || "Please try again.", variant: "destructive" });
