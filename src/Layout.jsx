@@ -21,16 +21,11 @@ import {
   Settings,
   Shield,
   MessageSquare,
-  Inbox,
   FileText,
-  Upload,
-  Wallet,
   Landmark,
   MapPinned,
   HandHeart,
-  Camera,
-  Image as ImageIcon,
-  Hourglass
+  Camera
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -175,40 +170,23 @@ export default function Layout({ children, currentPageName }) {
     { name: "Community", href: ROUTE_KEYS.COMMUNITY, path: PAGE_PATHS.COMMUNITY, icon: Users2, description: "Members, collections, and spending" },
     { name: "Members", href: ROUTE_KEYS.MEMBERS, path: PAGE_PATHS.MEMBERS, icon: Users, staffOnly: true, description: "Who is part of the organisation" },
     { name: "Challans", href: ROUTE_KEYS.CHALLANS, path: PAGE_PATHS.CHALLANS, icon: Receipt, description: "Payments, receipts, and proof uploads" },
-    { name: "Unfinished payments", href: ROUTE_KEYS.UNFINISHED, path: PAGE_PATHS.UNFINISHED, icon: Hourglass, staffOnly: true, description: "Payments members started without proof" },
     { name: "Campaigns", href: ROUTE_KEYS.CAMPAIGNS, path: PAGE_PATHS.CAMPAIGNS, icon: Heart, description: "Causes you can support and track" },
     { name: "Bank Details", href: ROUTE_KEYS.BANK_DETAILS, path: PAGE_PATHS.BANK_DETAILS, icon: Landmark, hidden: !bankDetailsEnabled, description: "Official account and QR for payments" },
-    { name: "Reports", href: ROUTE_KEYS.REPORTS, path: PAGE_PATHS.REPORTS, icon: FileText, staffOnly: true, description: "Financial summaries and exports" },
-    { name: "Audit Logs", href: ROUTE_KEYS.AUDIT_LOGS, path: PAGE_PATHS.AUDIT_LOGS, icon: Settings, adminOnly: true, description: "Who changed what and when" },
-    { name: "Banners", href: ROUTE_KEYS.BANNERS, path: PAGE_PATHS.BANNERS, icon: ImageIcon, adminOnly: true, description: "Pictures for occasions on login and dashboards" },
     { name: "Relief Fund", href: ROUTE_KEYS.RELIEF, path: PAGE_PATHS.RELIEF, icon: HandHeart, description: "Help for members: death, illness, retirement" },
-    { name: "Fund Utilization", href: ROUTE_KEYS.FUND_UTILIZATION, path: PAGE_PATHS.FUND_UTILIZATION, icon: Wallet, adminOnly: true, description: "How funds are being used" },
-    ...(hasRequestsPage
-      ? [
-        isAdmin
-          ? {
-            name: "Requests",
-            href: ROUTE_KEYS.ADMIN_REQUESTS,
-            path: PAGE_PATHS.ADMIN_REQUESTS,
-            icon: Inbox,
-            badge: pendingRequestsCount,
-            adminOnly: true,
-            description: "Pending member requests to review",
-          }
-          : {
-            name: "My Requests",
-            href: ROUTE_KEYS.REQUESTS,
-            path: '/requests',
-            icon: MessageSquare,
-            badge: pendingRequestsCount,
-            description: "Track changes waiting for approval",
-          },
-      ]
+    // Admins reach Requests in the Admin area; members keep "My Requests".
+    ...(hasRequestsPage && !isAdmin
+      ? [{
+        name: "My Requests",
+        href: ROUTE_KEYS.REQUESTS,
+        path: '/requests',
+        icon: MessageSquare,
+        badge: pendingRequestsCount,
+        description: "Track changes waiting for approval",
+      }]
       : []),
+    { name: "Admin area", href: ROUTE_KEYS.ADMIN_AREA, path: PAGE_PATHS.ADMIN_AREA, icon: Shield, staffOnly: true, badge: isAdmin ? pendingRequestsCount : 0, description: "Requests, reports, records, invites, messages and who is who" },
     { name: "Notifications", href: ROUTE_KEYS.NOTIFICATIONS, path: PAGE_PATHS.NOTIFICATIONS, icon: Bell, badge: unreadCount, description: "What is new in your account" },
     { name: "User Guide", href: ROUTE_KEYS.DOCUMENTATION, path: PAGE_PATHS.DOCUMENTATION, icon: FileText, description: "How to use each area of the app" },
-    { name: "Import Data", href: ROUTE_KEYS.IMPORT, path: PAGE_PATHS.IMPORT, icon: Upload, superadminOnly: true, description: "Bring records into the system" },
-    { name: "Superadmin Panel", href: ROUTE_KEYS.SUPERADMIN_PANEL, path: PAGE_PATHS.SUPERADMIN_PANEL, icon: Shield, superadminOnly: true, description: "System-wide control and oversight" },
   ];
 
   const filteredNav = navigation.filter(item => {

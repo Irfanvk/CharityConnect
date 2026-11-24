@@ -82,6 +82,8 @@ const kn = {
   "Proof sent · an admin will check it": "ಪುರಾವೆ ಕಳುಹಿಸಲಾಗಿದೆ · ಅಡ್ಮಿನ್ ಪರಿಶೀಲಿಸುತ್ತಾರೆ",
   "Not accepted · please upload a new proof": "ಸ್ವೀಕರಿಸಲಾಗಿಲ್ಲ · ಹೊಸ ಪುರಾವೆ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ",
   "Not paid yet · pay, then upload the proof": "ಇನ್ನೂ ಪಾವತಿಸಿಲ್ಲ · ಪಾವತಿಸಿ, ನಂತರ ಪುರಾವೆ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ",
+  "The committee is checking this payment again": "ಈ ಪಾವತಿಯನ್ನು ಸಮಿತಿ ಮತ್ತೆ ಪರಿಶೀಲಿಸುತ್ತಿದೆ",
+  "History": "ಇತಿಹಾಸ",
   "Reason": "ಕಾರಣ",
   "Note": "ಟಿಪ್ಪಣಿ",
   "Upload proof": "ಪುರಾವೆ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ",

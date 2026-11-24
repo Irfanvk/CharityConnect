@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Users, Search, Wallet, Receipt } from "lucide-react";
+import FundUseList, { approvedFundRecords } from "@/components/funds/FundUseList";
 import {
   PieChart,
   Pie,
@@ -101,7 +102,7 @@ export default function Community() {
   const availableBalance = Number(fundSummary?.available_balance || 0);
 
   const utilizationPieData = useMemo(() => {
-    const grouped = fundRecords.reduce((acc, record) => {
+    const grouped = approvedFundRecords(fundRecords).reduce((acc, record) => {
       const category = String(record?.category || "Other");
       acc[category] = (acc[category] || 0) + Number(record?.amount || 0);
       return acc;
@@ -269,8 +270,12 @@ export default function Community() {
               </div>
             )}
             <p className="mt-2 text-xs text-slate-400">
-              Total utilized: {"\u20B9"}{totalUtilized.toLocaleString()}
+              Total utilized: {"\u20B9"}{totalUtilized.toLocaleString()} (approved only)
             </p>
+            <div className="mt-4">
+              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2">Recent fund use</h4>
+              <FundUseList records={fundRecords} limit={8} />
+            </div>
           </CardContent>
         </Card>
 

@@ -81,8 +81,10 @@ export default function ChallanForm({
   const normalizeId = (v) => (v === null || v === undefined ? "" : String(v));
   const areSameId = (a, b) => normalizeId(a) === normalizeId(b);
 
-  const myMember = members.find((m) => m.email === currentUser?.email)
-    || (members.length === 1 ? members[0] : null);
+  // The logged-in person's own member record: by account, or by email only when both have one.
+  const myMember = members.find((m) => currentUser?.id != null && m.user_id != null && String(m.user_id) === String(currentUser.id))
+    || members.find((m) => Boolean(currentUser?.email) && Boolean(m.email) && m.email === currentUser.email)
+    || (!isStaffRole(currentUser) && members.length === 1 ? members[0] : null);
   const defaultMemberId = !isAdmin && myMember ? normalizeId(myMember.id) : "";
 
   const publicSettings = usePublicSettings();
@@ -219,12 +221,16 @@ export default function ChallanForm({
     setSelectedMonths((prev) => prev.filter((m) => selectableMonths.includes(m)));
   }, [selectableMonths.join("|")]);
 
+  // Several months are one payment by default (one number, one proof); one month is single.
+  const severalMonths = selectedMonths.length > 1;
   useEffect(() => {
-    if (selectedMonths.length <= 1) {
+    if (!severalMonths) {
       setProofMode("individual");
       setSharedProofFile(null);
+    } else {
+      setProofMode("shared");
     }
-  }, [selectedMonths.length]);
+  }, [severalMonths]);
 
   const toggleMonth = (month) => {
     setSelectedMonths((prev) => {
@@ -589,6 +595,14 @@ export default function ChallanForm({
                   <div className="space-y-2">
                     <button
                       type="button"
+                      onClick={() => setProofMode("shared")}
+                      className={`w-full rounded-lg border px-3 py-2 text-left transition ${proofMode === "shared" ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white hover:border-slate-300"}`}
+                    >
+                      <p className="text-sm font-medium text-slate-900">One payment for all {selectedMonths.length} months (recommended)</p>
+                      <p className="text-xs text-slate-500 mt-1">Uploads one shared proof and creates a bulk challan group for admin review.</p>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => {
                         setProofMode("individual");
                         setSharedProofFile(null);
@@ -596,17 +610,9 @@ export default function ChallanForm({
                       className={`w-full rounded-lg border px-3 py-2 text-left transition ${proofMode === "individual" ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white hover:border-slate-300"}`}
                     >
                       <p className="text-sm font-medium text-slate-900">Individual proof for each month</p>
-                      <p className="text-xs text-slate-500 mt-1">Creates separate challans. Proof can be uploaded one by one later.</p>
+                      <p className="text-xs text-slate-500 mt-1">Makes {selectedMonths.length} separate payments, each with its own number and proof. Use only if each month is paid separately.</p>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setProofMode("shared")}
-                      className={`w-full rounded-lg border px-3 py-2 text-left transition ${proofMode === "shared" ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white hover:border-slate-300"}`}
-                    >
-                      <p className="text-sm font-medium text-slate-900">One proof for all selected months</p>
-                      <p className="text-xs text-slate-500 mt-1">Uploads one shared proof and creates a bulk challan group for admin review.</p>
-                    </button>
                   </div>
 
                   {proofMode === "shared" && sharedLater && (

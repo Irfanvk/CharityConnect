@@ -895,6 +895,13 @@ const charityClient = {
 
     // Payments members started without proof (admins: open 48+ hours by default).
     unfinished: async (query = {}) => apiFetch(API_PATHS.challans.unfinished, { method: 'GET' }, query),
+    movedBack: async () => apiFetch(API_PATHS.challans.movedBack, { method: 'GET' }),
+    /** Join several "not paid yet" months of one member into one payment number. */
+    join: async (challanIds) => apiFetch(API_PATHS.challans.join, { method: 'POST', body: JSON.stringify({ challan_ids: challanIds }) }),
+    cancelMany: async (challanIds, reason) => apiFetch(API_PATHS.challans.cancelMany, { method: 'POST', body: JSON.stringify({ challan_ids: challanIds, reason: reason || undefined }) }),
+    /** The story of a payment; pass { id } or { bulkGroupId }. */
+    history: async ({ id, bulkGroupId }) => apiFetch(
+      bulkGroupId ? API_PATHS.challans.bulkHistory(bulkGroupId) : API_PATHS.challans.history(id), { method: 'GET' }),
     remind: async (id) => apiFetch(API_PATHS.challans.remind(id), { method: 'POST' }),
 
     uploadProof: async (id, file) => {
@@ -1065,6 +1072,8 @@ const charityClient = {
   },
 
   admin: {
+    /** Who is who: active superadmins, admins and executives with their codes (staff only). */
+    staffDirectory: async () => apiFetch(API_PATHS.admin.staffDirectory, { method: 'GET' }),
     wipeData: async (payload) => {
       return apiFetch(API_PATHS.admin.wipeData, {
         method: 'POST',

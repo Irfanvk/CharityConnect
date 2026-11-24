@@ -385,11 +385,18 @@ export default function FundUtilization() {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell className="font-semibold text-red-600">
-                        ₹{Number(record.amount).toLocaleString("en-IN", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
+                      <TableCell className={`font-semibold ${record.status === "rejected" ? "text-slate-400" : record.status === "approved" ? "text-red-600" : "text-slate-500"}`}>
+                        <span className={record.status === "rejected" ? "line-through" : ""}>
+                          ₹{Number(record.amount).toLocaleString("en-IN", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                        {record.status !== "approved" && (
+                          <span className="block text-[11px] font-normal text-muted-foreground">
+                            {record.status === "rejected" ? "Not counted" : "Not counted yet"}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {record.category ? (

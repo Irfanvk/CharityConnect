@@ -82,6 +82,8 @@ const ml = {
   "Proof sent · an admin will check it": "തെളിവ് അയച്ചു · അഡ്മിൻ പരിശോധിക്കും",
   "Not accepted · please upload a new proof": "സ്വീകരിച്ചില്ല · പുതിയ തെളിവ് അപ്‌ലോഡ് ചെയ്യുക",
   "Not paid yet · pay, then upload the proof": "ഇതുവരെ അടച്ചിട്ടില്ല · പണമടച്ച ശേഷം തെളിവ് അപ്‌ലോഡ് ചെയ്യുക",
+  "The committee is checking this payment again": "ഈ പണമടയ്ക്കൽ കമ്മിറ്റി വീണ്ടും പരിശോധിക്കുന്നു",
+  "History": "ചരിത്രം",
   "Reason": "കാരണം",
   "Note": "കുറിപ്പ്",
   "Upload proof": "തെളിവ് അപ്‌ലോഡ് ചെയ്യുക",

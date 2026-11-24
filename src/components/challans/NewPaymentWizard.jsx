@@ -23,7 +23,8 @@ import { isOwnMemberRecord } from "@/components/challans/AdminRecordPaymentForm"
  *   -> proof / reference / date -> check -> saved.
  * Saved with the same "money already received" entry as before (another admin verifies it).
  * One month is a single payment; several months become one payment together (bulk) automatically.
- * Your own payment goes through the member form (nobody records money for themselves).
+ * My own payment (admins pay like every member, with one login): same simple steps, saved like a
+ * member's payment with the screenshot; another admin approves it (nobody records money for themselves).
  */
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
@@ -73,7 +74,7 @@ function Question({ children, hint }) {
 }
 
 export default function NewPaymentWizard({
-  open, onOpenChange, currentUser, ownMember, onOwnPayment, onPayLater, onRecorded,
+  open, onOpenChange, currentUser, ownMember, onOwnSubmit, onPayLater, onRecorded,
   presetMember = null, // opened from a member (Members, Unfinished): starts at "What for?"
 }) {
   const { toast } = useToast();
@@ -83,6 +84,7 @@ export default function NewPaymentWizard({
   const fileRef = useRef(null);
 
   const [step, setStep] = useState("who");
+  const [own, setOwn] = useState(false); // my own payment (as a member)
   const [history, setHistory] = useState([]);
   const [search, setSearch] = useState("");
   const [term, setTerm] = useState("");
@@ -104,11 +106,11 @@ export default function NewPaymentWizard({
   useEffect(() => {
     if (!open) return;
     const start = presetMember && !isOwnMemberRecord(presetMember, currentUser) ? presetMember : null;
-    setStep(start ? "what" : "who"); setHistory([]); setSearch(""); setTerm(""); setMember(start); setKind("monthly");
+    setStep(start ? "what" : (ownMember ? "who" : "pick")); setOwn(false); setHistory([]); setSearch(""); setTerm(""); setMember(start); setKind("monthly");
     setMonths([]); setCustomAmount(false); setAmountPerMonth(""); setCampaign(null); setDonation("");
     setMethod(null); setReference(""); setPaidOn(currentBusinessDate());
     setCollectedBy(currentUser?.id ? String(currentUser.id) : ""); setNote(""); setProof(null); setSaving(false);
-  }, [open, currentUser, presetMember]);
+  }, [open, currentUser, presetMember, ownMember]);
 
   useEffect(() => {
     const t = setTimeout(() => setTerm(search.trim()), 300);
@@ -149,7 +151,7 @@ export default function NewPaymentWizard({
     placeholderData: currentUser ? [currentUser] : [],
   });
 
-  const firstName = String(member?.full_name || "the member").split(" ")[0];
+  const firstName = own ? "you" : String(member?.full_name || "the member").split(" ")[0];
   const allMonths = payable?.all_months || [];
   const thisMonth = payable?.current_month || currentBusinessMonth();
   const unpaid = allMonths.filter((m) => m <= thisMonth);
@@ -159,7 +161,7 @@ export default function NewPaymentWizard({
     ? (customAmount ? months.length * Number(amountPerMonth || 0) : months.reduce((s, m) => s + feeOf(m), 0))
     : Number(donation || 0);
   const amountChanged = kind === "monthly" && customAmount && months.some((m) => Number(amountPerMonth) !== feeOf(m));
-  const noteRequired = method === "cash" || method === "other" || amountChanged;
+  const noteRequired = !own && (method === "cash" || method === "other" || amountChanged);
   const way = SENT_WAYS.find((w) => w.value === method);
   const activeCampaigns = campaigns.filter((c) => String(c.status).toLowerCase() === "active");
   const results = useMemo(() => found.slice(0, 10), [found]);
@@ -175,10 +177,37 @@ export default function NewPaymentWizard({
 
   const detailsProblem = () => {
     if (!paidOn || paidOn > today) return "The date can't be in the future.";
-    if (NEEDS_REF.includes(method) && !proof) return "Please add the payment screenshot or photo.";
-    if (NEEDS_REF.includes(method) && !reference.trim()) return `Please type the ${way?.refLabel || "reference number"}.`;
+    if ((own || NEEDS_REF.includes(method)) && !proof) return "Please add the payment screenshot or photo.";
     if (noteRequired && !note.trim()) return "Please write a short note.";
     return null;
+  };
+
+  const saveOwn = async () => {
+    setSaving(true);
+    try {
+      const many = kind === "monthly" && months.length > 1;
+      await onOwnSubmit?.({
+        member_id: member.id,
+        type: kind === "monthly" ? "monthly" : "donation",
+        payment_method: method,
+        notes: note.trim() || undefined,
+        amount: total,
+        ...(kind === "monthly"
+          ? {
+            month: months[0], selected_months: months, months_covered: months, months_count: months.length,
+            member_monthly_amount: Number(member?.monthly_amount || 0) || (months.length ? total / months.length : 0),
+            proof_mode: many ? "shared" : "individual",
+            shared_proof_file: many ? proof : null,
+            proof_file: many ? null : proof,
+          }
+          : { campaign_id: campaign.id, campaign_name: campaign.title, proof_file: proof, proof_mode: "individual" }),
+      });
+      onOpenChange(false);
+    } catch {
+      // the Payments page shows the error; stay here so it can be tried again
+    } finally {
+      setSaving(false);
+    }
   };
 
   const save = async () => {
@@ -189,7 +218,7 @@ export default function NewPaymentWizard({
         type: kind,
         payment_method: method,
         received_on: paidOn,
-        transaction_ref: NEEDS_REF.includes(method) ? reference.trim() : undefined,
+        transaction_ref: NEEDS_REF.includes(method) ? reference.trim() || undefined : undefined,
         collected_by_user_id: method === "cash" ? (collectedBy || currentUser?.id) : undefined,
         entry_notes: note.trim() || undefined,
         ...(kind === "monthly"
@@ -220,8 +249,19 @@ export default function NewPaymentWizard({
   // ---- screens
   const screens = {
     who: (
+      <div className="space-y-3">
+        <Question>Whose payment is it?</Question>
+        <BigChoice icon={User} tone="amber" title="My own payment"
+          sub={`${ownMember?.full_name || "Me"} · ${ownMember?.member_code || ownMember?.member_id || ""}`.trim()}
+          onClick={() => { setOwn(true); setMember(ownMember); setMonths([]); go("what"); }} />
+        <BigChoice icon={UserRound} tone="sky" title="Another member's payment" sub="Money a member paid or sent to you"
+          onClick={() => { setOwn(false); setMember(null); go("pick"); }} />
+      </div>
+    ),
+
+    pick: (
       <div className="space-y-4">
-        <Question hint="Type a name, member ID or phone number.">Whose payment is it?</Question>
+        <Question hint="Type a name, member ID or phone number.">Which member?</Question>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
           <Input autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, MEM-0012 or phone"
@@ -239,19 +279,15 @@ export default function NewPaymentWizard({
                   icon={UserRound}
                   tone={mine ? "slate" : "sky"}
                   title={m.full_name || m.member_code}
-                  sub={mine ? "This is you: use “My own payment” below" : [m.member_code || m.member_id, m.phone].filter(Boolean).join(" · ")}
-                  disabled={mine}
-                  onClick={() => { setMember(m); setMonths([]); go("what"); }}
+                  sub={mine ? (onOwnSubmit ? "This is you: tap to pay your own" : "This is you: use New payment on the Payments page") : [m.member_code || m.member_id, m.phone].filter(Boolean).join(" · ")}
+                  disabled={mine && !onOwnSubmit}
+                  onClick={() => { setOwn(mine); setMember(m); setMonths([]); go("what"); }}
                 />
               );
             })}
           </div>
         )}
         <div className="space-y-2 border-t border-slate-200 pt-4 dark:border-slate-700">
-          {ownMember && (
-            <BigChoice icon={User} tone="amber" title="My own payment" sub="Pay and add your proof. Another admin checks it."
-              onClick={() => { onOpenChange(false); onOwnPayment?.(); }} />
-          )}
           <button type="button" className="w-full text-center text-sm text-slate-500 underline-offset-2 hover:underline"
             onClick={() => { onOpenChange(false); onPayLater?.(); }}>
             Only make a challan for a member to pay later
@@ -262,10 +298,10 @@ export default function NewPaymentWizard({
 
     what: (
       <div className="space-y-3">
-        <Question>What is {firstName} paying for?</Question>
-        <BigChoice icon={CalendarDays} title="Monthly fee" sub={member?.monthly_amount ? `${inr(member.monthly_amount)} a month` : undefined}
+        <Question>{own ? "What are you paying for?" : `What is ${firstName} paying for?`}</Question>
+        <BigChoice icon={CalendarDays} title={own ? "My monthly fee" : "Monthly fee"} sub={member?.monthly_amount ? `${inr(member.monthly_amount)} a month` : undefined}
           onClick={() => { setKind("monthly"); go("months"); }} />
-        <BigChoice icon={Heart} tone="rose" title="Donation to a campaign" onClick={() => { setKind("campaign"); go("campaign"); }} />
+        <BigChoice icon={Heart} tone="rose" title={own ? "My donation to a campaign" : "Donation to a campaign"} onClick={() => { setKind("campaign"); go("campaign"); }} />
       </div>
     ),
 
@@ -275,7 +311,7 @@ export default function NewPaymentWizard({
         {loadingMonths ? (
           <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
         ) : allMonths.length === 0 ? (
-          <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{firstName} has no unpaid months. 🎉</p>
+          <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{own ? "You have" : `${firstName} has`} no unpaid months. 🎉</p>
         ) : (
           <>
             {unpaid.length > 1 && (
@@ -306,7 +342,7 @@ export default function NewPaymentWizard({
             <p className="text-slate-600 dark:text-slate-300">
               {months.length === 1 ? "Saved as one payment." : "Saved together as one payment (one number, one proof)."}
             </p>
-            {!customAmount ? (
+            {own ? null : !customAmount ? (
               <button type="button" className="mt-1 text-sm text-emerald-700 hover:underline"
                 onClick={() => { setCustomAmount(true); setAmountPerMonth(String(member?.monthly_amount || "")); }}>
                 The amount is different?
@@ -357,13 +393,34 @@ export default function NewPaymentWizard({
       </div>
     ),
 
-    how: (
+    how: own ? (
+      <div className="space-y-3">
+        <Question>How did you pay?</Question>
+        {SENT_WAYS.map((w) => (
+          <BigChoice key={w.value} icon={w.icon} tone="sky" title={w.title} sub={w.sub}
+            onClick={() => { setMethod(w.value); go("details"); }} />
+        ))}
+        <BigChoice icon={HandCoins} tone="slate" title="Cash" sub="Given to another admin or the treasurer"
+          onClick={() => { setMethod("cash"); go("ownCash"); }} />
+      </div>
+    ) : (
       <div className="space-y-3">
         <Question>Did {firstName} give the money to you, in your hand?</Question>
         <BigChoice icon={HandCoins} title="Yes, cash in my hand" sub="I (or a committee member) received it"
           onClick={() => { setMethod("cash"); go("details"); }} />
         <BigChoice icon={Smartphone} tone="sky" title="No, they sent it" sub="UPI, bank transfer, cheque…"
           onClick={() => go("sentHow")} />
+      </div>
+    ),
+
+    ownCash: (
+      <div className="space-y-4">
+        <Question>Give the cash to another admin</Question>
+        <p className="rounded-lg bg-amber-50 p-3 text-base text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
+          Nobody records cash for themselves. Hand the {inr(total)} to another admin or the treasurer. They enter it with
+          <b> New payment → Another member's payment → your name → Yes, cash in my hand</b>, and a third admin approves it.
+        </p>
+        <Button className="h-12 w-full text-base" variant="outline" onClick={() => onOpenChange(false)}>OK, close</Button>
       </div>
     ),
 
@@ -382,7 +439,7 @@ export default function NewPaymentWizard({
         {method === "cash" ? (
           <Question hint="This is saved, and another admin checks it.">Cash received: a few details</Question>
         ) : (
-          <Question hint={`Upload the ${method === "cheque" ? "photo of the cheque" : "screenshot"} ${firstName} sent you.`}>
+          <Question hint={own ? `Upload the ${method === "cheque" ? "photo of the cheque" : "screenshot of your payment"}.` : `Upload the ${method === "cheque" ? "photo of the cheque" : "screenshot"} ${firstName} sent you.`}>
             {way?.title}: add the proof
           </Question>
         )}
@@ -397,22 +454,27 @@ export default function NewPaymentWizard({
               {proof ? "Change the photo / file" : method === "cheque" ? "Add photo of the cheque" : "Add the screenshot"}
             </Button>
             {proof && <p className="flex items-center gap-1 text-sm text-emerald-700"><CheckCircle2 className="h-4 w-4" />{proof.name}</p>}
-            {method === "other" && <p className="text-xs text-slate-500">Optional for this way of paying.</p>}
+            {method === "other" && !own && <p className="text-xs text-slate-500">Optional for this way of paying.</p>}
           </div>
         )}
 
-        {NEEDS_REF.includes(method) && (
+        {NEEDS_REF.includes(method) && !own && (
           <div className="space-y-1">
-            <Label htmlFor="wiz-ref" className="text-base">{way?.refLabel}</Label>
+            <Label htmlFor="wiz-ref" className="text-base">{way?.refLabel} <span className="font-normal text-slate-500">(if you can see it)</span></Label>
             <Input id="wiz-ref" value={reference} maxLength={100} onChange={(e) => setReference(e.target.value)}
-              placeholder={method === "cheque" ? "e.g. 004512" : "It is on the screenshot"} className="h-12 text-base" />
+              placeholder={method === "cheque" ? "e.g. 004512" : "e.g. 431245678901"} className="h-12 text-base" />
+            <p className="text-xs text-slate-500">
+              {method === "cheque"
+                ? "The number printed at the bottom of the cheque. Leave it empty if you can't read it."
+                : "Look on the screenshot for \"UTR\", \"UPI Ref No.\" or \"Transaction ID\". Not there? Leave it empty: the screenshot is enough, and the admin who approves checks the money in the bank."}
+            </p>
           </div>
         )}
 
-        <div className="space-y-1">
+        {!own && <div className="space-y-1">
           <Label htmlFor="wiz-date" className="text-base">{method === "cash" ? "When did you get it?" : "When did they send it?"}</Label>
           <Input id="wiz-date" type="date" max={today} value={paidOn} onChange={(e) => setPaidOn(e.target.value)} className="h-12 text-base" />
-        </div>
+        </div>}
 
         {method === "cash" && canPickCollector && (
           <div className="space-y-1">
@@ -459,18 +521,22 @@ export default function NewPaymentWizard({
       <div className="space-y-4">
         <Question>Is this right?</Question>
         <div className="space-y-2 rounded-xl border-2 border-emerald-200 bg-emerald-50 p-4 text-base text-emerald-950 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-50">
+          {own ? (
+            <p>You pay <b>{inr(total)}</b> for {kind === "monthly" ? `your ${forWhat}` : forWhat}, {howText}.</p>
+          ) : (
           <p>
             <b>{member?.full_name}</b> ({member?.member_code || member?.member_id}) paid <b>{inr(total)}</b> for {forWhat},{" "}
             {howText}, on {formatBusinessDate(paidOn)}.
           </p>
+          )}
           {reference && <p className="text-sm">{way?.refLabel}: {reference}</p>}
           {proof && <p className="text-sm">Proof: {proof.name}</p>}
           {note && <p className="text-sm">Note: {note}</p>}
           {kind === "monthly" && months.length > 1 && <p className="text-sm">Saved together as one payment.</p>}
         </div>
         <p className="text-sm text-amber-700">Another admin will check and approve it.</p>
-        <Button className="h-12 w-full bg-emerald-600 text-base hover:bg-emerald-700" disabled={saving} onClick={save}>
-          {saving && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}Yes, save
+        <Button className="h-12 w-full bg-emerald-600 text-base hover:bg-emerald-700" disabled={saving} onClick={own ? saveOwn : save}>
+          {saving && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}{own ? "Yes, send it" : "Yes, save"}
         </Button>
       </div>
     ),
@@ -483,7 +549,7 @@ export default function NewPaymentWizard({
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <Button variant="outline" className="h-12 text-base" onClick={() => {
             const keep = presetMember && !isOwnMemberRecord(presetMember, currentUser) ? presetMember : null;
-            setHistory([]); setStep(keep ? "what" : "who"); setMember(keep); setSearch(""); setMonths([]); setMethod(null);
+            setHistory([]); setStep(keep ? "what" : (ownMember ? "who" : "pick")); setOwn(false); setMember(keep); setSearch(""); setMonths([]); setMethod(null);
             setReference(""); setNote(""); setProof(null); setCampaign(null); setDonation(""); setCustomAmount(false);
             setPaidOn(currentBusinessDate());
           }}>
@@ -496,14 +562,14 @@ export default function NewPaymentWizard({
   };
 
   const order = ["who", "what", kind === "monthly" ? "months" : "campaign", "how", "details", "review"];
-  const progress = step === "sentHow" ? 3 : Math.max(order.indexOf(step), 0);
+  const progress = step === "sentHow" || step === "ownCash" ? 3 : step === "pick" ? 0 : Math.max(order.indexOf(step), 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] max-w-md overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {step !== "who" && step !== "done" && (
+            {step !== "who" && step !== "done" && !(step === "pick" && !ownMember) && (
               <button type="button" onClick={back} className="-ml-1 rounded-full p-1 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Back">
                 <ArrowLeft className="h-5 w-5" />
               </button>
@@ -518,9 +584,9 @@ export default function NewPaymentWizard({
               ))}
             </div>
           )}
-          {member && step !== "who" && step !== "done" && (
+          {member && step !== "who" && step !== "pick" && step !== "done" && (
             <p className="flex items-center gap-1 pt-1 text-sm text-slate-600 dark:text-slate-300">
-              <UserRound className="h-4 w-4" />{member.full_name} · {member.member_code || member.member_id}
+              <UserRound className="h-4 w-4" />{own ? "My own payment · " : ""}{member.full_name} · {member.member_code || member.member_id}
             </p>
           )}
         </DialogHeader>

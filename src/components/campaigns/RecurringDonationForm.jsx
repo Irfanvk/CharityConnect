@@ -49,7 +49,10 @@ export default function RecurringDonationForm({ open, onOpenChange, campaign, on
         if (currentUser?.role === 'admin' || currentUser?.role === 'superadmin') {
           const members = await charityClient.members.list({ skip: 0, limit: 200 });
           if (!isActive) return;
-          currentMember = members.find((item) => item.email === currentUser.email) || null;
+          // By the admin's own account; never by a blank email (that would pick another member).
+          currentMember = members.find((item) => item.user_id != null && String(item.user_id) === String(currentUser.id))
+            || members.find((item) => Boolean(currentUser.email) && Boolean(item.email) && item.email === currentUser.email)
+            || null;
         } else {
           currentMember = await charityClient.members.me().catch(() => null);
           if (!isActive) return;
